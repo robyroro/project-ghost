@@ -1,0 +1,131 @@
+# Roadmap
+
+**Current phase: 0 (foundations).**
+
+The phases run in an order chosen to retire the largest risks first. Before any privacy feature is built, we prove that we can build, ship and update Chromium ourselves (Phases 1–2). Keeping up with upstream security releases is the thing most likely to fail for a small team.
+
+Estimates are in engineer-weeks and assume engineers who already know Chromium. Add 50–100% for ramp-up. They'll be recalibrated with measured build and rebase times after Phase 1. From Phase 2 on, upstream maintenance runs alongside feature work and consumes roughly half to one engineer permanently.
+
+## Phases to public alpha
+
+| Phase | Scope | Exit criteria | Estimate |
+|---|---|---|---|
+| **0. Foundations** | Engine decision, architecture and policy documents, ADRs, repository, environment check, bootstrap, patch tooling, tooling CI, Chromium pin | Tooling tests and lint green in CI; documents reviewed | 2–4 |
+| **1. Browser shell** | Baseline Chromium build at the pin; branding; Google services removed; privacy-preserving defaults; egress audit; Windows installer | See [Phase 1](#phase-1-browser-shell) | 4–8 |
+| **2. Release engineering** | Branded `//chrome/updater`; update and component server; code signing; first real move to a new security release and a new milestone; security response runbook | An update shipped end to end to test machines; one milestone move measured | 6–10 |
+| **3. Network protections** | Blocking engine and lists; tracking-parameter stripping; third-party cookie, HTTPS, DNS, referrer, WebRTC and GPC defaults; minimal protections panel with per-site levels | Blocking, parameter and egress tests green; blocking overhead within budget | 8–12 |
+| **4. Content protections** | Cosmetic filtering, scriptlets, CNAME uncloaking, breakage controls | Compatibility corpus pass rate no worse than vanilla Chromium with blocking off | 6–10 |
+| **5. Private and Ghost sessions** | Hardened Private defaults; unique-OTR Ghost sessions; Ghost window treatment; audit of Incognito-specific UI | Isolation contract rows for sessions green; destruction and file-system tests green | 6–10 |
+| **6. Identities** | Per-tab storage partitions; per-identity permissions; domain rules; session restore; identity UI | Isolation contract rows for identities green, including "shared by design" rows | 12–20 |
+| **7. Fingerprinting** | Blink supplements; standardization; keyed noise; worker coverage; per-mode tiers | Consistency, determinism and unlinkability tests green across frames, workers and media queries | 10–16 |
+| **8. Privacy report** | Event accounting; versioned score; report UI; "Harden this site" | Score fixtures reproduce exactly; every deduction explained in UI | 4–6 |
+| **9. Routing** | HTTP and SOCKS5 routes per identity and session; fail-closed behavior; WebRTC, DNS and QUIC coupling; SOCKS5 authentication | Leak tests (DNS, WebRTC, QUIC, prefetch) green with routes active | 6–10 |
+| **Public alpha** | Release gates cleared ([licensing.md](licensing.md#release-gates)); final name; public documentation | — | — |
+
+**After the public alpha:**
+- encrypted sync, reusing Chromium's sync engine with an always-on custom passphrase against our own server;
+- macOS and Linux builds;
+- public beta.
+
+## MVP: the public alpha
+
+**In scope**
+- A signed Windows 11 x64 installer with auto-update and the security SLA below.
+- No Google services, and an egress audit that proves it.
+- Built-in blocking, including cosmetic filtering and scriptlets.
+- Parameter stripping, third-party cookie blocking, HTTPS-First, DNS-over-HTTPS and GPC.
+- Private mode and Ghost sessions.
+- Persistent identities with isolated storage, network state, powerful-permission grants and routes, plus domain rules.
+- Fingerprinting tiers per [privacy-model.md](privacy-model.md#fingerprinting).
+- The protections panel and privacy report.
+- HTTP and SOCKS5 routes.
+- Chrome Web Store extensions.
+- No telemetry; crash upload off.
+
+**Out of scope**
+- Sync, VPN, Tor, macOS and Linux.
+- Any feature needing a project-operated service.
+
+## Not built yet
+
+These are deliberate exclusions, not oversights:
+
+- **Tor routing.** It would come later, only in Ghost sessions, via an embedded client exposed as SOCKS5, and clearly labelled as not Tor Browser.
+- **VPN and sync.** Both need service infrastructure and threat modelling of their own.
+- **Rewards, crypto wallets, AI features.** None belongs in a privacy browser's core. Any rewards integration would be an optional, separately installed extension.
+- **Telemetry of any kind.**
+- **Fingerprint personas and user-set spoofed values.** They increase uniqueness.
+- **Reviving Manifest V2.** Our blocking doesn't need it, and carrying it would be a permanent patch burden.
+- **Per-identity extension sets and letterboxing.** Candidates after the alpha.
+- **Mobile, our own search engine, and large UI features** such as vertical tabs and workspaces.
+
+## Security release SLA
+
+From Phase 2 on:
+
+| Upstream event | We ship within |
+|---|---|
+| Chromium security release for our milestone (Extended Stable) | 72 hours |
+| Chromium release fixing a vulnerability exploited in the wild | 24–48 hours |
+| High or Critical fix released on Stable but not yet on Extended Stable | Cherry-picked into the next release (see [ADR 0003](adr/0003-upstream-extended-stable.md)) |
+
+Meeting this requires:
+- an automated release pipeline;
+- a build host able to produce a signed release from a tag without manual steps;
+- an on-call rotation.
+
+All three are Phase 2 exit requirements.
+
+## Phase 0: foundations
+
+Delivered in this repository:
+
+- [x] Engine decision and ADRs 0001–0006.
+- [x] Architecture, privacy model, threat model, licensing, roadmap, testing, patching and Windows build documents.
+- [x] License, contribution rules, security policy, code of conduct.
+- [x] `CHROMIUM_VERSION` pinned to 152.0.7977.140 (Windows Extended Stable, 2026-09-22), with its toolchain requirements in `build/requirements.json`.
+- [x] `tools/check_env.py`, `tools/bootstrap.py`, `tools/patches.py`, `tools/lint.py` with tests.
+- [x] Tooling CI workflow.
+
+Remaining before Phase 0 closes:
+
+- [ ] The first CI run on GitHub, once the repository is published.
+- [ ] A conduct contact address in `CODE_OF_CONDUCT.md`.
+
+## Phase 1: browser shell
+
+**Prerequisites** (performed by the developer; `tools/check_env.py` verifies them):
+- a build volume without spaces in the path and at least 250 GB free, ideally a Dev Drive;
+- Visual Studio 2022 or 2026 with the C++ toolset and ATL/MFC;
+- Windows SDK 10.0.26100.7705 with Debugging Tools;
+- `DEPOT_TOOLS_WIN_TOOLCHAIN=0`;
+- the git settings listed by `check_env.py`;
+- a Microsoft Defender exclusion for the build root.
+
+**Steps**
+1. `tools/check_env.py --build-root <root>` passes. `tools/bootstrap.py --root <root>` creates the checkout, or adopts an existing one.
+2. **Baseline build.** Vanilla Chromium at the pin (component build, reduced symbols). Record build time and disk use in [build/windows.md](build/windows.md). This build is the reference for performance and compatibility comparisons.
+3. **Hook patches.** Add `//ghost` to `chrome`, and the test targets to `gn_all`. Add `build/args/{dev,release}.gn`, verified with `gn gen` and `gn check`.
+4. **Branding.** Create `branding/`: product strings, icons, newly generated application IDs, AppUserModelID, ProgID, and a development user-data directory. Selected by a branding hook patch. Verified on the About page, in file properties and in the registry after installation.
+5. **Defaults.**
+   - `SetDefaultPrefValue` overrides: third-party cookies blocked, preloading and network prediction off, search suggestions off, HTTPS-First balanced, media router off, sign-in disallowed, translation off, native spell-check.
+   - Feature overrides disabling Google-service and advertising features.
+   - The component updater stays disabled until Phase 2's server exists.
+   - A table-driven browser test asserts every default on a fresh profile, so an upstream rename fails loudly.
+6. **Google services removed.** No API keys, no sync or sign-in, no Google endpoints. Safe Browsing stays off in development builds until its release gate is decided.
+7. **Egress audit** (`test/egress/`).
+   - Launch the packaged browser with a fresh `--user-data-dir` and `--log-net-log`.
+   - Idle for 10 minutes, then load a local page.
+   - Fail on any host outside the allowlist, which is empty apart from localhost in Phase 1.
+   - Parser tests use NetLogs captured from our own build.
+8. **Installer.** The `mini_installer` target, plus a smoke test: silent per-user install, registry and shortcut checks, launch, uninstall, cleanup check. Runs in Windows Sandbox or a VM.
+9. **Versioning ADR.** `chrome/VERSION` stays upstream, because the User-Agent derives from it. A separate product version (`<major>.<chromium major>.<release>`) is used by the installer, updater and About page.
+10. **Build host runbook.** Runbook and scripts for a self-hosted Windows builder. Registering it with CI requires maintainer approval.
+
+**Exit criteria**
+- A clean checkout produces a branded installer through the documented steps.
+- The browser browses and installs a Chrome Web Store extension.
+- The egress audit reports no unexpected hosts.
+- The defaults test, `ghost_unittests` and `ghost_browsertests` pass.
+- The patch series applies with `tools/patches.py`.
+- An informational rebase of the series onto the next milestone has been attempted, and its conflicts recorded.
