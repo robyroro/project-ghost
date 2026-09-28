@@ -39,6 +39,10 @@
     "debugging_tools": {
       "min_version": "10.0.26100.3323"
     },
+    "git": {
+      "recommended_version": "2.46.0",
+      "note": "From depot_tools' own warning during gclient sync (2026-09-29); older versions work but are unsupported."
+    },
     "env": {
       "DEPOT_TOOLS_WIN_TOOLCHAIN": "0"
     },

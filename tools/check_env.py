@@ -107,7 +107,7 @@ def evaluate(req: dict, facts: Facts) -> list[CheckResult]:
         _check_visual_studio(win, facts),
         _check_sdk(win, facts),
         _check_debugger(win, facts),
-        _check_git(facts),
+        _check_git(win, facts),
     ]
     results += _check_git_config(win, facts)
     results += [
@@ -240,10 +240,15 @@ def _check_debugger(win: dict, facts: Facts) -> CheckResult:
     return CheckResult("debugging_tools", Status.PASS, f"cdb.exe {facts.debugger_version}")
 
 
-def _check_git(facts: Facts) -> CheckResult:
+def _check_git(win: dict, facts: Facts) -> CheckResult:
     if facts.git_version is None:
         return CheckResult("git", Status.FAIL, "git not found", "Install Git for Windows.")
-    return CheckResult("git", Status.INFO, f"git {facts.git_version}")
+    recommended = win["git"]["recommended_version"]
+    if not repo.version_at_least(facts.git_version, recommended):
+        return CheckResult("git", Status.WARN, f"git {facts.git_version}",
+                           f"depot_tools recommends git {recommended} or later; "
+                           "update Git for Windows.")
+    return CheckResult("git", Status.PASS, f"git {facts.git_version}")
 
 
 def _check_git_config(win: dict, facts: Facts) -> list[CheckResult]:

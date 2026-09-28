@@ -109,6 +109,11 @@ class RuleTest(unittest.TestCase):
         self.assertIs(self.status_of("debugging_tools", debugger_version="10.0.22621.1"),
                       Status.FAIL)
 
+    def test_git_version_below_depot_tools_recommendation_warns(self):
+        self.assertIs(self.status_of("git", git_version="2.39.0"), Status.WARN)
+        self.assertIs(self.status_of("git", git_version="2.46.0"), Status.PASS)
+        self.assertIs(self.status_of("git", git_version=None), Status.FAIL)
+
     def test_git_config_severity_follows_requirements(self):
         cfg = {k: v["expected"] for k, v in REQ["windows"]["git_config"].items()}
         results = by_name(check_env.evaluate(REQ, ready_machine(
