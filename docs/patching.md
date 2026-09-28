@@ -7,6 +7,7 @@ This is the working guide for the patch series in `patches/`. The reasoning is i
 | | |
 |---|---|
 | `CHROMIUM_VERSION` | `152.0.7977.140` |
+| `CHROMIUM_COMMIT` | `fb7223c1c4b6365c1308b1796007d10b744ac216` (checked against the tag on every bootstrap; a mismatch stops the build) |
 | Channel | Windows Extended Stable |
 | Upstream release date | 2026-09-22 |
 | Pinned on | 2026-09-28 |
@@ -76,8 +77,8 @@ python ghost/tools/patches.py stats                  # size, and which patches n
 
 ### A new security release of the same milestone
 
-1. Update `CHROMIUM_VERSION`.
-2. `gclient sync --revision src@refs/tags/<new>` (or re-run `tools/bootstrap.py`).
+1. Update `CHROMIUM_VERSION`, and `CHROMIUM_COMMIT` to the commit that chromiumdash lists for that release (`git ls-remote origin refs/tags/<new>` must agree).
+2. Re-run `tools/bootstrap.py`. It fetches the new tag, checks it against `CHROMIUM_COMMIT`, and syncs by hash.
 3. `git rebase --onto refs/tags/<new> refs/tags/<old>` on the working branch. Usually no conflicts.
 4. `patches.py export`. The diff of `patches/` should show only context changes.
 5. Build, run the full test suite, release. The SLA is in [roadmap.md](roadmap.md#security-release-sla).

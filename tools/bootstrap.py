@@ -7,7 +7,7 @@
 Resulting layout (the same shape Brave uses for src/brave):
   <root>/.gclient
   <root>/depot_tools/
-  <root>/src/          Chromium at refs/tags/<CHROMIUM_VERSION>
+  <root>/src/          Chromium at CHROMIUM_COMMIT (the commit of tag CHROMIUM_VERSION)
   <root>/src/ghost/    a clone of this repository; the working copy for development
 
 Every step is safe to re-run. --dry-run prints the exact commands without
@@ -34,6 +34,10 @@ DEPOT_TOOLS_URL = "https://chromium.googlesource.com/chromium/tools/depot_tools.
 GHOST_EXCLUDE_LINE = "/ghost/"
 
 
+class BootstrapError(Exception):
+    pass
+
+
 @dataclass(frozen=True)
 class Step:
     description: str
@@ -41,10 +45,15 @@ class Step:
     cwd: Path | None = None
     write: tuple[Path, str] | None = None
     append_line: tuple[Path, str] | None = None
+    # (repository, ref, expected commit): fail unless ref resolves to the commit.
+    verify_ref: tuple[Path, str, str] | None = None
 
     def render(self) -> str:
         if self.write:
             return f"write {self.write[0]}"
+        if self.verify_ref:
+            repo_dir, ref, commit = self.verify_ref
+            return f"check that {ref} in {repo_dir} is {commit}"
         if self.append_line:
             return f"append {self.append_line[1]!r} to {self.append_line[0]} (if absent)"
         where = f"(in {self.cwd}) " if self.cwd else ""
@@ -70,23 +79,41 @@ def gclient_path(depot_tools: Path) -> Path:
     return depot_tools / ("gclient.bat" if sys.platform == "win32" else "gclient")
 
 
-def plan(root: Path, version: str, ghost_url: str, depot_tools: Path,
-         have_depot_tools: bool, jobs: int, pgo: bool) -> list[Step]:
+def plan(root: Path, version: str, commit: str, ghost_url: str, depot_tools: Path,
+         have_depot_tools: bool, have_src: bool, jobs: int, pgo: bool) -> list[Step]:
     gclient = str(gclient_path(depot_tools))
+    src = root / "src"
+    tag = f"refs/tags/{version}"
+    fetch_tag = Step(f"Fetch tag {version} (shallow)",
+                     ("git", "-C", str(src), "fetch", "--depth=1", "--no-tags", "origin",
+                      f"+{tag}:{tag}"))
+    verify_tag = Step(f"Check that tag {version} is the pinned commit {commit[:12]}",
+                      verify_ref=(src, tag, commit))
     steps = []
     if not have_depot_tools:
         steps.append(Step("Clone depot_tools",
                           ("git", "clone", DEPOT_TOOLS_URL, str(depot_tools))))
+    steps.append(Step("Write .gclient",
+                      write=(root / ".gclient", render_gclient(CHROMIUM_URL, ghost_url, pgo))))
+    # gclient is given the commit hash, not the tag. It skips its fetch of
+    # every upstream branch only when the revision is a hash already present
+    # locally (IsValidRevision(..., sha_only=True) in gclient_scm.py). On a
+    # shallow checkout that fetch can run for hours without output, which
+    # looks exactly like a hang. An existing checkout therefore gets the tag
+    # first; a fresh one is cloned at the hash directly.
+    if have_src:
+        steps += [fetch_tag, verify_tag]
+    steps.append(Step(f"Sync Chromium {version} and src/ghost (first run takes over an hour)",
+                      (gclient, "sync", "--nohooks", "--no-history",
+                       "--revision", f"src@{commit}", "--jobs", str(jobs)), cwd=root))
+    if not have_src:
+        steps += [fetch_tag, verify_tag]
     steps += [
-        Step("Write .gclient", write=(root / ".gclient", render_gclient(CHROMIUM_URL, ghost_url, pgo))),
-        Step(f"Sync Chromium {version} and src/ghost (first run takes over an hour)",
-             (gclient, "sync", "--nohooks", "--no-history",
-              "--revision", f"src@refs/tags/{version}", "--jobs", str(jobs)), cwd=root),
         Step("Run gclient hooks (toolchains, PGO profiles if enabled)",
              (gclient, "runhooks"), cwd=root),
         # src/ghost lives inside Chromium's working tree but is its own repo.
         Step("Hide src/ghost from Chromium's git status",
-             append_line=(root / "src" / ".git" / "info" / "exclude", GHOST_EXCLUDE_LINE)),
+             append_line=(src / ".git" / "info" / "exclude", GHOST_EXCLUDE_LINE)),
     ]
     return steps
 
@@ -141,6 +168,16 @@ def execute(step: Step, env: dict[str, str]) -> None:
         if line not in existing:
             with path.open("a", encoding="utf-8", newline="\n") as f:
                 f.write(line + "\n")
+    elif step.verify_ref:
+        repo_dir, ref, expected = step.verify_ref
+        proc = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "--verify", "--quiet",
+                               f"{ref}^{{commit}}"], capture_output=True, text=True, env=env)
+        actual = proc.stdout.strip()
+        if actual != expected:
+            raise BootstrapError(
+                f"{ref} resolves to {actual or 'nothing'}, but CHROMIUM_COMMIT pins {expected}. "
+                "Either the upstream tag moved or the pin is wrong; do not build until "
+                "this is explained.")
     else:
         subprocess.run(step.argv, cwd=step.cwd, env=env, check=True)
 
@@ -161,11 +198,12 @@ def main(argv: list[str] | None = None) -> int:
 
     req = repo.load_requirements()
     version = repo.read_chromium_version()
+    commit = repo.read_chromium_commit()
     root = args.root
     depot_tools = args.depot_tools or root / "depot_tools"
-    steps = plan(root, version, args.ghost_url or default_ghost_url(), depot_tools,
-                 have_depot_tools=gclient_path(depot_tools).exists(), jobs=args.jobs,
-                 pgo=args.pgo)
+    steps = plan(root, version, commit, args.ghost_url or default_ghost_url(), depot_tools,
+                 have_depot_tools=gclient_path(depot_tools).exists(),
+                 have_src=(root / "src" / ".git").exists(), jobs=args.jobs, pgo=args.pgo)
 
     problems = validate_root(root, check_env.probe_volume(str(root)), req, dict(os.environ))
     for problem in problems:
@@ -191,6 +229,9 @@ def main(argv: list[str] | None = None) -> int:
                   "fix the cause and re-run (completed steps are skipped or harmless)",
                   file=sys.stderr)
             return e.returncode or 1
+        except BootstrapError as e:
+            print(f"error: step {i}: {e}", file=sys.stderr)
+            return 1
     print("\nDone. Next: python tools/check_env.py --build-root", root)
     return 0
 

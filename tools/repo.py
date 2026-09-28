@@ -49,6 +49,22 @@ def read_chromium_version(root: Path = REPO_ROOT) -> str:
     return version
 
 
+def read_chromium_commit(root: Path = REPO_ROOT) -> str:
+    """The commit CHROMIUM_VERSION's tag must point at.
+
+    Tags on the upstream server can be moved; a commit hash cannot. Checkouts
+    are made from this hash, and the tag is verified against it.
+    """
+    path = root / "CHROMIUM_COMMIT"
+    try:
+        commit = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        raise RepoError(f"{path} is missing") from None
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise RepoError(f"{path} must contain a full 40-character commit hash, got {commit!r}")
+    return commit
+
+
 def load_requirements(root: Path = REPO_ROOT) -> dict:
     path = root / "build" / "requirements.json"
     with path.open(encoding="utf-8") as f:

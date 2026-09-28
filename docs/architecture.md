@@ -29,7 +29,7 @@ Status: Phase 0. Sections describing later phases are the design we build agains
 <root>/                   no spaces in the path; ideally a Dev Drive
   .gclient                written by tools/bootstrap.py: two solutions, src and src/ghost
   depot_tools/
-  src/                    Chromium at refs/tags/$(cat CHROMIUM_VERSION)
+  src/                    Chromium at CHROMIUM_COMMIT, the commit of tag CHROMIUM_VERSION
     ghost/                this repository  (= //ghost in GN labels)
 ```
 

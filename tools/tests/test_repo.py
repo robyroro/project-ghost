@@ -39,6 +39,15 @@ class PinnedFilesTest(unittest.TestCase):
             with self.assertRaisesRegex(repo.RepoError, "re-derive the requirements"):
                 repo.load_requirements(root)
 
+    def test_committed_commit_pin_is_a_full_hash(self):
+        self.assertRegex(repo.read_chromium_commit(), r"^[0-9a-f]{40}$")
+
+    def test_abbreviated_commit_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "CHROMIUM_COMMIT").write_text("fb7223c1\n")
+            with self.assertRaisesRegex(repo.RepoError, "full 40-character"):
+                repo.read_chromium_commit(Path(tmp))
+
     def test_malformed_pin(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "CHROMIUM_VERSION").write_text("152\n")

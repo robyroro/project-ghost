@@ -62,11 +62,14 @@ python tools/bootstrap.py --root D:\ghost --dry-run     # show the exact command
 python tools/bootstrap.py --root D:\ghost
 ```
 
-`bootstrap.py` does four things:
+`bootstrap.py` does five things:
 1. clones depot_tools, unless `--depot-tools` points at an existing copy;
 2. writes `.gclient` with two solutions (`src` and `src/ghost`);
-3. syncs Chromium at `refs/tags/<CHROMIUM_VERSION>` and runs the hooks;
-4. hides `src/ghost` from Chromium's `git status`.
+3. fetches the `CHROMIUM_VERSION` tag shallowly, and checks that it points at `CHROMIUM_COMMIT`;
+4. syncs Chromium **by commit hash** and runs the hooks;
+5. hides `src/ghost` from Chromium's `git status`.
+
+**Why sync by hash rather than by tag.** gclient skips its "fetch every upstream branch" step only when the requested revision is a hash that is already present locally. Given a tag, it always runs that fetch. On a shallow checkout, the fetch can go for hours without output, and gclient reports `STALL DETECTED` on `src`.
 
 `src/ghost` is cloned from this repository's `origin`, or from the local checkout if there's no remote. From then on it is the working copy for Ghost development.
 
@@ -95,6 +98,7 @@ autoninja -C out\vanilla chrome
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `STALL DETECTED` on `src` during `gclient sync`, no output for many minutes | gclient was given a tag or branch, so it fetches every upstream branch into a shallow checkout | Stop it and use `tools/bootstrap.py`, which syncs by commit hash |
 | `No supported Visual Studio can be found` | VS not in a location `vs_toolchain.py` searches | Set `vs2022_install` / `vs2026_install` to the install path (`check_env.py` prints it) |
 | A hook tries to download a toolchain and gets access denied | `DEPOT_TOOLS_WIN_TOOLCHAIN` unset | Set it to `0`, open a new terminal, run `gclient runhooks` |
 | Errors mentioning `atlbase.h` or MFC headers | ATL/MFC component missing | Add `Microsoft.VisualStudio.Component.VC.ATLMFC` in Visual Studio Installer |
