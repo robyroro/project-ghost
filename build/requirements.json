@@ -1,0 +1,54 @@
+{
+  "chromium_version": "152.0.7977.140",
+  "sources": [
+    "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.140/docs/windows_build_instructions.md",
+    "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.140/build/vs_toolchain.py"
+  ],
+  "windows": {
+    "min_windows_major": 10,
+    "ram_gb": {
+      "minimum": 8,
+      "recommended": 16
+    },
+    "disk_free_gb": {
+      "minimum": 100,
+      "recommended": 250,
+      "note": "Upstream minimum is 100 GB for the checkout alone; 250 GB leaves room for one component build and one release build."
+    },
+    "filesystems": ["NTFS", "ReFS"],
+    "visual_studio": {
+      "note": "Upstream docs name the IDE workload Microsoft.VisualStudio.Workload.NativeDesktop; these two components are what the build uses from it and also exist in the BuildTools edition, which vs_toolchain.py accepts.",
+      "version_range": "[17.0,19.0)",
+      "required_components": [
+        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+        "Microsoft.VisualStudio.Component.VC.ATLMFC"
+      ],
+      "chromium_detection": {
+        "note": "Mirrors _GenerateCandidatePaths/GetVisualStudioVersion in build/vs_toolchain.py: years are tried in order, the vs<year>_install variable wins, then fixed edition directories.",
+        "years": [
+          {"year": "2026", "major": 18, "base": "%ProgramFiles%\\Microsoft Visual Studio\\18"},
+          {"year": "2022", "major": 17, "base": "%ProgramFiles%\\Microsoft Visual Studio\\2022"}
+        ],
+        "editions": ["Enterprise", "Professional", "Community", "Preview", "Insiders", "BuildTools"]
+      }
+    },
+    "windows_sdk": {
+      "include_version": "10.0.26100.0",
+      "min_version": "10.0.26100.7705"
+    },
+    "debugging_tools": {
+      "min_version": "10.0.26100.3323"
+    },
+    "env": {
+      "DEPOT_TOOLS_WIN_TOOLCHAIN": "0"
+    },
+    "git_config": {
+      "core.autocrlf": {"expected": "false", "severity": "fail"},
+      "core.filemode": {"expected": "false", "severity": "warn"},
+      "core.preloadindex": {"expected": "true", "severity": "warn"},
+      "core.fscache": {"expected": "true", "severity": "warn"},
+      "core.longpaths": {"expected": "true", "severity": "warn"},
+      "branch.autosetuprebase": {"expected": "always", "severity": "warn"}
+    }
+  }
+}
