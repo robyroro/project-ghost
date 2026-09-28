@@ -52,19 +52,48 @@ def is_binary(data: bytes) -> bool:
     return b"\0" in data[:8192]
 
 
+def strip_code_fences(text: str) -> str:
+    """Drops fenced code blocks, whose '#' lines and brackets are not Markdown."""
+    kept, fence = [], None
+    for line in text.splitlines():
+        marker = re.match(r"^\s*(`{3,}|~{3,})", line)
+        if fence is None and marker:
+            fence = marker.group(1)[0] * 3
+        elif fence is not None and line.strip().startswith(fence):
+            fence = None
+        elif fence is None:
+            kept.append(line)
+    return "\n".join(kept)
+
+
+def github_anchors(markdown: str) -> set[str]:
+    """Anchors GitHub generates for headings, including -N suffixes for duplicates."""
+    anchors: set[str] = set()
+    seen: dict[str, int] = {}
+    for m in re.finditer(r"^#{1,6}\s+(.+?)\s*#*\s*$", strip_code_fences(markdown), re.MULTILINE):
+        text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", m.group(1)).replace("`", "")
+        slug = re.sub(r"[^\w\- ]", "", text.strip().lower()).replace(" ", "-")
+        count = seen.get(slug, 0)
+        seen[slug] = count + 1
+        anchors.add(slug if count == 0 else f"{slug}-{count}")
+    return anchors
+
+
 def broken_links(md_path: Path, text: str, root: Path) -> list[str]:
     broken = []
-    for target in _MD_LINK.findall(text):
-        if re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE) or target.startswith("#"):
-            continue  # External URL or in-page anchor.
-        path_part = unquote(target.split("#", 1)[0])
+    for target in _MD_LINK.findall(strip_code_fences(text)):
+        if re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE):
+            continue  # External URL.
+        path_part, _, fragment = target.partition("#")
+        path_part = unquote(path_part)
         # Code references like docs/foo.md:42 are used in prose; the line suffix is not a path.
         path_part = re.sub(r":\d+$", "", path_part)
-        resolved = (md_path.parent / path_part).resolve()
-        if not resolved.exists():
+        resolved = (md_path.parent / path_part).resolve() if path_part else md_path.resolve()
+        if not resolved.exists() or root.resolve() not in (resolved, *resolved.parents):
             broken.append(target)
-        elif root.resolve() not in (resolved, *resolved.parents):
-            broken.append(target)
+        elif fragment and resolved.suffix == ".md":
+            if fragment not in github_anchors(resolved.read_text(encoding="utf-8")):
+                broken.append(target)
     return broken
 
 

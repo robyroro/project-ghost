@@ -52,7 +52,7 @@ class LintRepoTest(GitTestCase):
     def test_clean_repo(self):
         self.assertEqual(self.problems({
             "tools/a.py": commented("# ") + "x = 1\n",
-            "docs/a.md": "See [b](b.md) and [site](https://example.org) and [top](#top).\n",
+            "docs/a.md": "# Top\nSee [b](b.md), [site](https://example.org), [top](#top).\n",
             "docs/b.md": "# B\n",
             "data.json": "{}\n",
         }), [])
@@ -71,8 +71,21 @@ class LintRepoTest(GitTestCase):
 
     def test_broken_link_and_line_suffix(self):
         problems = self.problems({"docs/a.md": "[x](missing.md) [y](b.md:12) [z](b.md#part)\n",
-                                  "docs/b.md": "# B\n"})
+                                  "docs/b.md": "# B\n## Part\n"})
         self.assertEqual(problems, ["docs/a.md: broken relative link missing.md"])
+
+    def test_anchors_are_checked(self):
+        problems = self.problems({
+            "docs/a.md": "[ok](b.md#identities-phase-6) [bad](b.md#nope) [self](#local) "
+                         "[dup](b.md#notes-1)\n\n## Local\n",
+            "docs/b.md": "# B\n## Identities (Phase 6)\n## Notes\n## Notes\n",
+        })
+        self.assertEqual(problems, ["docs/a.md: broken relative link b.md#nope"])
+
+    def test_code_fences_are_ignored(self):
+        self.assertEqual(self.problems({
+            "docs/a.md": "```\n[x](missing.md)\n# not a heading\n```\n[y](#real)\n## Real\n",
+        }), [])
 
     def test_links_may_not_escape_the_repo(self):
         self.assertEqual(self.problems({"docs/a.md": "[x](../../outside.md)\n"}),
