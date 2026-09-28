@@ -1,0 +1,13 @@
+# Chromium and this repo use LF everywhere. Forcing eol=lf keeps checkouts
+# identical on Windows runners, where the system git config enables autocrlf.
+* text=auto eol=lf
+
+# Patches must be byte-exact: git am relies on exact context lines, and some
+# upstream files legitimately contain CR characters.
+*.patch -text
+
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.webp binary
