@@ -1,0 +1,38 @@
+# Tooling tests and repository lint. Needs no Chromium checkout, so it runs on
+# hosted runners. Chromium builds run on self-hosted builders from Phase 1.
+name: tooling
+
+on:
+  push:
+  pull_request:
+
+# The workflow only reads the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: tooling-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is the build platform; Ubuntu keeps the tools portable.
+        os: [windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      # Actions are pinned to commit SHAs; tags can be moved by whoever controls them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          # depot_tools' vpython3 ships 3.11; test against the oldest version we support.
+          python-version: "3.11"
+      - name: Tooling tests
+        run: python -m unittest discover -s tools/tests -t tools -v
+      - name: Lint
+        run: python tools/lint.py
