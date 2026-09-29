@@ -115,6 +115,7 @@ autoninja -C out\vanilla chrome
 |---|---|---|
 | `STALL DETECTED` on `src` during `gclient sync`, no output for many minutes | gclient was given a tag or branch, so it fetches every upstream branch into a shallow checkout | Stop it and use `tools/bootstrap.py`, which syncs by commit hash |
 | `cipd ensure` fails on `chromium/third_party/updater/chrome_win_*`: "the file contains a virus or potentially unwanted software" | Microsoft Defender flags the old Chrome installers that `//chrome/updater` integration tests use as test data | Allow the detection in Defender, or leave those dependencies out with `custom_deps` set to `None` in `.gclient` (they are needed only for updater tests) |
+| Everything recompiles after renaming or moving an `out\` directory | Siso records build state under the output directory's path. A renamed directory looks brand new, and the old state is discarded, even if you rename it back | Never rename or move an output directory. Create a new one with `gn gen` and accept a full build, or keep the name. |
 | `No supported Visual Studio can be found` | VS not in a location `vs_toolchain.py` searches | Set `vs2022_install` / `vs2026_install` to the install path (`check_env.py` prints it) |
 | A hook tries to download a toolchain and gets access denied | `DEPOT_TOOLS_WIN_TOOLCHAIN` unset | Set it to `0`, open a new terminal, run `gclient runhooks` |
 | Errors mentioning `atlbase.h` or MFC headers | ATL/MFC component missing | Add `Microsoft.VisualStudio.Component.VC.ATLMFC` in Visual Studio Installer |
