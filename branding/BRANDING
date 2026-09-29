@@ -1,0 +1,10 @@
+COMPANY_FULLNAME=Project Ghost
+COMPANY_SHORTNAME=Project Ghost
+PRODUCT_FULLNAME=Project Ghost
+PRODUCT_SHORTNAME=Project Ghost
+PRODUCT_INSTALLER_FULLNAME=Project Ghost Installer
+PRODUCT_INSTALLER_SHORTNAME=Project Ghost Installer
+COPYRIGHT=Copyright @LASTCHANGE_YEAR@ The Project Ghost Authors. All rights reserved.
+MAC_BUNDLE_ID=org.projectghost.browser
+MAC_CREATOR_CODE=PGst
+MAC_TEAM_ID=

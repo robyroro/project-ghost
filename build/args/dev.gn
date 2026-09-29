@@ -1,0 +1,17 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Development build: fast to link, symbols for our code and chrome only.
+# Use with: gn gen out/vanilla --args='import("//ghost/build/args/dev.gn")'
+# (out/vanilla keeps its name: renaming an output directory discards the
+# build state, see docs/build/windows.md.)
+
+is_debug = false
+is_component_build = true
+symbol_level = 1
+blink_symbol_level = 0
+v8_symbol_level = 0
+
+# Product name, company and copyright in version resources and About.
+branding_file_path = "//ghost/branding/BRANDING"
