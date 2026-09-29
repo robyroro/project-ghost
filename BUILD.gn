@@ -1,0 +1,36 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import("//testing/test.gni")
+
+# Everything //ghost contributes to the default build; the root gn_all group
+# depends on this through patches/0001.
+group("gn_all") {
+  testonly = true
+  deps = [ ":ghost_unittests" ]
+}
+
+test("ghost_unittests") {
+  sources = [ "browser/prefs/pref_defaults_unittest.cc" ]
+
+  deps = [
+    "//chrome/browser",
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/preloading:prefs",
+    "//chrome/common:constants",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_unit",
+    "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
+    "//components/prefs",
+    "//components/signin/public/base:signin_switches",
+    "//components/translate/core/browser",
+    "//components/translate/core/browser:translate_pref_names",
+    "//content/test:test_support",
+    "//testing/gtest",
+  ]
+
+  # ChromeUnitTestSuite loads chrome's resource paks at startup.
+  data_deps = [ "//chrome:packed_resources" ]
+}

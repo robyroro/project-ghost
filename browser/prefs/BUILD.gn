@@ -1,0 +1,24 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Linked into //chrome/browser/prefs:impl, which calls it from
+# RegisterProfilePrefs() (patches/0002). Depends only on low-level pref and
+# settings targets so that //chrome/browser does not become a dependency.
+source_set("prefs") {
+  sources = [
+    "pref_defaults.cc",
+    "pref_defaults.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/preloading:prefs",
+    "//chrome/common:constants",
+    "//components/content_settings/core/browser:cookie_settings",
+    "//components/content_settings/core/common",
+    "//components/pref_registry",
+    "//components/signin/public/base:signin_switches",
+    "//components/translate/core/browser:translate_pref_names",
+  ]
+}
