@@ -10,7 +10,22 @@ This guide covers the Windows 11 x64 build of the pinned Chromium version with G
 | RAM | 8 GB | 64 GB; official (ThinLTO) links need more than 32 GB |
 | Disk | 100 GB free, NTFS or ReFS | 250 GB+ on a TLC NVMe drive, formatted as a Dev Drive |
 
-Time and disk use for the first full build on our reference machine will be recorded here after Phase 1's baseline build.
+### Measured
+
+First full build of vanilla Chromium 152.0.7977.140 (`chrome` target), measured 2026-09-29:
+
+| | |
+|---|---|
+| Machine | Ryzen 5 3600 (6 cores / 12 threads), 32 GB RAM, 1 TB QLC NVMe (NTFS, not a Dev Drive) |
+| GN args | `is_debug=false is_component_build=true symbol_level=1 blink_symbol_level=0 v8_symbol_level=0` |
+| Wall time | **11 h 17 min** (677 min) |
+| `out/vanilla` size | 21.2 GB |
+| Checkout (shallow dependencies, full-history `src` at the tag) | ~30 GB |
+
+**Notes on the measurement**
+- The Defender exclusion for the checkout was added about 7.5 hours in. The compile rate for comparable Blink files rose from ~25 to ~39 files per minute afterwards, so a build with the exclusion from the start will be noticeably faster.
+- The CPU was at 100% throughout. On this machine the build is CPU-bound, so the next lever is more cores.
+- This is the cost of a **full** build: the first build, and each move to a new milestone. Incremental builds after editing a few files recompile only those files and relink.
 
 ## Prerequisites
 
