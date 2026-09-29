@@ -59,6 +59,10 @@ _IP_PORT_RE = re.compile(r"^(\[[0-9a-f:.]+\]|\d{1,3}(?:\.\d{1,3}){3}):\d+$", re.
 class Destination:
     host: str
     first_event: str
+    # "host": a name, or an IP a name was resolved to in this log.
+    # "ip": an address connected to without any resolution in the log.
+    # "dns": the system's DNS resolver (port 53); reported, never a failure.
+    kind: str = "host"
     count: int = 0
     examples: list[str] = field(default_factory=list)
 
@@ -116,28 +120,74 @@ def _walk(value, keys: set[str]):
             yield from _walk(item, keys)
 
 
+def resolved_addresses(netlog: dict) -> dict[str, str]:
+    """Maps each IP that DNS returned in this log to the name it was resolved from.
+
+    Two shapes occur: fresh results ({"domain_name", "endpoints": [{"address"}]})
+    and cache hits ({"aliases", "ip_endpoints": [{"endpoint_address"}]}).
+    """
+    names: dict[str, str] = {}
+
+    def visit(value):
+        if isinstance(value, dict):
+            if isinstance(value.get("domain_name"), str):
+                for ep in value.get("endpoints") or []:
+                    if isinstance(ep, dict) and ep.get("address"):
+                        names.setdefault(ep["address"].lower(), value["domain_name"].lower())
+            aliases = value.get("aliases")
+            if aliases and isinstance(aliases, list) and isinstance(aliases[0], str):
+                for ep in value.get("ip_endpoints") or []:
+                    if isinstance(ep, dict) and ep.get("endpoint_address"):
+                        names.setdefault(ep["endpoint_address"].lower(), aliases[0].lower())
+            for v in value.values():
+                visit(v)
+        elif isinstance(value, list):
+            for v in value:
+                visit(v)
+
+    for event in netlog.get("events", []):
+        visit(event.get("params"))
+    return names
+
+
 def extract_destinations(netlog: dict) -> dict[str, Destination]:
     types = {v: k for k, v in netlog.get("constants", {}).get("logEventTypes", {}).items()}
+    by_ip = resolved_addresses(netlog)
     found: dict[str, Destination] = {}
+
+    def record(key: str, kind: str, event_name: str, raw: str) -> None:
+        entry = found.setdefault(key, Destination(key, event_name, kind))
+        entry.count += 1
+        if len(entry.examples) < 3 and raw not in entry.examples:
+            entry.examples.append(raw)
+
     for event in netlog.get("events", []):
         params = event.get("params")
-        if not params:
-            continue
         name = types.get(event.get("type"), f"type {event.get('type')}")
-        candidates = [(s, host_from_string(s)) for s in _walk(params, _HOST_KEYS)]
-        for s in _walk(params, _ADDRESS_KEYS):
-            m = _IP_PORT_RE.match(s)
-            if m:
-                candidates.append((s, m.group(1).strip("[]").lower()))
-        for raw, host in candidates:
-            if not host:
+        # *_LOCAL_ADDRESS events carry this machine's own addresses.
+        if not params or "LOCAL_ADDRESS" in name:
+            continue
+        for raw in _walk(params, _HOST_KEYS):
+            host = host_from_string(raw)
+            if host and host not in _LOOPBACK and not host.startswith("127."):
+                record(host, "host", name, raw)
+        # Addresses count as destinations only in connect events; elsewhere
+        # (DNS results, socket bookkeeping) they are not connections.
+        if "CONNECT" not in name:
+            continue
+        for raw in _walk(params, _ADDRESS_KEYS):
+            m = _IP_PORT_RE.match(raw)
+            if not m:
                 continue
-            if host in _LOOPBACK or host.startswith("127."):
+            ip = m.group(1).strip("[]").lower()
+            if ip in _LOOPBACK or ip.startswith("127."):
                 continue
-            entry = found.setdefault(host, Destination(host, name))
-            entry.count += 1
-            if len(entry.examples) < 3 and raw not in entry.examples:
-                entry.examples.append(raw)
+            if raw.endswith(":53"):
+                record(ip, "dns", name, raw)
+            elif ip in by_ip:
+                record(by_ip[ip], "host", name, raw)
+            else:
+                record(ip, "ip", name, raw)
     return found
 
 
@@ -163,20 +213,33 @@ def is_allowed(host: str, allowlist: list[dict]) -> bool:
     return False
 
 
-def audit(netlog_path: Path, allowlist: list[dict]) -> tuple[list[Destination], list[Destination]]:
+@dataclass
+class AuditResult:
+    unexpected: list[Destination]
+    allowed: list[Destination]
+    dns: list[Destination]
+
+
+def audit(netlog_path: Path, allowlist: list[dict]) -> AuditResult:
     found = extract_destinations(load_netlog(netlog_path))
-    ordered = sorted(found.values(), key=lambda d: d.host)
-    return ([d for d in ordered if is_allowed(d.host, allowlist)],
-            [d for d in ordered if not is_allowed(d.host, allowlist)])
+    ordered = sorted(found.values(), key=lambda d: (d.kind != "host", d.host))
+    checked = [d for d in ordered if d.kind != "dns"]
+    return AuditResult(
+        unexpected=[d for d in checked if not is_allowed(d.host, allowlist)],
+        allowed=[d for d in checked if is_allowed(d.host, allowlist)],
+        dns=[d for d in ordered if d.kind == "dns"])
 
 
-def format_report(allowed: list[Destination], unexpected: list[Destination]) -> str:
+def format_report(result: AuditResult) -> str:
     lines = []
-    for title, rows in (("UNEXPECTED", unexpected), ("allowed", allowed)):
+    for title, rows in (("UNEXPECTED", result.unexpected), ("allowed", result.allowed),
+                        ("dns", result.dns)):
         for d in rows:
-            lines.append(f"{title:10} {d.host:45} x{d.count:<4} first seen in {d.first_event}")
+            label = d.host if d.kind != "ip" else f"{d.host} (raw IP, never resolved)"
+            lines.append(f"{title:10} {label:45} x{d.count:<4} first seen in {d.first_event}")
             lines += [f"{'':10}   e.g. {example}" for example in d.examples]
-    lines.append(f"{len(unexpected)} unexpected host(s), {len(allowed)} allowed.")
+    lines.append(f"{len(result.unexpected)} unexpected, {len(result.allowed)} allowed, "
+                 f"{len(result.dns)} DNS resolver(s) (not counted).")
     return "\n".join(lines)
 
 
@@ -214,10 +277,12 @@ def browser_args(chrome: Path, profile: Path, netlog: Path, devtools_port: int,
     return args
 
 
-def _devtools(port: int, path: str, method: str = "GET"):
+def _devtools(port: int, path: str, method: str = "GET", parse: bool = True):
+    # /json/close answers with plain text ("Target is closing"), not JSON.
     req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", method=method)
     with urllib.request.urlopen(req, timeout=5) as response:
-        return json.loads(response.read() or b"null")
+        body = response.read()
+    return json.loads(body or b"null") if parse else body.decode("utf-8", "replace")
 
 
 def run_browser(chrome: Path, idle_seconds: int, headless: bool, netlog: Path) -> None:
@@ -245,7 +310,7 @@ def run_browser(chrome: Path, idle_seconds: int, headless: bool, netlog: Path) -
             for target in _devtools(port, "/json/list"):
                 if target.get("type") == "page":
                     try:
-                        _devtools(port, f"/json/close/{target['id']}")
+                        _devtools(port, f"/json/close/{target['id']}", parse=False)
                     except OSError:
                         pass
             proc.wait(timeout=30)
@@ -278,9 +343,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"NetLog: {netlog}")
     else:
         netlog = args.netlog
-    allowed, unexpected = audit(netlog, allowlist)
-    print(format_report(allowed, unexpected))
-    return 1 if unexpected else 0
+    result = audit(netlog, allowlist)
+    print(format_report(result))
+    return 1 if result.unexpected else 0
 
 
 if __name__ == "__main__":

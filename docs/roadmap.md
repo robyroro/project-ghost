@@ -113,6 +113,23 @@ Remaining before Phase 0 closes:
    - The component updater stays disabled until Phase 2's server exists.
    - A table-driven browser test asserts every default on a fresh profile, so an upstream rename fails loudly.
 6. **Google services removed.** No API keys, no sync or sign-in, no Google endpoints. Safe Browsing stays off in development builds until its release gate is decided.
+
+   **Baseline measured 2026-09-30** with `tools/egress_audit.py`: the first Ghost dev build, fresh profile, 10 minutes idle plus one local page. Each finding below must be gone, or on the allowlist with a reason, before Phase 1 exits.
+
+   | Hosts | Source | Planned fix |
+   |---|---|---|
+   | `update.googleapis.com` | Component updater | Disable until our update server exists (Phase 2) |
+   | `safebrowsing.googleapis.com` | Safe Browsing list updates, attempted with a dummy key | Disable in dev builds (release gate) |
+   | `android.clients.google.com` (`/checkin`), `mtalk.google.com` | GCM check-in and persistent push connection | Disable GCM |
+   | `accounts.google.com` (`/ListAccounts`) | Account consistency and sign-in machinery | Disable sign-in; needs a hook after keyed-service pref registration |
+   | `www.google.com`, `www.gstatic.com`, `ogads-pa.clients6.google.com`, `play.google.com` (`/log`) | New Tab page with Google as the default search engine, loading Google's bar and its logging | Change the default search engine and NTP |
+   | `clients2.google.com` (`/time`) | Network time tracker | Decide: disable, or allowlist with reason (certificate clock checks) |
+   | `chromewebstore.googleapis.com`, `clients2.googleusercontent.com` | An extension pushed by another program through `HKLM\…\Google\Chrome\Extensions`, which Chromium reads whatever its brand; the CRX is downloaded before the user is asked | Stop honouring registry-pushed extensions, or require consent before any download |
+   | `2001:4860:4860::8888` | DNS-over-HTTPS automatic upgrade of the system resolver | By design (privacy-model.md); allowlist as the system resolver's DoH endpoint |
+
+   **Also found while measuring:**
+   - Dev builds activated `fieldtrial_testing_config.json` experiments until `disable_fieldtrial_testing_config` was set in `build/args/dev.gn`.
+   - NetLogs contain the user's IP addresses. Audit logs stay local and are never committed.
 7. **Egress audit** (`test/egress/`).
    - Launch the packaged browser with a fresh `--user-data-dir` and `--log-net-log`.
    - Idle for 10 minutes, then load a local page.

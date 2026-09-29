@@ -13,7 +13,9 @@ import egress_audit
 # Event type ids are assigned per build; the audit must resolve names through
 # the constants table rather than assume ids.
 CONSTANTS = {"logEventTypes": {"URL_REQUEST_START_JOB": 104, "HOST_RESOLVER_MANAGER_REQUEST": 7,
-                               "TCP_CONNECT": 51, "HTTP_STREAM_POOL_ATTEMPT_MANAGER_ALIVE": 300}}
+                               "TCP_CONNECT": 51, "HTTP_STREAM_POOL_ATTEMPT_MANAGER_ALIVE": 300,
+                               "UDP_CONNECT": 60, "UDP_LOCAL_ADDRESS": 61,
+                               "HOST_RESOLVER_DNS_TASK": 8, "HOST_RESOLVER_MANAGER_CACHE_HIT": 9}}
 
 
 def event(type_id, params):
@@ -67,6 +69,41 @@ class ExtractTest(unittest.TestCase):
             *[event(104, {"url": f"https://a.example/{i}"}) for i in range(5)]))
         self.assertEqual(found["a.example"].count, 5)
         self.assertEqual(len(found["a.example"].examples), 3)
+
+    def test_own_addresses_are_not_destinations(self):
+        # UDP_LOCAL_ADDRESS reports this machine's address; listing it would
+        # also leak the user's IP into reports.
+        found = egress_audit.extract_destinations(netlog(
+            event(61, {"address": "192.168.1.20:57125"}),
+            event(61, {"address": "[2a02:db8::1234]:52349"})))
+        self.assertEqual(found, {})
+
+    def test_dns_results_are_not_connections(self):
+        found = egress_audit.extract_destinations(netlog(event(8, {"results": [
+            {"domain_name": "update.example.org",
+             "endpoints": [{"address": "203.0.113.7", "port": 0}]}]})))
+        self.assertEqual(sorted(found), [])
+
+    def test_connections_are_attributed_to_resolved_names(self):
+        found = egress_audit.extract_destinations(netlog(
+            event(8, {"results": [{"domain_name": "update.example.org",
+                                   "endpoints": [{"address": "203.0.113.7", "port": 0}]}]}),
+            event(9, {"results": {"aliases": ["cdn.example.net", "edge.example.net"],
+                                  "ip_endpoints": [{"endpoint_address": "2001:db8::5"}]}}),
+            event(51, {"address_list": ["203.0.113.7:443"]}),
+            event(60, {"address": "[2001:db8::5]:443"}),
+            event(60, {"address": "198.51.100.9:443"})))
+        self.assertEqual({k: v.kind for k, v in found.items()},
+                         {"update.example.org": "host", "cdn.example.net": "host",
+                          "198.51.100.9": "ip"})
+
+    def test_dns_resolver_is_reported_separately_and_does_not_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "netlog.json"
+            path.write_text(json.dumps(netlog(event(60, {"address": "[2001:db8::53]:53"}))))
+            result = egress_audit.audit(path, [])
+        self.assertEqual([d.host for d in result.dns], ["2001:db8::53"])
+        self.assertEqual(result.unexpected, [])
 
     def test_unknown_event_type_is_still_audited(self):
         found = egress_audit.extract_destinations(netlog(event(9999, {"url": "https://x.example/"})))
@@ -127,11 +164,11 @@ class AuditTest(unittest.TestCase):
             path.write_text(json.dumps(netlog(
                 event(104, {"url": "https://update.example.org/check"}),
                 event(104, {"url": "https://tracker.example.com/pixel"}))))
-            allowed, unexpected = egress_audit.audit(path, AllowlistTest.ALLOW)
-        self.assertEqual([d.host for d in allowed], ["update.example.org"])
-        self.assertEqual([d.host for d in unexpected], ["tracker.example.com"])
-        report = egress_audit.format_report(allowed, unexpected)
-        self.assertIn("1 unexpected host(s), 1 allowed.", report)
+            result = egress_audit.audit(path, AllowlistTest.ALLOW)
+        self.assertEqual([d.host for d in result.allowed], ["update.example.org"])
+        self.assertEqual([d.host for d in result.unexpected], ["tracker.example.com"])
+        report = egress_audit.format_report(result)
+        self.assertIn("1 unexpected, 1 allowed, 0 DNS resolver(s) (not counted).", report)
 
 
 class RunnerPiecesTest(unittest.TestCase):
@@ -144,6 +181,30 @@ class RunnerPiecesTest(unittest.TestCase):
             finally:
                 server.shutdown()
                 server.server_close()
+
+    def test_devtools_text_replies_are_not_parsed_as_json(self):
+        # /json/close answers "Target is closing"; parsing it crashed the
+        # first real run after the idle period.
+        class TextHandler(egress_audit.http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"Target is closing")
+
+            def log_message(self, *args):
+                pass
+
+        server = egress_audit.http.server.ThreadingHTTPServer(("127.0.0.1", 0), TextHandler)
+        egress_audit.threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            port = server.server_address[1]
+            self.assertEqual(egress_audit._devtools(port, "/json/close/x", parse=False),
+                             "Target is closing")
+            with self.assertRaises(ValueError):
+                egress_audit._devtools(port, "/json/close/x")
+        finally:
+            server.shutdown()
+            server.server_close()
 
     def test_browser_is_launched_like_a_first_run(self):
         args = egress_audit.browser_args(Path("chrome.exe"), Path("p"), Path("n.json"), 9222,
