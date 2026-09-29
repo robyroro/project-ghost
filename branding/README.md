@@ -15,6 +15,8 @@ Everything that names the product lives here. "Project Ghost" is a working name,
 - **Leave `elevator_iid` and `tracing_service_iid` alone.** They must match the interface ids compiled from `chrome/elevation_service/elevation_service_idl.idl` and `chrome/windows_services/elevated_tracing_service/tracing_service_idl.idl`.
 - **Generate new ids with a random (version 4) UUID generator.** Never copy one from another product.
 
+Development builds show `Copyright @LASTCHANGE_YEAR@ …` in file properties. That's expected: non-official builds read `build/util/LASTCHANGE.dummy` (`use_dummy_lastchange = !is_official_build`), which has no year, so that commits don't force rebuilds. Official builds substitute the real year.
+
 ## Not here yet
 
 - **Icons and logos:** Chromium's are used until the product has its own.
