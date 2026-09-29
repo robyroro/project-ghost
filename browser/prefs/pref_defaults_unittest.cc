@@ -16,7 +16,6 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/public/base/signin_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "content/public/test/browser_task_environment.h"
@@ -56,11 +55,6 @@ TEST_F(PrefDefaultsTest, PreloadingIsOff) {
 TEST_F(PrefDefaultsTest, SearchSuggestionsAreOff) {
   ExpectUsesDefault(prefs::kSearchSuggestEnabled);
   EXPECT_FALSE(prefs()->GetBoolean(prefs::kSearchSuggestEnabled));
-}
-
-TEST_F(PrefDefaultsTest, BrowserSignInIsNotAllowed) {
-  ExpectUsesDefault(prefs::kSigninAllowed);
-  EXPECT_FALSE(prefs()->GetBoolean(prefs::kSigninAllowed));
 }
 
 TEST_F(PrefDefaultsTest, TranslationIsNotOffered) {

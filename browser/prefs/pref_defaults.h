@@ -16,6 +16,12 @@ namespace ghost {
 // RegisterProfilePrefs() has registered every pref, because
 // SetDefaultPrefValue() only changes prefs that already exist.
 //
+// Only prefs registered inside RegisterProfilePrefs() can be changed here.
+// Prefs registered by keyed-service factories (for example signin.allowed,
+// registered by PrimaryAccountManager) are registered afterwards, and
+// SetDefaultPrefValue() DCHECKs on them; they need a hook that runs after
+// the service prefs are registered.
+//
 // Only prefs whose default value is actually consulted belong here. Several
 // upstream prefs are ignored until a user or policy sets them explicitly
 // (kHttpsFirstBalancedMode is read only after HasPrefPath(); kEnableMediaRouter

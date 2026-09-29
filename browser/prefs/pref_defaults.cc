@@ -10,7 +10,6 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
-#include "components/signin/public/base/signin_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 
 namespace ghost {
@@ -33,9 +32,6 @@ void OverrideProfilePrefDefaults(user_prefs::PrefRegistrySyncable* registry) {
   // is typed, before the user decides to search.
   registry->SetDefaultPrefValue(prefs::kSearchSuggestEnabled,
                                 base::Value(false));
-
-  // Browser sign-in ties the profile to a Google account.
-  registry->SetDefaultPrefValue(prefs::kSigninAllowed, base::Value(false));
 
   // Translation sends page content to Google's translation service; we do
   // not prompt users toward it by default.
