@@ -1,0 +1,51 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+// Feature overrides only take effect through chrome's real startup sequence
+// (ChromeFeatureListCreator), so these run as browser tests rather than unit
+// tests, and assert the resulting behaviour rather than the feature state.
+
+#include "base/command_line.h"
+#include "chrome/browser/media/router/media_router_feature.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ssl/https_first_mode_settings_tracker.h"
+#include "chrome/test/base/in_process_browser_test.h"
+#include "content/public/test/browser_test.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+namespace ghost {
+namespace {
+
+using FeatureOverridesBrowserTest = InProcessBrowserTest;
+
+IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest,
+                       HttpsFirstIsBalancedByDefault) {
+  EXPECT_EQ(HttpsFirstModeServiceFactory::GetForProfile(GetProfile())
+                ->GetCurrentSetting(),
+            HttpsFirstModeSetting::kEnabledBalanced);
+}
+
+IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest, MediaRouterIsDisabled) {
+  EXPECT_FALSE(media_router::MediaRouterEnabled(GetProfile()));
+}
+
+// Our overrides are defaults, not locks: an explicit --disable-features must
+// still turn them off, or developers and users could not opt out.
+class FeatureOverridesCommandLineBrowserTest : public InProcessBrowserTest {
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitchASCII("disable-features",
+                                    "HttpsFirstBalancedModeAutoEnable");
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(FeatureOverridesCommandLineBrowserTest,
+                       CommandLineStillWins) {
+  EXPECT_EQ(HttpsFirstModeServiceFactory::GetForProfile(GetProfile())
+                ->GetCurrentSetting(),
+            HttpsFirstModeSetting::kDisabled);
+}
+
+}  // namespace
+}  // namespace ghost

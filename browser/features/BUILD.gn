@@ -1,0 +1,19 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Linked into //chrome/browser/metrics:impl, which appends these overrides
+# during field-trial setup (patches/0003).
+source_set("features") {
+  sources = [
+    "feature_overrides.cc",
+    "feature_overrides.h",
+  ]
+
+  public_deps = [ "//base" ]
+
+  deps = [
+    "//chrome/browser/media/router:media_router_feature",
+    "//chrome/common:chrome_features",
+  ]
+}
