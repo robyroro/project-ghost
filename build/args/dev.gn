@@ -15,3 +15,9 @@ v8_symbol_level = 0
 
 # Product name, company and copyright in version resources and About.
 branding_file_path = "//ghost/branding/BRANDING"
+
+# Non-official builds otherwise activate the experiments listed in
+# testing/variations/fieldtrial_testing_config.json. Dev builds must behave
+# like releases, or tests and the egress audit measure experiments that ship
+# to nobody: HttpsFirstBalancedModeAutoEnable, for one, is switched on there.
+disable_fieldtrial_testing_config = true

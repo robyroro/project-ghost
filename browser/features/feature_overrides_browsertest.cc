@@ -33,6 +33,12 @@ IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest, MediaRouterIsDisabled) {
 // Our overrides are defaults, not locks: an explicit --disable-features must
 // still turn them off, or developers and users could not opt out.
 class FeatureOverridesCommandLineBrowserTest : public InProcessBrowserTest {
+ public:
+  // Browser tests normally forbid feature switches in favour of
+  // ScopedFeatureList, which would bypass the path under test: the switch
+  // must reach ChromeFeatureListCreator through the real command line.
+  FeatureOverridesCommandLineBrowserTest() { SetAllowFeaturesSwitches(true); }
+
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitchASCII("disable-features",
