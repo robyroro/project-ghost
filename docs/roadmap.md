@@ -89,7 +89,7 @@ Delivered in this repository:
 
 Remaining before Phase 0 closes:
 
-- [ ] The first CI run on GitHub, once the repository is published.
+- [x] The first CI run on GitHub: 85 tooling tests and lint green on Windows and Ubuntu (2026-09-29).
 - [ ] A conduct contact address in `CODE_OF_CONDUCT.md`.
 
 ## Phase 1: browser shell
