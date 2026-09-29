@@ -1,0 +1,4 @@
+{
+  "note": "Hosts the browser may contact on its own, on a fresh profile with default settings. Each entry needs a reason and review (CONTRIBUTING.md). Empty in Phase 1: loopback is always allowed; nothing else is.",
+  "hosts": []
+}
