@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 00:05:33 +0300
+Subject: [PATCH] install_static: use Project Ghost's install modes
+
+Selects //ghost/branding/install_modes.h instead of
+chromium_install_modes.h for non-Google builds, giving the browser its
+own user data and registry path, app name and AppUserModelID, ProgIDs,
+URL scheme, Active Setup GUID, COM class ids and sandbox SID prefix, so it
+can be installed next to Chromium without colliding.
+
+Why: the brand header is chosen by an #if on Google branding build flags
+with Chromium as the only fallback; there is no argument for another brand.
+Upstream: not upstreamable: product-specific branding
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/install_static/BUILD.gn b/chrome/install_static/BUILD.gn
+index d23e787c7134baafbb596593bc78119f4484dbe9..9ddd7ccd3420cae6eb0eaf19f0398e2e9f84aae1 100644
+--- a/chrome/install_static/BUILD.gn
++++ b/chrome/install_static/BUILD.gn
+@@ -55,7 +55,7 @@ if (is_win) {
+     } else if (is_chrome_for_testing_branded) {
+       sources += [ "google_chrome_for_testing_install_modes.h" ]
+     } else {
+-      sources += [ "chromium_install_modes.h" ]
++      sources += [ "//ghost/branding/install_modes.h" ]
+     }
+ 
+     libs = [ "kernel32.lib" ]
+diff --git a/chrome/install_static/install_modes.h b/chrome/install_static/install_modes.h
+index d2a8f592a71cca272e8d86c547803bf34a49921a..70077ec5f54938b6d1041eccec7888606241e765 100644
+--- a/chrome/install_static/install_modes.h
++++ b/chrome/install_static/install_modes.h
+@@ -45,7 +45,7 @@
+ #elif BUILDFLAG(GOOGLE_CHROME_FOR_TESTING_BRANDING)
+ #include "chrome/install_static/google_chrome_for_testing_install_modes.h"
+ #else
+-#include "chrome/install_static/chromium_install_modes.h"
++#include "ghost/branding/install_modes.h"
+ #endif
+ 
+ namespace install_static {

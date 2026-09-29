@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 00:03:27 +0300
+Subject: [PATCH] build: add //ghost to gn_all
+
+Makes the //ghost test targets (ghost_unittests, ghost_browsertests) part
+of the default GN graph so they are generated alongside upstream's own
+test targets.
+
+Why: GN only generates targets reachable from the root build graph, and
+no upstream extension point adds a downstream directory to it.
+Upstream: not upstreamable: product-specific
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/BUILD.gn b/BUILD.gn
+index 0bd5d40ff7086c14f4e74a573d7b9d4ab89f2c8e..b9cd0a9c88d9f1370f5c872c5aa5b79ceba625d1 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -126,6 +126,8 @@ group("gn_all") {
+       "//url:url_unittests",
+     ]
+ 
++    deps += [ "//ghost:gn_all" ]
++
+     if (current_cpu == "arm64" && is_android && host_os == "linux") {
+       deps += [
+         "//components/allocation_recorder/tools:dump_allocation_recorder_data",

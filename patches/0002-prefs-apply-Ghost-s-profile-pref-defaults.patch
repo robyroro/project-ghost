@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 00:04:17 +0300
+Subject: [PATCH] prefs: apply Ghost's profile pref defaults
+
+Calls ghost::OverrideProfilePrefDefaults() at the end of
+RegisterProfilePrefs(), after every upstream pref is registered, so that
+PrefRegistry::SetDefaultPrefValue() can replace upstream defaults.
+
+Why: default values are fixed where each pref is registered, and there is
+no extension point that runs after registration completes.
+Upstream: not upstreamable: product-specific defaults
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/prefs/BUILD.gn b/chrome/browser/prefs/BUILD.gn
+index cc6f81920fc7a161b1d70463a29b0577bd59c228..1d5f602f73d85a8242a76fbcb7cd8f6f87c3e42c 100644
+--- a/chrome/browser/prefs/BUILD.gn
++++ b/chrome/browser/prefs/BUILD.gn
+@@ -200,6 +200,7 @@ source_set("impl") {
+     "//components/wallet/core/common:prefs",
+     "//components/webui/chrome_urls",
+     "//components/webui/flags",
++    "//ghost/browser/prefs",
+     "//services/preferences/public/cpp/tracked",
+     "//services/preferences/public/mojom",
+     "//services/preferences/tracked",
+diff --git a/chrome/browser/prefs/browser_prefs.cc b/chrome/browser/prefs/browser_prefs.cc
+index c2fba47e0d9d961297f0aa8d88276dabfd32f636..7c85969c47818b493b6f3795969fe766cdb8ff0f 100644
+--- a/chrome/browser/prefs/browser_prefs.cc
++++ b/chrome/browser/prefs/browser_prefs.cc
+@@ -223,6 +223,7 @@
+ #include "content/public/browser/render_process_host.h"
+ #include "content/public/common/buildflags.h"
+ #include "extensions/buildflags/buildflags.h"
++#include "ghost/browser/prefs/pref_defaults.h"
+ #include "net/http/http_server_properties_manager.h"
+ #include "pdf/buildflags.h"
+ #include "printing/buildflags/buildflags.h"
+@@ -2263,6 +2264,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
+ #endif  // BUILDFLAG(IS_ANDROID)
+ 
+   registry->RegisterBooleanPref(prefs::kStaticStorageQuotaEnabled, false);
++
++  // Must stay last: it changes defaults of prefs registered above.
++  ghost::OverrideProfilePrefDefaults(registry);
+ }
+ 
+ void RegisterUserProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {

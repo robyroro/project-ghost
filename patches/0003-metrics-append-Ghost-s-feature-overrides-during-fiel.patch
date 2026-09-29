@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 00:04:50 +0300
+Subject: [PATCH] metrics: append Ghost's feature overrides during field trial
+ setup
+
+Passes ghost::AppendFeatureOverrides() output to SetUpFieldTrials() as
+extra overrides. They are registered after --enable-features and
+--disable-features, so the command line and chrome://flags still win,
+and before field trials, so server-side experiments cannot undo them.
+
+Why: the extra-overrides vector is built inline at this call site; there
+is no registration point for embedder-provided overrides.
+Upstream: not upstreamable: product-specific defaults
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/metrics/BUILD.gn b/chrome/browser/metrics/BUILD.gn
+index fe0d96c67b53e2df8c57e1cc4314f528619eff75..2e638fe50bee7c6bb24eb3884077b50893534068 100644
+--- a/chrome/browser/metrics/BUILD.gn
++++ b/chrome/browser/metrics/BUILD.gn
+@@ -316,6 +316,7 @@ source_set("impl") {
+     "//components/supervised_user/core/browser",
+     "//components/ukm",
+     "//components/ukm:ukm_recorder",
++    "//ghost/browser/features",
+     "//services/resource_coordinator/public/cpp/memory_instrumentation:browser",
+   ]
+ 
+diff --git a/chrome/browser/metrics/chrome_feature_list_creator.cc b/chrome/browser/metrics/chrome_feature_list_creator.cc
+index 90e572fe4efe1baa00ca8218dbcb3a5d0ad36ddb..3d759e5e82f5cf8f9b0ab05d0677613972cb136d 100644
+--- a/chrome/browser/metrics/chrome_feature_list_creator.cc
++++ b/chrome/browser/metrics/chrome_feature_list_creator.cc
+@@ -37,6 +37,7 @@
+ #include "components/webui/flags/pref_service_flags_storage.h"
+ #include "content/public/common/content_switch_dependent_feature_overrides.h"
+ #include "content/public/common/content_switches.h"
++#include "ghost/browser/features/feature_overrides.h"
+ #include "services/network/public/cpp/network_switches.h"
+ #include "services/network/public/cpp/shared_url_loader_factory.h"
+ #include "ui/base/resource/resource_bundle.h"
+@@ -238,11 +239,13 @@ void ChromeFeatureListCreator::SetUpFieldTrials() {
+ 
+   variations::VariationsService* variations_service =
+       metrics_services_manager_->GetVariationsService();
+-  variations_service->SetUpFieldTrials(
+-      variation_ids,
++  std::vector<base::FeatureList::FeatureOverrideInfo> extra_overrides =
+       content::GetSwitchDependentFeatureOverrides(
+-          *base::CommandLine::ForCurrentProcess()),
+-      std::move(feature_list), browser_field_trials_.get());
++          *base::CommandLine::ForCurrentProcess());
++  ghost::AppendFeatureOverrides(&extra_overrides);
++  variations_service->SetUpFieldTrials(variation_ids, extra_overrides,
++                                       std::move(feature_list),
++                                       browser_field_trials_.get());
+   variations::InitCrashKeys();
+ }
+ 
