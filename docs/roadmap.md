@@ -127,7 +127,7 @@ Remaining before Phase 0 closes:
    | `chromewebstore.googleapis.com`, `clients2.googleusercontent.com`, `clients2.google.com` (`/service/update2/crx`) | An extension pushed by another program through `HKLM\…\Google\Chrome\Extensions`, which Chromium reads whatever its brand, and downloaded before the user is asked | `extensions.block_external_extensions` defaults to on, which removes the registry source. Policy-installed and user-installed extensions are unaffected. |
    | `2001:4860:4860::8888` | Not traffic: the host resolver's IPv6 reachability probe, a UDP connect that sends nothing. The baseline attributed it to DNS-over-HTTPS. | The audit reports UDP sockets that carried no datagram as route probes, which never fail it. |
 
-   **Found outside the idle audit**, while a page with a form was open during an audit run: Autofill sent the structure of every form to `content-autofill.googleapis.com` to have its fields classified. `AutofillServerCommunication` is off; Autofill fills from local heuristics. Step 7's audit scenarios should load pages with forms, search, and sign in to a site, so that user-triggered senders like this one are measured too.
+   **Found outside the idle audit**, while a page with a form was open during an audit run: Autofill sent the structure of every form to `content-autofill.googleapis.com` to have its fields classified. `AutofillServerCommunication` is off; Autofill fills from local heuristics. This is why step 7 added scenarios.
 
    Each fix has a test that fails without it: `ghost_unittests` for prefs, startup switches and the account list; `ghost_browsertests` for features, GCM, the search engine and the New Tab page.
 
@@ -135,12 +135,22 @@ Remaining before Phase 0 closes:
 
    **Also found while measuring:**
    - Dev builds activated `fieldtrial_testing_config.json` experiments until `disable_fieldtrial_testing_config` was set in `build/args/dev.gn`.
-   - NetLogs contain the user's IP addresses. Audit logs stay local and are never committed.
-7. **Egress audit** (`test/egress/`).
-   - Launch the packaged browser with a fresh `--user-data-dir` and `--log-net-log`.
-   - Idle for 10 minutes, then load a local page.
-   - Fail on any host outside the allowlist, which is empty apart from localhost in Phase 1.
-   - Parser tests use NetLogs captured from our own build.
+   - NetLogs contain the user's IP addresses. Raw audit logs stay local and are never committed; parser fixtures are scrubbed first ([test/egress/netlogs](../test/egress/netlogs/README.md)).
+7. **Egress audit** (`test/egress/`, `tools/egress_audit.py`; see [testing.md](testing.md)).
+   - [ ] Launch the packaged browser with a fresh `--user-data-dir` and `--log-net-log`. Until step 8 produces an installer, the audit runs the dev build.
+   - [x] Idle for 10 minutes, then load a local page.
+   - [x] Act out what users do on a site, on local pages: fill in and submit an address (`address`), and sign in (`login`). The omnibox, which DevTools can't drive, is tested in `ghost_browsertests`: typing sends nothing, and a search contacts only the search engine.
+   - [x] Fail on any host outside the allowlist, which is empty apart from localhost in Phase 1.
+   - [x] Parser tests use a scrubbed NetLog captured from our own build.
+
+   **Measured 2026-09-30** on the dev build:
+
+   | Hosts | Sender | Fix |
+   |---|---|---|
+   | `passwordsleakcheck-pa.googleapis.com` | Password leak check, after the `login` scenario's sign-in. It runs without Safe Browsing and without a Google account. | `kPasswordLeakDetectionEnabled` defaults to off. |
+   | `wpad` | Proxy auto-detection, because Windows' "Automatically detect settings" is on. The parser had dropped single-label names. | Not a fix: Chromium follows the system's proxy settings. The audit reports these lookups and doesn't count them. |
+
+   **Measured again** with the fix: 10 minutes idle, the local page, and both scenarios, with no unexpected hosts. No name was resolved on the internet during the whole run.
 8. **Installer.** The `mini_installer` target, plus a smoke test: silent per-user install, registry and shortcut checks, launch, uninstall, cleanup check. Runs in Windows Sandbox or a VM.
 9. **Versioning ADR.** `chrome/VERSION` stays upstream, because the User-Agent derives from it. A separate product version (`<major>.<chromium major>.<release>`) is used by the installer, updater and About page.
 10. **Build host runbook.** Runbook and scripts for a self-hosted Windows builder. Registering it with CI requires maintainer approval.

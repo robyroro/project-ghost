@@ -206,7 +206,7 @@ The update server doesn't retain IP addresses. The exact request format will be 
 - the Chrome Web Store, when you install or update an extension from it (Google receives those requests);
 - nothing else by default.
 
-**The egress audit test enforces this.** It launches the packaged browser with a fresh profile, idles, visits a local page, and fails if any host outside the reviewed allowlist is contacted.
+**The egress audit test enforces this.** It launches the packaged browser with a fresh profile, idles, visits a local page, then fills in an address and signs in on local pages. It fails if any host outside the reviewed allowlist is contacted. A browser test does the same for typing and searching in the omnibox.
 
 ## Claims policy
 
