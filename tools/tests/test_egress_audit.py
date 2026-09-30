@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import copy
 import json
 import tempfile
 import unittest
@@ -40,7 +41,7 @@ def udp_socket(source_id, address, wrapper_id=None, sent=False):
 
 
 def netlog(*events):
-    return {"constants": CONSTANTS, "events": list(events)}
+    return {"constants": copy.deepcopy(CONSTANTS), "events": list(events)}
 
 
 class HostFromStringTest(unittest.TestCase):
@@ -222,16 +223,122 @@ class AuditTest(unittest.TestCase):
                       "(not counted).", report)
 
 
-class RunnerPiecesTest(unittest.TestCase):
-    def test_local_page_is_served(self):
+class PhaseTest(unittest.TestCase):
+    PHASES = [("startup", 1_000_000), ("idle", 1_005_000), ("login", 1_600_000)]
+
+    def test_first_sighting_is_dated_in_unix_time(self):
+        # Event times are TimeTicks in ms; timeTickOffset converts them.
+        log = netlog(event(104, {"url": "https://a.example/"}))
+        log["constants"]["timeTickOffset"] = 1_000_000
+        log["events"][0]["time"] = "600123"
+        found = egress_audit.extract_destinations(log)
+        self.assertEqual(found["a.example"].first_time, 1_600_123)
+
+    def test_logs_without_an_offset_are_undated(self):
+        found = egress_audit.extract_destinations(netlog(event(104, {"url": "https://a.example/"})))
+        self.assertIsNone(found["a.example"].first_time)
+
+    def test_phase_at(self):
+        self.assertEqual(egress_audit.phase_at(1_004_999, self.PHASES), "startup")
+        self.assertEqual(egress_audit.phase_at(1_005_000, self.PHASES), "idle")
+        self.assertEqual(egress_audit.phase_at(9_999_999, self.PHASES), "login")
+        self.assertIsNone(egress_audit.phase_at(999_999, self.PHASES))
+        self.assertIsNone(egress_audit.phase_at(None, self.PHASES))
+
+    def test_report_names_the_phase_of_the_first_sighting(self):
         with tempfile.TemporaryDirectory() as tmp:
-            server, url = egress_audit.serve_page(Path(tmp))
-            try:
-                with urllib.request.urlopen(url, timeout=5) as response:
-                    self.assertIn(b"local page", response.read())
-            finally:
-                server.shutdown()
-                server.server_close()
+            path = Path(tmp) / "netlog.json"
+            log = netlog(event(104, {"url": "https://leak.example/lookup"}))
+            log["constants"]["timeTickOffset"] = 1_000_000
+            log["events"][0]["time"] = "600000"
+            path.write_text(json.dumps(log))
+            result = egress_audit.audit(path, [])
+        report = egress_audit.format_report(result, self.PHASES)
+        self.assertIn("first seen in URL_REQUEST_START_JOB during login", report)
+        self.assertNotIn("during", egress_audit.format_report(result))
+
+
+class SiteTest(unittest.TestCase):
+    def setUp(self):
+        self.server, self.url = egress_audit.serve_site()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+
+    def fetch(self, path, data=None):
+        with urllib.request.urlopen(self.url + path, data=data, timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    def test_local_page_is_served(self):
+        self.assertIn("local page", self.fetch("")[1])
+
+    def test_form_submissions_land_on_a_page_without_the_form(self):
+        # The password manager takes a login as successful when the page
+        # after the submission no longer shows the password field.
+        for scenario in egress_audit.form_scenarios(password="pw"):
+            status, body = self.fetch(scenario.page)
+            action = FormParser.parse(body).action
+            status, body = self.fetch(action.lstrip("/"), data=b"a=1")
+            self.assertEqual(status, 200, scenario.name)
+            self.assertNotIn("<input", body, scenario.name)
+
+
+class FormParser(egress_audit.html.parser.HTMLParser):
+    """Collects the ids of inputs and the form action of a page."""
+
+    @classmethod
+    def parse(cls, text):
+        parser = cls()
+        parser.inputs, parser.action, parser.urls = [], None, []
+        parser.feed(text)
+        return parser
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "input":
+            self.inputs.append(attrs.get("id"))
+        if tag == "form":
+            self.action = attrs.get("action")
+        self.urls += [v for k, v in attrs.items() if k in ("src", "href", "action") and v]
+
+
+class ScenarioTest(unittest.TestCase):
+    def test_scenarios_type_into_fields_their_page_has(self):
+        for scenario in egress_audit.form_scenarios(password="pw"):
+            page = FormParser.parse((egress_audit.SITE / scenario.page).read_text("utf-8"))
+            self.assertEqual([f for f, _ in scenario.fields], page.inputs, scenario.name)
+
+    def test_site_never_refers_to_another_host(self):
+        # A page that loads anything from the network would put hosts in the
+        # log that the browser did not choose to contact.
+        for page in egress_audit.SITE.glob("*.html"):
+            for url in FormParser.parse(page.read_text("utf-8")).urls:
+                self.assertTrue(url.startswith("/") and not url.startswith("//"), (page, url))
+
+    def test_login_uses_the_password_it_is_given(self):
+        login = {s.name: s for s in egress_audit.form_scenarios(password="s3cret")}["login"]
+        self.assertIn(("password", "s3cret"), login.fields)
+
+    def test_typing_sends_a_key_down_and_up_per_character(self):
+        self.assertEqual(egress_audit.key_events("ab"), [
+            {"type": "keyDown", "key": "a", "text": "a", "unmodifiedText": "a"},
+            {"type": "keyUp", "key": "a"},
+            {"type": "keyDown", "key": "b", "text": "b", "unmodifiedText": "b"},
+            {"type": "keyUp", "key": "b"}])
+
+    def test_enter_submits_like_the_key(self):
+        down, up = egress_audit.ENTER
+        self.assertEqual((down["type"], down["windowsVirtualKeyCode"], down["text"]),
+                         ("keyDown", 13, "\r"))
+        self.assertEqual(up["type"], "keyUp")
+
+    def test_scenarios_are_chosen_on_the_command_line(self):
+        self.assertEqual(egress_audit.parse_scenarios("login,address"), ["login", "address"])
+        self.assertEqual(egress_audit.parse_scenarios("all"), ["address", "login"])
+        with self.assertRaises(egress_audit.argparse.ArgumentTypeError):
+            egress_audit.parse_scenarios("login,card")
+
+
+class RunnerPiecesTest(unittest.TestCase):
 
     def test_devtools_text_replies_are_not_parsed_as_json(self):
         # /json/close answers "Target is closing"; parsing it crashed the

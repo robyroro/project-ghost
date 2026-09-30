@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+<meta charset="utf-8">
+<title>Shipping address</title>
+<h1>Shipping address</h1>
+<form method="post" action="/done">
+  <p><label>Full name <input id="name" name="name" autocomplete="name"></label>
+  <p><label>Email <input id="email" name="email" type="email" autocomplete="email"></label>
+  <p><label>Phone <input id="tel" name="tel" type="tel" autocomplete="tel"></label>
+  <p><label>Street address <input id="street" name="street" autocomplete="address-line1"></label>
+  <p><label>City <input id="city" name="city" autocomplete="address-level2"></label>
+  <p><label>State <input id="state" name="state" autocomplete="address-level1"></label>
+  <p><label>ZIP code <input id="zip" name="zip" autocomplete="postal-code"></label>
+  <p><label>Country <input id="country" name="country" autocomplete="country-name"></label>
+  <p><button>Continue</button>
+</form>

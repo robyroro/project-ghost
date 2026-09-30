@@ -23,10 +23,13 @@
   - on disk: the user-data directory is diffed before and after, and any new file outside an allowlist fails the test.
 - **Real-site compatibility tests are flaky** by nature. They report trends and never block a merge.
 - **The egress audit** is `tools/egress_audit.py`, with the allowlist at `test/egress/allowlist.json`.
-  - `run --chrome <path>` launches a build on a fresh profile with a NetLog. It idles, loads a page served on loopback, closes the browser, and fails on any host outside the allowlist.
+  - `run --chrome <path>` launches a build on a fresh profile with a NetLog. It idles, loads a page served on loopback, acts out the scenarios, closes the browser, and fails on any host outside the allowlist.
+  - **Scenarios** do what users do on a site, on pages in `test/egress/site/` served from loopback: `address` fills in and submits a shipping address, and `login` signs in with a username and a fresh random password. Clicks and key presses go through DevTools' input pipeline, so Autofill and the password manager see a user typing. `--scenarios` picks a subset.
+  - The report names the phase (`startup`, `idle`, `local page`, a scenario, `shutdown`) in which each host was first seen.
   - `parse <netlog>` audits an existing log.
   - Hosts are found by parameter name (`url`, `host`, `stream_key`, …) rather than by event type, so new NetLog events in later milestones are still covered.
   - **Blind spot:** NetLog sees only Chromium's network stack. Crashpad uploads crash reports from its own process, so crash upload stays disabled rather than relying on this audit.
+  - **Not covered: payment cards.** Autofill handles cards only on HTTPS pages, and the loopback site is HTTP. Card requests to Google's payments servers carry an OAuth token for the signed-in Google account, and Ghost builds can't sign in.
 
 ## Running the tooling tests
 
