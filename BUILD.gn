@@ -15,7 +15,10 @@ group("gn_all") {
 }
 
 test("ghost_unittests") {
-  sources = [ "browser/prefs/pref_defaults_unittest.cc" ]
+  sources = [
+    "browser/prefs/pref_defaults_unittest.cc",
+    "browser/startup/browser_main_extra_parts_unittest.cc",
+  ]
 
   deps = [
     "//chrome/browser",
@@ -32,6 +35,7 @@ test("ghost_unittests") {
     "//components/translate/core/browser:translate_pref_names",
     "//content/test:test_support",
     "//extensions/browser",
+    "//ghost/browser/startup",
     "//testing/gtest",
   ]
 

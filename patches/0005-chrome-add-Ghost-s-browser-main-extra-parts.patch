@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 02:37:33 +0300
+Subject: [PATCH] chrome: add Ghost's browser main extra parts
+
+Adds ghost::BrowserMainExtraParts as the first of chrome's extra parts in
+ChromeBrowserMainParts::Create(). Its PreEarlyInitialization() runs
+before BrowserProcessImpl exists, so the switches it appends to the
+browser command line are seen by every later stage. The first use is
+--disable-component-update, which turns the component updater off
+consistently across the places that consult it.
+
+Why: extra parts are constructed inline in ChromeBrowserMainParts::Create()
+with no registration point for embedders.
+Upstream: not upstreamable: product-specific startup
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index e1d0017fc823e435bf28702d309297b33c296f76..aee47c79a71a0071aa83d3098da5fb644c6f9273 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1238,6 +1238,7 @@ source_set("core") {
+     "//components/webui/chrome_urls",
+     "//device/base",
+     "//device/gamepad/public/cpp:switches",
++    "//ghost/browser/startup",
+     "//media/capture:capture_switches",
+     "//media/midi",
+     "//media/webrtc",
+diff --git a/chrome/browser/chrome_browser_main.cc b/chrome/browser/chrome_browser_main.cc
+index 21d499a926280890ed38f7a169afa69d7a3263be..4f7411904125a559d57882d3893d03d26543ccb7 100644
+--- a/chrome/browser/chrome_browser_main.cc
++++ b/chrome/browser/chrome_browser_main.cc
+@@ -133,6 +133,7 @@
+ #include "content/public/browser/web_ui_controller_factory.h"
+ #include "content/public/common/content_features.h"
+ #include "content/public/common/content_switches.h"
++#include "ghost/browser/startup/browser_main_extra_parts.h"
+ #include "media/audio/audio_manager.h"
+ #include "media/base/localized_strings.h"
+ #include "net/base/data_url.h"
+@@ -777,6 +778,9 @@ std::unique_ptr<content::BrowserMainParts> ChromeBrowserMainParts::Create(
+ #error "Unimplemented platform"
+ #endif
+ 
++  // First, so that later parts see the switches it appends.
++  main_parts->AddParts(std::make_unique<ghost::BrowserMainExtraParts>());
++
+   main_parts->AddParts(
+       std::make_unique<ChromeBrowserMainExtraPartsThreadNotifier>(
+           std::move(threads_ready_closure)));
