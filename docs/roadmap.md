@@ -172,10 +172,13 @@ Remaining before Phase 0 closes:
     - `builder.py pr` ran end to end on the reference machine's checkout: the build, `ghost_unittests` 11/11 and `ghost_browsertests` 12/12. The sync and apply steps were skipped because the checkout was already current, so their first real runs will be on the builder.
     - It re-applies the series only when the series changes. Otherwise every run would rebuild the files the patches touch and their dependents: siso rebuilds by modification time, and `install_modes.h` alone reaches over a hundred files.
 
-**Exit criteria**
-- A clean checkout produces a branded installer through the documented steps.
-- The browser browses and installs a Chrome Web Store extension.
-- The egress audit reports no unexpected hosts.
-- The defaults test, `ghost_unittests` and `ghost_browsertests` pass.
-- The patch series applies with `tools/patches.py`.
-- An informational rebase of the series onto the next milestone has been attempted, and its conflicts recorded.
+**Exit criteria** (status 2026-09-30)
+- [ ] A clean checkout produces a branded installer through the documented steps. The steps are documented and each has run on the reference machine. A run from an empty directory needs a full build, which is planned on the builder.
+- [ ] The browser browses and installs a Chrome Web Store extension.
+- [x] The egress audit reports no unexpected hosts: 10 minutes idle, a local page, and the `address` and `login` scenarios (step 7).
+- [x] The defaults test, `ghost_unittests` (11) and `ghost_browsertests` (12) pass.
+- [x] The patch series applies with `tools/patches.py`.
+- [x] An informational rebase of the series onto the next milestone has been attempted, and its conflicts recorded.
+  - `patches.py canary` onto 154.0.8037.93, the next Extended milestone, then on Stable: all 11 patches apply cleanly. Their files changed, but not their context.
+  - The result was not built. Compile errors in `//ghost` code against 154's APIs would show only in a build.
+  - Upstream's PDF ProgID bug (patch 0011) is still present in 154.
