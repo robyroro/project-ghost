@@ -1,6 +1,6 @@
 # 0007. Version numbers
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-30
 
 ## Context
