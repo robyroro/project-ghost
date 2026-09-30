@@ -1,6 +1,6 @@
 # Roadmap
 
-**Current phase: 1 (browser shell).** Phase 0 is complete apart from the conduct contact address.
+**Current phase: 1 (browser shell).** Phase 0 is complete.
 
 The phases run in an order chosen to retire the largest risks first. Before any privacy feature is built, we prove that we can build, ship and update Chromium ourselves (Phases 1–2). Keeping up with upstream security releases is the thing most likely to fail for a small team.
 
@@ -90,7 +90,7 @@ Delivered in this repository:
 Remaining before Phase 0 closes:
 
 - [x] The first CI run on GitHub: 85 tooling tests and lint green on Windows and Ubuntu (2026-09-29).
-- [ ] A conduct contact address in `CODE_OF_CONDUCT.md`.
+- [x] A conduct contact address in `CODE_OF_CONDUCT.md` (2026-09-30).
 
 ## Phase 1: browser shell
 
