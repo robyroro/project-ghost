@@ -8,6 +8,7 @@
 
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/common/chrome_features.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 
@@ -43,6 +44,14 @@ void AppendFeatureOverrides(
   // kAimEnabled is upstream's kill switch for the whole feature.
   overrides->emplace_back(std::cref(omnibox::kAimEnabled),
                           base::FeatureList::OVERRIDE_DISABLE_FEATURE);
+
+  // Autofill asks content-autofill.googleapis.com to classify the fields of
+  // every form the user sees, sending the form's structure, and uploads votes
+  // after forms are submitted. Without it, Autofill still fills forms from
+  // its local heuristics. Upstream uses this feature to keep tests hermetic.
+  overrides->emplace_back(
+      std::cref(autofill::features::debug::kAutofillServerCommunication),
+      base::FeatureList::OVERRIDE_DISABLE_FEATURE);
 }
 
 }  // namespace ghost

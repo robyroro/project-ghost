@@ -15,6 +15,7 @@ source_set("features") {
   deps = [
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/common:chrome_features",
+    "//components/autofill/core/common:features",
     "//components/network_time",
     "//components/omnibox/browser:aim_eligibility_service_features",
   ]

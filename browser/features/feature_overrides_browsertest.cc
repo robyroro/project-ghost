@@ -12,7 +12,10 @@
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_first_mode_settings_tracker.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "content/public/test/browser_test.h"
@@ -44,6 +47,15 @@ IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest, AiModeIsDisabled) {
       AimEligibilityServiceFactory::GetForProfile(GetProfile());
   ASSERT_TRUE(service);
   EXPECT_FALSE(service->IsAimAllowedByFeatureAndPolicy());
+}
+
+IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest,
+                       AutofillDoesNotQueryGoogle) {
+  autofill::ContentAutofillClient* client =
+      autofill::ContentAutofillClient::FromWebContents(
+          chrome_test_utils::GetActiveWebContents(this));
+  ASSERT_TRUE(client);
+  EXPECT_FALSE(client->GetCrowdsourcingManager().IsEnabled());
 }
 
 // Our overrides are defaults, not locks: an explicit --disable-features must
