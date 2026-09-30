@@ -101,13 +101,32 @@ If `fetch` ended with a hook failure about the Windows toolchain, set `DEPOT_TOO
 
 ## Build
 
-GN argument files and build targets arrive in Phase 1. Until then, the upstream baseline build is:
+Development builds use `build/args/dev.gn`: a component build with reduced symbols and Ghost's branding. Apply the patch series first ([patching.md](../patching.md)).
 
 ```
 cd D:\ghost\src
-gn gen out\vanilla --args="is_debug=false is_component_build=true symbol_level=1 blink_symbol_level=0 v8_symbol_level=0"
-autoninja -C out\vanilla chrome
+python ghost\tools\patches.py apply --src .
+gn gen out\vanilla --args="import(\"//ghost/build/args/dev.gn\")"
+autoninja -C out\vanilla chrome ghost_unittests ghost_browsertests
 ```
+
+The output directory keeps the name of the first baseline build, `out\vanilla`, because renaming one discards the build state (see Troubleshooting). On 32 GB machines, add `-j 10` to full builds.
+
+## Installer
+
+```
+autoninja -C out\vanilla mini_installer
+python ghost\tools\installer_smoke.py sandbox --installer out\vanilla\mini_installer.exe
+```
+
+- After `chrome` is built, `mini_installer` takes about 2 minutes on the reference machine.
+- A development installer is large: 643 MB, from a 1.7 GB `chrome.7z`. A component build packs every DLL and uses fast compression.
+- The smoke test installs, checks, launches and uninstalls in a fresh Windows Sandbox with no network, and prints each step's result. What it checks is in [testing.md](../testing.md).
+- **Windows Sandbox** needs Windows 11 Pro or Enterprise with virtualization enabled in the firmware. Enabling it is a system change for the developer to make, as an administrator, followed by a restart:
+
+  ```
+  Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM
+  ```
 
 ## Troubleshooting
 

@@ -12,6 +12,7 @@
 | Isolation contract | Browser tests, table-driven | Every PR | Every storage mechanism × every boundary; see [architecture.md](architecture.md#testing-isolation) |
 | Fingerprinting | Browser tests evaluating script in frames, workers and media queries | Every PR | Consistency, determinism per site, unlinkability across sites, per-mode tiers |
 | Egress audit | Harness driving the packaged browser; NetLog analysis | Nightly and release | No contact with hosts outside the allowlist |
+| Installer smoke | `tools/installer_smoke.py` in Windows Sandbox | Nightly and release | Per-user install, registration, shortcuts, launch, uninstall, cleanup |
 | Upstream suites | Filtered `unit_tests`, `browser_tests`, `content_browsertests` | Nightly | Upstream behavior our patches touch |
 | Fuzzing | libFuzzer | Nightly, later continuous | List parsing, parameter stripping, manifest parsing, every mojom handler we add |
 | Performance | crossbench (Speedometer 3, JetStream, MotionMark) and a page-load corpus | Nightly | Regression against vanilla Chromium at the same tag; blocking overhead budget |
@@ -36,6 +37,18 @@
   - **The omnibox** is part of the browser's UI, which DevTools can't drive. `test/egress/omnibox_browsertest.cc` covers it in `ghost_browsertests`: it records every request the browser makes while the user types into the omnibox and searches, and fails on anything but the search itself.
   - **Blind spot:** NetLog sees only Chromium's network stack. Crashpad uploads crash reports from its own process, so crash upload stays disabled rather than relying on this audit.
   - **Not covered: payment cards.** Autofill handles cards only on HTTPS pages, and the loopback site is HTTP. Card requests to Google's payments servers carry an OAuth token for the signed-in Google account, and Ghost builds can't sign in.
+
+- **The installer smoke test** is `tools/installer_smoke.py`. `sandbox --installer <mini_installer.exe>` runs it in a fresh Windows Sandbox with no network ([build/windows.md](build/windows.md#installer)). Expected names come from `branding/` and `CHROMIUM_VERSION`.
+  - **After install:**
+    - the browser and `setup.exe` are in place;
+    - Apps & features shows the product name, publisher and version;
+    - the browser is registered (StartMenuInternet and the HTML ProgID);
+    - Start menu and Desktop shortcuts are named for the product and open it;
+    - `chrome.exe`'s file properties name the product;
+    - nothing is named Chromium, so Ghost can sit next to an installed Chromium.
+  - **Launch:** the installed browser starts and reports the pinned version over DevTools.
+  - **After uninstall:** none of it is left.
+  - `run` is the test itself. It installs into the current user's profile, so outside Windows Sandbox it runs only with `--disposable`.
 
 ## Running the tooling tests
 
