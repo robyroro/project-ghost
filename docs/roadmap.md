@@ -167,6 +167,11 @@ Remaining before Phase 0 closes:
    - Implementation lands with the release pipeline in Phase 2.
 10. **Build host runbook.** Runbook and scripts for a self-hosted Windows builder. Registering it with CI requires maintainer approval.
 
+    **Done 2026-09-30:** [the runbook](build/build-host.md), `tools/builder.py`, and `.github/workflows/build.yml`.
+    - The workflow stays off until a maintainer registers the runner and sets `GHOST_BUILDER`.
+    - `builder.py pr` ran end to end on the reference machine's checkout: the build, `ghost_unittests` 11/11 and `ghost_browsertests` 12/12. The sync and apply steps were skipped because the checkout was already current, so their first real runs will be on the builder.
+    - It re-applies the series only when the series changes. Otherwise every run would rebuild the files the patches touch and their dependents: siso rebuilds by modification time, and `install_modes.h` alone reaches over a hundred files.
+
 **Exit criteria**
 - A clean checkout produces a branded installer through the documented steps.
 - The browser browses and installs a Chrome Web Store extension.
