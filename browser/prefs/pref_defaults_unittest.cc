@@ -13,8 +13,11 @@
 #include "chrome/browser/preloading/preloading_prefs.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/autofill/core/common/save_password_progress_logger.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
+#include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/translate/core/browser/translate_pref_names.h"
@@ -22,6 +25,7 @@
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/browser/pref_names.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace ghost {
 namespace {
@@ -77,6 +81,14 @@ TEST_F(PrefDefaultsTest, ExternalExtensionsAreBlocked) {
   ExpectUsesDefault(extensions::pref_names::kBlockExternalExtensions);
   EXPECT_TRUE(
       prefs()->GetBoolean(extensions::pref_names::kBlockExternalExtensions));
+}
+
+// The check runs on every successful sign-in to a site, with or without Safe
+// Browsing and a Google account. Found by the egress audit's login scenario.
+TEST_F(PrefDefaultsTest, PasswordLeakCheckIsOff) {
+  ExpectUsesDefault(password_manager::prefs::kPasswordLeakDetectionEnabled);
+  EXPECT_FALSE(password_manager::LeakDetectionCheck::CanStartLeakCheck(
+      *prefs(), GURL("https://example.com/login"), /*logger=*/nullptr));
 }
 
 }  // namespace

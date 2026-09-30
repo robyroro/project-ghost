@@ -28,8 +28,11 @@ test("ghost_unittests") {
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_unit",
+    "//components/autofill/core/common",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
+    "//components/password_manager/core/browser/leak_detection",
+    "//components/password_manager/core/common",
     "//components/prefs",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/signin/public/identity_manager",
@@ -41,6 +44,7 @@ test("ghost_unittests") {
     "//ghost/browser/startup",
     "//services/network:test_support",
     "//testing/gtest",
+    "//url",
   ]
 
   # ChromeUnitTestSuite loads chrome's resource paks at startup.

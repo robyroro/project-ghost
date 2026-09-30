@@ -66,7 +66,8 @@ The omnibox shows the cleaned URL.
 - **Off by default:**
   - DNS prefetch;
   - preconnect and page preloading, which contact sites you haven't chosen to visit;
-  - search suggestions, which send keystrokes to the search engine.
+  - search suggestions, which send keystrokes to the search engine;
+  - the password leak check, which sends Google hashes of each username and password the user signs in with.
 
 ### Permissions
 

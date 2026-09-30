@@ -18,6 +18,7 @@ source_set("prefs") {
     "//chrome/common:constants",
     "//components/content_settings/core/browser:cookie_settings",
     "//components/content_settings/core/common",
+    "//components/password_manager/core/common",
     "//components/pref_registry",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/translate/core/browser:translate_pref_names",

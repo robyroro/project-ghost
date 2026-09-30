@@ -9,6 +9,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/translate/core/browser/translate_pref_names.h"
@@ -47,6 +48,14 @@ void OverrideProfilePrefDefaults(user_prefs::PrefRegistrySyncable* registry) {
   // stops the list updates, which run while any profile has it on.
   registry->SetDefaultPrefValue(prefs::kSafeBrowsingEnabled,
                                 base::Value(false));
+
+  // After every sign-in to a site, the password leak check sends Google a
+  // hash prefix of the username and an encrypted hash of the username and
+  // password, and learns when and from which address the user signed in.
+  // Upstream runs it without Safe Browsing and without a Google account.
+  registry->SetDefaultPrefValue(
+      password_manager::prefs::kPasswordLeakDetectionEnabled,
+      base::Value(false));
 
   // Other programs install extensions into every Chromium-based browser by
   // writing to HKLM\Software\Google\Chrome\Extensions, which upstream reads
