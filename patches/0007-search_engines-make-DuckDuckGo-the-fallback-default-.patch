@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 02:38:11 +0300
+Subject: [PATCH] search_engines: make DuckDuckGo the fallback default search
+ engine
+
+GetPrepopulatedFallbackSearch() returns DuckDuckGo, looked up in the
+regional list first and in the full list for the regions whose list
+lacks it, instead of Google. The fallback is the default search engine
+of every profile where neither the user nor policy has chosen one. With
+Google as the default, the New Tab page loads Google's logo, bar and
+promos, and the bar's scripts log to play.google.com.
+
+Why: the fallback engine id is a constant inside this function; the
+search_provider_overrides pref could change it only by replacing every
+region's engine list.
+Upstream: not upstreamable: product-specific default
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/components/search_engines/template_url_prepopulate_data.cc b/components/search_engines/template_url_prepopulate_data.cc
+index ac35ec257779f4ecaa56424b5b5de1dbf6719d3c..bc5c7d27315db29835ca332ab0d62bbb34d23eb7 100644
+--- a/components/search_engines/template_url_prepopulate_data.cc
++++ b/components/search_engines/template_url_prepopulate_data.cc
+@@ -278,6 +278,14 @@ std::unique_ptr<TemplateURLData> GetPrepopulatedFallbackSearch(
+     PrefService& prefs,
+     const std::vector<raw_ptr<const PrepopulatedEngine>>&
+         regional_prepopulated_engines) {
++  // DuckDuckGo is the default in every region. Most regional lists include it;
++  // elsewhere it comes from the full list, and TemplateURLService adds a
++  // fallback engine that the regional list lacks.
++  if (std::unique_ptr<TemplateURLData> engine =
++          GetPrepopulatedEngineFromFullList(
++              prefs, regional_prepopulated_engines, duckduckgo.id)) {
++    return engine;
++  }
+   return FindPrepopulatedEngineInternal(prefs, regional_prepopulated_engines,
+                                         google.id,
+                                         /*use_first_as_fallback=*/true);

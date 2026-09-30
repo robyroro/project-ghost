@@ -11,21 +11,46 @@
 
 #include <string>
 
+#include "base/command_line.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search/search.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/search_test_utils.h"
 #include "components/gcm_driver/fake_gcm_app_handler.h"
 #include "components/gcm_driver/gcm_client.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/gcm_driver/gcm_profile_service.h"
+#include "components/regional_capabilities/regional_capabilities_switches.h"
+#include "components/search_engines/search_engine_type.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace ghost {
 namespace {
 
-using GoogleServicesBrowserTest = InProcessBrowserTest;
+class GoogleServicesBrowserTest : public InProcessBrowserTest {
+ protected:
+  TemplateURLService* LoadedTemplateUrlService() {
+    TemplateURLService* service =
+        TemplateURLServiceFactory::GetForProfile(GetProfile());
+    search_test_utils::WaitForTemplateURLServiceToLoad(service);
+    return service;
+  }
+
+  SearchEngineType DefaultSearchEngineType() {
+    TemplateURLService* service = LoadedTemplateUrlService();
+    const TemplateURL* engine = service->GetDefaultSearchProvider();
+    return engine ? engine->GetEngineType(service->search_terms_data())
+                  : SEARCH_ENGINE_UNKNOWN;
+  }
+};
 
 // GCM checks in with Google the first time anything registers with it. A
 // registration must fail without starting the client (patches/0006).
@@ -45,6 +70,37 @@ IN_PROC_BROWSER_TEST_F(GoogleServicesBrowserTest, CloudMessagingDoesNotStart) {
             gcm::GCMClient::GCM_DISABLED);
   EXPECT_FALSE(driver->IsStarted());
   driver->RemoveAppHandler(app_id);
+}
+
+// With Google as the default search engine, the New Tab page loads Google's
+// logo, bar and promos (patches/0007).
+IN_PROC_BROWSER_TEST_F(GoogleServicesBrowserTest,
+                       DefaultSearchEngineIsDuckDuckGo) {
+  EXPECT_EQ(DefaultSearchEngineType(), SEARCH_ENGINE_DUCKDUCKGO);
+  EXPECT_FALSE(search::DefaultSearchProviderIsGoogle(GetProfile()));
+}
+
+// DuckDuckGo defines a remote new tab page, which would be loaded on every
+// new tab (patches/0008).
+IN_PROC_BROWSER_TEST_F(GoogleServicesBrowserTest, NewTabPageIsLocal) {
+  LoadedTemplateUrlService();
+  EXPECT_EQ(search::GetNewTabPageURL(GetProfile()),
+            GURL(chrome::kChromeUINewTabPageThirdPartyURL));
+}
+
+// South Korea's regional list does not include DuckDuckGo; upstream would fall
+// back to the list's first engine, which is Google.
+class GoogleServicesOutsideDuckDuckGoRegionsBrowserTest
+    : public GoogleServicesBrowserTest {
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitchASCII(switches::kSearchEngineChoiceCountry, "KR");
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(GoogleServicesOutsideDuckDuckGoRegionsBrowserTest,
+                       DefaultSearchEngineIsDuckDuckGo) {
+  EXPECT_EQ(DefaultSearchEngineType(), SEARCH_ENGINE_DUCKDUCKGO);
 }
 
 }  // namespace

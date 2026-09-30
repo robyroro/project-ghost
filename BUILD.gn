@@ -61,16 +61,23 @@ test("ghost_browsertests") {
     "//chrome/browser/gcm",
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/search",
+    "//chrome/browser/search_engines",
     "//chrome/browser/ssl",
+    "//chrome/common",
     "//chrome/test:browser_tests_runner",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//chrome/test/base:browser_feature_test_waiters",
     "//components/gcm_driver",
     "//components/gcm_driver:test_support",
     "//components/network_time",
     "//components/omnibox/browser",
+    "//components/regional_capabilities",
+    "//components/search_engines",
     "//content/test:test_support",
     "//testing/gtest",
+    "//url",
   ]
 
   data_deps = [ "//chrome:packed_resources" ]
