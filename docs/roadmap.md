@@ -174,7 +174,11 @@ Remaining before Phase 0 closes:
 
 **Exit criteria** (status 2026-09-30)
 - [ ] A clean checkout produces a branded installer through the documented steps. The steps are documented and each has run on the reference machine. A run from an empty directory needs a full build, which is planned on the builder.
-- [ ] The browser browses and installs a Chrome Web Store extension.
+- [x] The browser browses and installs a Chrome Web Store extension.
+  - The reference machine's dev build installed uBlock Origin Lite from its Web Store page, confirmed by hand.
+  - The profile records the install as from the Web Store and enabled, and its service worker ran.
+  - The browser's own requests went to `clients2.google.com` and `clients2.googleusercontent.com`: the download and the update check, which [privacy-model.md](privacy-model.md#data-the-browser-sends) allows.
+  - The Web Store page itself loads Google Analytics, Tag Manager and Google's `/log` endpoint. Blocking in Phase 3 covers them.
 - [x] The egress audit reports no unexpected hosts: 10 minutes idle, a local page, and the `address` and `login` scenarios (step 7).
 - [x] The defaults test, `ghost_unittests` (11) and `ghost_browsertests` (12) pass.
 - [x] The patch series applies with `tools/patches.py`.
