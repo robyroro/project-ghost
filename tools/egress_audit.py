@@ -61,6 +61,9 @@ _URL_RE = re.compile(r"^([a-z][a-z0-9+.-]*)://(\[[^\]]+\]|[^/:?#\s]+)", re.IGNOR
 # tokens such as "1.0" are not mistaken for hosts; IPv4 needs four octets.
 _HOST = r"(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*|\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-f:.]+\]"
 _HOST_TOKEN_RE = re.compile(rf"^({_HOST})(?::\d+)?$", re.IGNORECASE)
+# A single-label name counts only with a port ("wpad:80"): bare, it is
+# indistinguishable from words such as "GET".
+_SINGLE_LABEL_RE = re.compile(r"^([a-z][a-z0-9-]*):\d+$", re.IGNORECASE)
 _IP_PORT_RE = re.compile(r"^(\[[0-9a-f:.]+\]|\d{1,3}(?:\.\d{1,3}){3}):\d+$", re.IGNORECASE)
 # Logged on the UDP_SOCKET source whenever a datagram is sent or received, in
 # every capture mode.
@@ -77,6 +80,8 @@ class Destination:
     # "dns": the system's DNS resolver (port 53); reported, never a failure.
     # "probe": a UDP socket connected to find a route, with nothing sent;
     #          reported, never a failure.
+    # "proxy": looked up only to auto-detect a proxy (WPAD), as the system's
+    #          proxy settings ask; reported, never a failure.
     kind: str = "host"
     count: int = 0
     examples: list[str] = field(default_factory=list)
@@ -116,7 +121,7 @@ def host_from_string(value: str) -> str | None:
     if m:
         return m.group(2).strip("[]").lower()
     for token in re.split(r"[\s/<>,]+", value):
-        m = _HOST_TOKEN_RE.match(token)
+        m = _HOST_TOKEN_RE.match(token) or _SINGLE_LABEL_RE.match(token)
         if m:
             return m.group(1).strip("[]").lower()
     return None
@@ -196,6 +201,25 @@ def udp_probe_sources(netlog: dict) -> set[int]:
     return udp - carried_data
 
 
+def proxy_detection_sources(netlog: dict) -> set[int]:
+    """Returns the ids of the PAC file deciders and of the resolver jobs they started.
+
+    With "Automatically detect settings" on in Windows, Chromium looks for a
+    proxy configuration by resolving the name wpad, as the system does.
+    """
+    source_types = {v: k for k, v in netlog.get("constants", {}).get("logSourceType", {}).items()}
+    deciders: set[int] = set()
+    started_by: dict[int, int] = {}
+    for event in netlog.get("events", []):
+        source = event.get("source", {})
+        if source_types.get(source.get("type")) == "PAC_FILE_DECIDER":
+            deciders.add(source.get("id"))
+        dependency = (event.get("params") or {}).get("source_dependency")
+        if isinstance(dependency, dict) and "id" in dependency:
+            started_by[source.get("id")] = dependency["id"]
+    return deciders | {s for s, parent in started_by.items() if parent in deciders}
+
+
 def _event_time(event: dict, tick_offset) -> float | None:
     """Converts an event's TimeTicks (ms, as a string) to Unix time in ms."""
     try:
@@ -210,6 +234,7 @@ def extract_destinations(netlog: dict) -> dict[str, Destination]:
     tick_offset = constants.get("timeTickOffset")
     by_ip = resolved_addresses(netlog)
     probes = udp_probe_sources(netlog)
+    proxy_detection = proxy_detection_sources(netlog)
     found: dict[str, Destination] = {}
 
     def record(key: str, kind: str, event_name: str, raw: str) -> None:
@@ -217,6 +242,9 @@ def extract_destinations(netlog: dict) -> dict[str, Destination]:
             found[key] = Destination(key, event_name, kind,
                                      first_time=_event_time(event, tick_offset))
         entry = found[key]
+        # Contacted for anything besides proxy detection: that is traffic.
+        if entry.kind == "proxy" and kind == "host":
+            entry.kind = "host"
         entry.count += 1
         if len(entry.examples) < 3 and raw not in entry.examples:
             entry.examples.append(raw)
@@ -227,10 +255,11 @@ def extract_destinations(netlog: dict) -> dict[str, Destination]:
         # *_LOCAL_ADDRESS events carry this machine's own addresses.
         if not params or "LOCAL_ADDRESS" in name:
             continue
+        in_proxy_detection = event.get("source", {}).get("id") in proxy_detection
         for raw in _walk(params, _HOST_KEYS):
             host = host_from_string(raw)
             if host and host not in _LOOPBACK and not host.startswith("127."):
-                record(host, "host", name, raw)
+                record(host, "proxy" if in_proxy_detection else "host", name, raw)
         # Addresses count as destinations only in connect events; elsewhere
         # (DNS results, socket bookkeeping) they are not connections.
         if "CONNECT" not in name:
@@ -281,17 +310,19 @@ class AuditResult:
     allowed: list[Destination]
     dns: list[Destination]
     probes: list[Destination]
+    proxy: list[Destination]
 
 
 def audit(netlog_path: Path, allowlist: list[dict]) -> AuditResult:
     found = extract_destinations(load_netlog(netlog_path))
     ordered = sorted(found.values(), key=lambda d: (d.kind != "host", d.host))
-    checked = [d for d in ordered if d.kind not in ("dns", "probe")]
+    checked = [d for d in ordered if d.kind not in ("dns", "probe", "proxy")]
     return AuditResult(
         unexpected=[d for d in checked if not is_allowed(d.host, allowlist)],
         allowed=[d for d in checked if is_allowed(d.host, allowlist)],
         dns=[d for d in ordered if d.kind == "dns"],
-        probes=[d for d in ordered if d.kind == "probe"])
+        probes=[d for d in ordered if d.kind == "probe"],
+        proxy=[d for d in ordered if d.kind == "proxy"])
 
 
 def phase_at(when: float | None, phases: list[tuple[str, float]]) -> str | None:
@@ -307,7 +338,7 @@ def phase_at(when: float | None, phases: list[tuple[str, float]]) -> str | None:
 def format_report(result: AuditResult, phases: list[tuple[str, float]] | None = None) -> str:
     lines = []
     for title, rows in (("UNEXPECTED", result.unexpected), ("allowed", result.allowed),
-                        ("dns", result.dns), ("probe", result.probes)):
+                        ("dns", result.dns), ("probe", result.probes), ("proxy", result.proxy)):
         for d in rows:
             label = d.host if d.kind != "ip" else f"{d.host} (raw IP, never resolved)"
             phase = phase_at(d.first_time, phases or [])
@@ -315,9 +346,9 @@ def format_report(result: AuditResult, phases: list[tuple[str, float]] | None = 
             lines.append(f"{title:10} {label:45} x{d.count:<4} first seen in {d.first_event}"
                          f"{during}")
             lines += [f"{'':10}   e.g. {example}" for example in d.examples]
-    lines.append(f"{len(result.unexpected)} unexpected, {len(result.allowed)} allowed, "
-                 f"{len(result.dns)} DNS resolver(s) and {len(result.probes)} route probe(s) "
-                 f"(not counted).")
+    lines.append(f"{len(result.unexpected)} unexpected, {len(result.allowed)} allowed; "
+                 f"not counted: {len(result.dns)} DNS resolver(s), {len(result.probes)} route "
+                 f"probe(s), {len(result.proxy)} proxy auto-detection lookup(s).")
     return "\n".join(lines)
 
 

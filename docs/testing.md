@@ -28,6 +28,10 @@
   - The report names the phase (`startup`, `idle`, `local page`, a scenario, `shutdown`) in which each host was first seen.
   - `parse <netlog>` audits an existing log.
   - Hosts are found by parameter name (`url`, `host`, `stream_key`, …) rather than by event type, so new NetLog events in later milestones are still covered.
+  - **Reported but not counted:**
+    - the system's DNS resolver;
+    - UDP route probes, which send nothing;
+    - lookups of `wpad`, made to auto-detect a proxy while Windows' "Automatically detect settings" is on. Chromium follows the system's proxy settings, and networks that configure proxies this way depend on it.
   - **Blind spot:** NetLog sees only Chromium's network stack. Crashpad uploads crash reports from its own process, so crash upload stays disabled rather than relying on this audit.
   - **Not covered: payment cards.** Autofill handles cards only on HTTPS pages, and the loopback site is HTTP. Card requests to Google's payments servers carry an OAuth token for the signed-in Google account, and Ghost builds can't sign in.
 

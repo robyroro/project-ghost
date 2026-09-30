@@ -17,10 +17,11 @@ CONSTANTS = {"logEventTypes": {"URL_REQUEST_START_JOB": 104, "HOST_RESOLVER_MANA
                                "TCP_CONNECT": 51, "HTTP_STREAM_POOL_ATTEMPT_MANAGER_ALIVE": 300,
                                "UDP_CONNECT": 60, "UDP_LOCAL_ADDRESS": 61, "UDP_BYTES_SENT": 62,
                                "SOCKET_ALIVE": 63, "SOCKET_CONNECT": 64,
-                               "HOST_RESOLVER_DNS_TASK": 8, "HOST_RESOLVER_MANAGER_CACHE_HIT": 9},
+                               "HOST_RESOLVER_DNS_TASK": 8, "HOST_RESOLVER_MANAGER_CACHE_HIT": 9,
+                               "HOST_RESOLVER_MANAGER_JOB": 10},
              "logSourceType": {"URL_REQUEST": 1, "HOST_RESOLVER_IMPL_JOB": 2, "UDP_SOCKET": 20,
-                               "UDP_CLIENT_SOCKET": 21}}
-URL_REQUEST, RESOLVER_JOB, UDP_SOCKET, UDP_CLIENT_SOCKET = 1, 2, 20, 21
+                               "UDP_CLIENT_SOCKET": 21, "PAC_FILE_DECIDER": 30}}
+URL_REQUEST, RESOLVER_JOB, UDP_SOCKET, UDP_CLIENT_SOCKET, PAC_FILE_DECIDER = 1, 2, 20, 21, 30
 
 
 def event(type_id, params, source_id=1, source_type=URL_REQUEST):
@@ -54,6 +55,9 @@ class HostFromStringTest(unittest.TestCase):
         "ssl/www.gstatic.com:443": "www.gstatic.com",
         "https://a.example:443 <https://b.example same_site>": "a.example",
         "93.184.216.34:80": "93.184.216.34",
+        # Single-label names: WPAD, intranet hosts, or a search term probed as one.
+        "wpad:80": "wpad",
+        "http://ghost/": "ghost",
     }
     NOT_HOSTS = ["data:text/html,<p>x", "chrome://newtab/", "blob:https://a.example/uuid",
                  "1.0", "443", "GET", "", "not an origin"]
@@ -153,8 +157,37 @@ class ExtractTest(unittest.TestCase):
             result = egress_audit.audit(path, [])
         self.assertEqual([d.host for d in result.probes], ["2001:db8::1"])
         self.assertEqual(result.unexpected, [])
-        self.assertIn("0 DNS resolver(s) and 1 route probe(s) (not counted).",
+        self.assertIn("not counted: 0 DNS resolver(s), 1 route probe(s), "
+                      "0 proxy auto-detection lookup(s).",
                       egress_audit.format_report(result))
+
+    def wpad_lookup(self):
+        # The shape Windows' "Automatically detect settings" leaves: the PAC
+        # decider asks the resolver for wpad, and a resolver job does the lookup.
+        return [event(7, {"host": "wpad:80"}, 9, PAC_FILE_DECIDER),
+                event(10, {"host": "wpad:80", "source_dependency": {"id": 9, "type": 30}},
+                      16, RESOLVER_JOB)]
+
+    def test_proxy_auto_detection_is_reported_separately_and_does_not_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "netlog.json"
+            path.write_text(json.dumps(netlog(*self.wpad_lookup())))
+            result = egress_audit.audit(path, [])
+        self.assertEqual([(d.host, d.count) for d in result.proxy], [("wpad", 2)])
+        self.assertEqual(result.unexpected, [])
+        self.assertIn("1 proxy auto-detection lookup(s).", egress_audit.format_report(result))
+
+    def test_other_lookups_of_single_label_names_fail(self):
+        # The omnibox can probe http://<search term>/; that must not pass as WPAD.
+        found = egress_audit.extract_destinations(netlog(
+            event(7, {"host": "ghost:80"}, 3, URL_REQUEST),
+            event(104, {"url": "http://ghost/"}, 3, URL_REQUEST)))
+        self.assertEqual(found["ghost"].kind, "host")
+
+    def test_a_host_also_contacted_outside_proxy_detection_is_traffic(self):
+        found = egress_audit.extract_destinations(netlog(
+            *self.wpad_lookup(), event(104, {"url": "http://wpad/wpad.dat"}, 40, URL_REQUEST)))
+        self.assertEqual(found["wpad"].kind, "host")
 
     def test_unknown_event_type_is_still_audited(self):
         found = egress_audit.extract_destinations(netlog(event(9999, {"url": "https://x.example/"})))
@@ -219,8 +252,8 @@ class AuditTest(unittest.TestCase):
         self.assertEqual([d.host for d in result.allowed], ["update.example.org"])
         self.assertEqual([d.host for d in result.unexpected], ["tracker.example.com"])
         report = egress_audit.format_report(result)
-        self.assertIn("1 unexpected, 1 allowed, 0 DNS resolver(s) and 0 route probe(s) "
-                      "(not counted).", report)
+        self.assertIn("1 unexpected, 1 allowed; not counted: 0 DNS resolver(s), "
+                      "0 route probe(s), 0 proxy auto-detection lookup(s).", report)
 
 
 class PhaseTest(unittest.TestCase):
