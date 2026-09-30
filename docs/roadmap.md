@@ -112,20 +112,26 @@ Remaining before Phase 0 closes:
    - Feature overrides disabling Google-service and advertising features.
    - The component updater stays disabled until Phase 2's server exists.
    - A table-driven browser test asserts every default on a fresh profile, so an upstream rename fails loudly.
-6. **Google services removed.** No API keys, no sync or sign-in, no Google endpoints. Safe Browsing stays off in development builds until its release gate is decided.
+6. **Google services removed.** No API keys, no sync or sign-in, no Google endpoints. Safe Browsing stays off until its release gate is decided.
 
-   **Baseline measured 2026-09-30** with `tools/egress_audit.py`: the first Ghost dev build, fresh profile, 10 minutes idle plus one local page. Each finding below must be gone, or on the allowlist with a reason, before Phase 1 exits.
+   **Baseline measured 2026-09-30** with `tools/egress_audit.py`: the first Ghost dev build, fresh profile, 10 minutes idle plus one local page. Each request was traced to its sender through its traffic annotation. **Measured again the same day** with the fixes below: no unexpected hosts.
 
-   | Hosts | Source | Planned fix |
+   | Hosts | Sender | Fix |
    |---|---|---|
-   | `update.googleapis.com` | Component updater | Disable until our update server exists (Phase 2) |
-   | `safebrowsing.googleapis.com` | Safe Browsing list updates, attempted with a dummy key | Disable in dev builds (release gate) |
-   | `android.clients.google.com` (`/checkin`), `mtalk.google.com` | GCM check-in and persistent push connection | Disable GCM |
-   | `accounts.google.com` (`/ListAccounts`) | Account consistency and sign-in machinery | Disable sign-in; needs a hook after keyed-service pref registration |
-   | `www.google.com`, `www.gstatic.com`, `ogads-pa.clients6.google.com`, `play.google.com` (`/log`) | New Tab page with Google as the default search engine, loading Google's bar and its logging | Change the default search engine and NTP |
-   | `clients2.google.com` (`/time`) | Network time tracker | Decide: disable, or allowlist with reason (certificate clock checks) |
-   | `chromewebstore.googleapis.com`, `clients2.googleusercontent.com` | An extension pushed by another program through `HKLM\…\Google\Chrome\Extensions`, which Chromium reads whatever its brand; the CRX is downloaded before the user is asked | Stop honouring registry-pushed extensions, or require consent before any download |
-   | `2001:4860:4860::8888` | DNS-over-HTTPS automatic upgrade of the system resolver | By design (privacy-model.md); allowlist as the system resolver's DoH endpoint |
+   | `update.googleapis.com` | Component updater | `--disable-component-update`, appended at startup by `ghost::BrowserMainExtraParts` (patch 0005). It comes back, pointed at our update server, in Phase 2. Until then, security data delivered as components, such as CRLSet and certificate transparency log lists, is not updated. |
+   | `safebrowsing.googleapis.com` | Safe Browsing list updates | `safebrowsing.enabled` defaults to off; lists update only while some profile has it on. Release gate. |
+   | `android.clients.google.com` (`/checkin`), `mtalk.google.com` | GCM check-in and push connection | GCM starts only with `GhostGoogleCloudMessaging` (patch 0006). Web Push does not work until we decide how to offer it. |
+   | `accounts.google.com` (`/ListAccounts`) | Readers of the list of Google accounts signed in on the web: at startup, and whenever Google's sign-in cookies change. Browser sign-in itself is already off in builds without API keys. | The request is sent only with `GhostGoogleAccountsInCookieJar` (patch 0009). |
+   | `www.google.com`, `www.gstatic.com`, `ogads-pa.clients6.google.com`, `play.google.com` (`/log`) | New Tab page with Google as the default search engine (logo, Google's bar and its logging, promos); AI Mode's eligibility check (`/async/folae`) | DuckDuckGo is the fallback search engine (patch 0007). Prepopulated engines' remote New Tab pages are dropped, so the page stays local (patch 0008). AI Mode is off (`AimEnabled`). |
+   | `clients2.google.com` (`/time`) | Network time tracker | `NetworkTimeServiceQuerying` off. Certificate errors caused by a wrong clock are recognised against the build time instead, as on ChromeOS. |
+   | `chromewebstore.googleapis.com`, `clients2.googleusercontent.com`, `clients2.google.com` (`/service/update2/crx`) | An extension pushed by another program through `HKLM\…\Google\Chrome\Extensions`, which Chromium reads whatever its brand, and downloaded before the user is asked | `extensions.block_external_extensions` defaults to on, which removes the registry source. Policy-installed and user-installed extensions are unaffected. |
+   | `2001:4860:4860::8888` | Not traffic: the host resolver's IPv6 reachability probe, a UDP connect that sends nothing. The baseline attributed it to DNS-over-HTTPS. | The audit reports UDP sockets that carried no datagram as route probes, which never fail it. |
+
+   **Found outside the idle audit**, while a page with a form was open during an audit run: Autofill sent the structure of every form to `content-autofill.googleapis.com` to have its fields classified. `AutofillServerCommunication` is off; Autofill fills from local heuristics. Step 7's audit scenarios should load pages with forms, search, and sign in to a site, so that user-triggered senders like this one are measured too.
+
+   Each fix has a test that fails without it: `ghost_unittests` for prefs, startup switches and the account list; `ghost_browsertests` for features, GCM, the search engine and the New Tab page.
+
+   **Default search engine: DuckDuckGo.** It is in 123 of Chromium's 134 regional lists and comes from the full list elsewhere, and being the default requires no agreement. Whether to replace it under a commercial agreement is a release gate ([licensing.md](licensing.md#release-gates)). A user who picks Google gets Google's New Tab page, with its logo, bar and promos.
 
    **Also found while measuring:**
    - Dev builds activated `fieldtrial_testing_config.json` experiments until `disable_fieldtrial_testing_config` was set in `build/args/dev.gn`.

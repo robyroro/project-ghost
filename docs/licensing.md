@@ -81,6 +81,7 @@ These must be settled, and recorded in an ADR, before the first public build.
 | Google API keys | Chromium forks may not ship Google's keys | Features that depend on Google APIs stay disabled (already our default) |
 | Mirroring Google components | Terms for redistributing CRLSet, certificate transparency data and file-type policies from our servers | Clients must fetch them from Google directly, which is a disclosed exception on the egress allowlist |
 | Chrome Web Store | Using the store from a third-party browser; update requests go to Google | Disclose; consider a privacy-preserving update proxy later |
+| Default search engine | DuckDuckGo is the default without any agreement; whether to take a revenue agreement with a search provider, and on what privacy terms | DuckDuckGo stays the default, with no search revenue |
 
 ## Trademarks
 

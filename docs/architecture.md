@@ -82,7 +82,7 @@ Planned components:
 
 The rule is in [ADR 0004](adr/0004-patch-strategy.md): use upstream extension points first. Where none exists, a minimal hook patch calls into `//ghost`.
 
-**Extension points that need no patch:**
+**Extension points that need no patch beyond their one-time registration hook:**
 
 | Mechanism | Used for |
 |---|---|
@@ -98,8 +98,10 @@ The rule is in [ADR 0004](adr/0004-patch-strategy.md): use upstream extension po
 **Hook patches expected in Phase 1:**
 - adding `//ghost` targets to `chrome` and the test targets to `gn_all`;
 - selecting our branding directory;
+- adding our `ChromeBrowserMainExtraParts`;
 - instantiating our `ContentBrowserClient` subclass;
-- calling our pref and feature default registration.
+- calling our pref and feature default registration;
+- turning off Google services that no switch, pref or feature controls: GCM, the web-account list fetched from Google, Google as the fallback search engine, and search engines' remote New Tab pages.
 
 Each hook is a few lines, and the series stays small enough to review in one sitting.
 
