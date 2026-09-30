@@ -14,13 +14,29 @@ import egress_audit
 # the constants table rather than assume ids.
 CONSTANTS = {"logEventTypes": {"URL_REQUEST_START_JOB": 104, "HOST_RESOLVER_MANAGER_REQUEST": 7,
                                "TCP_CONNECT": 51, "HTTP_STREAM_POOL_ATTEMPT_MANAGER_ALIVE": 300,
-                               "UDP_CONNECT": 60, "UDP_LOCAL_ADDRESS": 61,
-                               "HOST_RESOLVER_DNS_TASK": 8, "HOST_RESOLVER_MANAGER_CACHE_HIT": 9}}
+                               "UDP_CONNECT": 60, "UDP_LOCAL_ADDRESS": 61, "UDP_BYTES_SENT": 62,
+                               "SOCKET_ALIVE": 63, "SOCKET_CONNECT": 64,
+                               "HOST_RESOLVER_DNS_TASK": 8, "HOST_RESOLVER_MANAGER_CACHE_HIT": 9},
+             "logSourceType": {"URL_REQUEST": 1, "HOST_RESOLVER_IMPL_JOB": 2, "UDP_SOCKET": 20,
+                               "UDP_CLIENT_SOCKET": 21}}
+URL_REQUEST, RESOLVER_JOB, UDP_SOCKET, UDP_CLIENT_SOCKET = 1, 2, 20, 21
 
 
-def event(type_id, params):
-    return {"source": {"id": 1, "type": 1}, "type": type_id, "time": "1", "phase": 1,
-            "params": params}
+def event(type_id, params, source_id=1, source_type=URL_REQUEST):
+    return {"source": {"id": source_id, "type": source_type}, "type": type_id, "time": "1",
+            "phase": 1, "params": params}
+
+
+def udp_socket(source_id, address, wrapper_id=None, sent=False):
+    """Events of one UDP_SOCKET source, optionally wrapped by a UDP_CLIENT_SOCKET."""
+    events = []
+    if wrapper_id is not None:
+        events.append(event(63, {"source_dependency": {"id": wrapper_id, "type": 21}},
+                            source_id, UDP_SOCKET))
+    events.append(event(60, {"address": address}, source_id, UDP_SOCKET))
+    if sent:
+        events.append(event(62, {"byte_count": 1200}, source_id, UDP_SOCKET))
+    return events
 
 
 def netlog(*events):
@@ -105,6 +121,40 @@ class ExtractTest(unittest.TestCase):
         self.assertEqual([d.host for d in result.dns], ["2001:db8::53"])
         self.assertEqual(result.unexpected, [])
 
+    def test_udp_connect_without_datagrams_is_a_route_probe(self):
+        # The shape HostResolverManager's IPv6 reachability probe leaves: the
+        # wrapper and its socket both connect, nothing is sent.
+        log = netlog(event(64, {"address": "[2001:4860:4860::8888]:443"}, 12, UDP_CLIENT_SOCKET),
+                     *udp_socket(13, "[2001:4860:4860::8888]:443", wrapper_id=12))
+        found = egress_audit.extract_destinations(log)
+        self.assertEqual(found["2001:4860:4860::8888"].kind, "probe")
+        self.assertEqual(found["2001:4860:4860::8888"].count, 2)
+
+    def test_udp_socket_that_sent_data_is_traffic(self):
+        # QUIC: the datagrams are logged on the socket, the connect on both it
+        # and its wrapper; neither may be taken for a probe.
+        log = netlog(event(64, {"address": "198.51.100.9:443"}, 12, UDP_CLIENT_SOCKET),
+                     *udp_socket(13, "198.51.100.9:443", wrapper_id=12, sent=True))
+        found = egress_audit.extract_destinations(log)
+        self.assertEqual(found["198.51.100.9"].kind, "ip")
+        self.assertEqual(found["198.51.100.9"].count, 2)
+
+    def test_only_udp_sockets_can_be_probes(self):
+        # A TCP connect sends a SYN, so it is traffic even if no data follows.
+        found = egress_audit.extract_destinations(netlog(
+            event(51, {"address_list": ["198.51.100.9:443"]}, 5, RESOLVER_JOB)))
+        self.assertEqual(found["198.51.100.9"].kind, "ip")
+
+    def test_route_probes_are_reported_separately_and_do_not_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "netlog.json"
+            path.write_text(json.dumps(netlog(*udp_socket(13, "[2001:db8::1]:443"))))
+            result = egress_audit.audit(path, [])
+        self.assertEqual([d.host for d in result.probes], ["2001:db8::1"])
+        self.assertEqual(result.unexpected, [])
+        self.assertIn("0 DNS resolver(s) and 1 route probe(s) (not counted).",
+                      egress_audit.format_report(result))
+
     def test_unknown_event_type_is_still_audited(self):
         found = egress_audit.extract_destinations(netlog(event(9999, {"url": "https://x.example/"})))
         self.assertEqual(found["x.example"].first_event, "type 9999")
@@ -168,7 +218,8 @@ class AuditTest(unittest.TestCase):
         self.assertEqual([d.host for d in result.allowed], ["update.example.org"])
         self.assertEqual([d.host for d in result.unexpected], ["tracker.example.com"])
         report = egress_audit.format_report(result)
-        self.assertIn("1 unexpected, 1 allowed, 0 DNS resolver(s) (not counted).", report)
+        self.assertIn("1 unexpected, 1 allowed, 0 DNS resolver(s) and 0 route probe(s) "
+                      "(not counted).", report)
 
 
 class RunnerPiecesTest(unittest.TestCase):

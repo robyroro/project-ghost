@@ -53,6 +53,10 @@ _URL_RE = re.compile(r"^([a-z][a-z0-9+.-]*)://(\[[^\]]+\]|[^/:?#\s]+)", re.IGNOR
 _HOST = r"(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*|\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-f:.]+\]"
 _HOST_TOKEN_RE = re.compile(rf"^({_HOST})(?::\d+)?$", re.IGNORECASE)
 _IP_PORT_RE = re.compile(r"^(\[[0-9a-f:.]+\]|\d{1,3}(?:\.\d{1,3}){3}):\d+$", re.IGNORECASE)
+# Logged on the UDP_SOCKET source whenever a datagram is sent or received, in
+# every capture mode.
+_UDP_DATA_EVENTS = {"UDP_BYTES_SENT", "UDP_BYTES_RECEIVED", "UDP_SEND_ERROR",
+                    "UDP_RECEIVE_ERROR"}
 
 
 @dataclass
@@ -62,6 +66,8 @@ class Destination:
     # "host": a name, or an IP a name was resolved to in this log.
     # "ip": an address connected to without any resolution in the log.
     # "dns": the system's DNS resolver (port 53); reported, never a failure.
+    # "probe": a UDP socket connected to find a route, with nothing sent;
+    #          reported, never a failure.
     kind: str = "host"
     count: int = 0
     examples: list[str] = field(default_factory=list)
@@ -150,9 +156,39 @@ def resolved_addresses(netlog: dict) -> dict[str, str]:
     return names
 
 
+def udp_probe_sources(netlog: dict) -> set[int]:
+    """Returns the ids of UDP sockets that connected but never carried a datagram.
+
+    Connecting a UDP socket sends nothing: the OS only picks a route. Chromium
+    probes reachability that way; HostResolverManager's IPv6 probe connects to
+    [2001:4860:4860::8888]:443 and closes the socket. Datagrams are logged on
+    the UDP_SOCKET source, which names the UDP_CLIENT_SOCKET wrapping it as its
+    source_dependency, so a wrapper carried data if its socket did.
+    """
+    constants = netlog.get("constants", {})
+    types = {v: k for k, v in constants.get("logEventTypes", {}).items()}
+    source_types = {v: k for k, v in constants.get("logSourceType", {}).items()}
+    udp: set[int] = set()
+    carried_data: set[int] = set()
+    owner: dict[int, int] = {}
+    for event in netlog.get("events", []):
+        source = event.get("source", {})
+        if "UDP" not in source_types.get(source.get("type"), ""):
+            continue
+        udp.add(source.get("id"))
+        if types.get(event.get("type")) in _UDP_DATA_EVENTS:
+            carried_data.add(source.get("id"))
+        dependency = (event.get("params") or {}).get("source_dependency")
+        if isinstance(dependency, dict) and "id" in dependency:
+            owner[source.get("id")] = dependency["id"]
+    carried_data |= {owner[s] for s in carried_data if s in owner}
+    return udp - carried_data
+
+
 def extract_destinations(netlog: dict) -> dict[str, Destination]:
     types = {v: k for k, v in netlog.get("constants", {}).get("logEventTypes", {}).items()}
     by_ip = resolved_addresses(netlog)
+    probes = udp_probe_sources(netlog)
     found: dict[str, Destination] = {}
 
     def record(key: str, kind: str, event_name: str, raw: str) -> None:
@@ -182,7 +218,9 @@ def extract_destinations(netlog: dict) -> dict[str, Destination]:
             ip = m.group(1).strip("[]").lower()
             if ip in _LOOPBACK or ip.startswith("127."):
                 continue
-            if raw.endswith(":53"):
+            if event.get("source", {}).get("id") in probes:
+                record(ip, "probe", name, raw)
+            elif raw.endswith(":53"):
                 record(ip, "dns", name, raw)
             elif ip in by_ip:
                 record(by_ip[ip], "host", name, raw)
@@ -218,28 +256,31 @@ class AuditResult:
     unexpected: list[Destination]
     allowed: list[Destination]
     dns: list[Destination]
+    probes: list[Destination]
 
 
 def audit(netlog_path: Path, allowlist: list[dict]) -> AuditResult:
     found = extract_destinations(load_netlog(netlog_path))
     ordered = sorted(found.values(), key=lambda d: (d.kind != "host", d.host))
-    checked = [d for d in ordered if d.kind != "dns"]
+    checked = [d for d in ordered if d.kind not in ("dns", "probe")]
     return AuditResult(
         unexpected=[d for d in checked if not is_allowed(d.host, allowlist)],
         allowed=[d for d in checked if is_allowed(d.host, allowlist)],
-        dns=[d for d in ordered if d.kind == "dns"])
+        dns=[d for d in ordered if d.kind == "dns"],
+        probes=[d for d in ordered if d.kind == "probe"])
 
 
 def format_report(result: AuditResult) -> str:
     lines = []
     for title, rows in (("UNEXPECTED", result.unexpected), ("allowed", result.allowed),
-                        ("dns", result.dns)):
+                        ("dns", result.dns), ("probe", result.probes)):
         for d in rows:
             label = d.host if d.kind != "ip" else f"{d.host} (raw IP, never resolved)"
             lines.append(f"{title:10} {label:45} x{d.count:<4} first seen in {d.first_event}")
             lines += [f"{'':10}   e.g. {example}" for example in d.examples]
     lines.append(f"{len(result.unexpected)} unexpected, {len(result.allowed)} allowed, "
-                 f"{len(result.dns)} DNS resolver(s) (not counted).")
+                 f"{len(result.dns)} DNS resolver(s) and {len(result.probes)} route probe(s) "
+                 f"(not counted).")
     return "\n".join(lines)
 
 
