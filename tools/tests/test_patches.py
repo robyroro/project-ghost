@@ -212,3 +212,77 @@ class StatsTest(SeriesTestCase):
     def test_large_patch_needs_second_reviewer(self):
         row = patches.PatchStat("p", 1, patches.LARGE_PATCH_LINES, 1, sensitive=False)
         self.assertTrue(row.needs_second_reviewer)
+
+
+class CanaryTest(SeriesTestCase):
+    """Applying the series onto another upstream revision without a checkout."""
+
+    def setUp(self):
+        super().setUp()
+        self.export()
+
+    def upstream_release(self, tag, files, deleted=()):
+        self.git(self.upstream, "checkout", "-q", TAG)
+        for rel in deleted:
+            (self.upstream / rel).unlink()
+        self.commit(self.upstream, files, f"Upstream {tag}")
+        self.git(self.upstream, "tag", tag)
+        self.git(self.src, "fetch", "-q", "origin", f"refs/tags/{tag}:refs/tags/{tag}")
+
+    def canary(self, onto):
+        return {r.patch: r for r in patches.canary(self.src, onto, self.patches_dir)}
+
+    def test_leaves_the_checkout_alone(self):
+        # A rebase would rewrite files in the checkout, and the build tool
+        # rebuilds whatever it sees modified.
+        head = self.git(self.src, "rev-parse", "HEAD")
+        prefs = self.src / "chrome/browser/prefs.cc"
+        before = (prefs.read_bytes(), prefs.stat().st_mtime_ns)
+        results = self.canary(TAG)
+        self.assertEqual({r.status for r in results.values()}, {"clean"})
+        self.assertEqual(self.git(self.src, "rev-parse", "HEAD"), head)
+        self.assertEqual(self.git(self.src, "status", "--porcelain"), "")
+        self.assertEqual((prefs.read_bytes(), prefs.stat().st_mtime_ns), before)
+
+    def test_moved_context_merges(self):
+        # Upstream changed a context line, one line away from ours.
+        self.upstream_release("101.0.0.0", {"chrome/browser/prefs.cc":
+                                            "void Register(int x) {\n  A();\n  B();\n}\n"})
+        results = self.canary("101.0.0.0")
+        self.assertEqual(results["0001-prefs-call-into-ghost.patch"].status, "merged")
+        self.assertEqual(results["0002-net-change-connect.patch"].status, "clean")
+
+    def test_conflicts_name_their_files_and_later_patches_still_run(self):
+        self.upstream_release("101.0.0.0", {"chrome/browser/prefs.cc":
+                                            "void Register() {\n  A();\n  C();\n  B();\n}\n"})
+        results = self.canary("101.0.0.0")
+        prefs = results["0001-prefs-call-into-ghost.patch"]
+        self.assertEqual((prefs.status, prefs.paths), ("conflict", ["chrome/browser/prefs.cc"]))
+        self.assertEqual(results["0002-net-change-connect.patch"].status, "clean")
+
+    def test_a_patch_to_a_deleted_file_fails(self):
+        self.upstream_release("101.0.0.0", {"README": "moved\n"}, deleted=["net/base/socket.cc"])
+        net = self.canary("101.0.0.0")["0002-net-change-connect.patch"]
+        self.assertEqual(net.status, "failed")
+        self.assertIn("net/base/socket.cc", net.detail)
+
+    def test_each_patch_applies_on_top_of_the_ones_before(self):
+        self.commit(self.src, {"chrome/browser/prefs.cc":
+                               "void Register() {\n  A();\n  ghost::RegisterAll();\n  B();\n}\n"},
+                    "prefs: register everything\n\n" + TRAILERS)
+        self.export()
+        results = self.canary(TAG)
+        self.assertEqual([r.status for r in results.values()], ["clean", "clean", "clean"])
+
+    def test_report_counts_the_patches_that_need_work(self):
+        self.upstream_release("101.0.0.0", {"chrome/browser/prefs.cc":
+                                            "void Register() {\n  A();\n  C();\n  B();\n}\n"})
+        report = patches.format_canary(patches.canary(self.src, "101.0.0.0", self.patches_dir),
+                                       "101.0.0.0")
+        self.assertIn("0001-prefs-call-into-ghost.patch", report)
+        self.assertIn("CONFLICT  chrome/browser/prefs.cc", report)
+        self.assertIn("1 of 2 patch(es) need work on 101.0.0.0", report)
+
+    def test_missing_revision_explains_how_to_fetch_it(self):
+        with self.assertRaisesRegex(patches.PatchError, "fetch --depth=1 origin tag 999.0.0.0"):
+            patches.canary(self.src, "refs/tags/999.0.0.0", self.patches_dir)

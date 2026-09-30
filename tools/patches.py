@@ -9,6 +9,8 @@ patches/ is the exported form of a branch in the Chromium checkout:
   export  regenerate patches/ from the commits between the tag and HEAD
   check   validate patch files (naming, required trailers, scope)
   stats   measure our divergence from upstream
+  canary  report which patches would conflict on another upstream revision,
+          without touching the checkout
 
 Edits happen with ordinary git in the Chromium checkout (commit, rebase -i,
 fixup); `export` turns the result back into files for review. Moving to a new
@@ -22,6 +24,7 @@ from __future__ import annotations
 import argparse
 import email.header
 import email.parser
+import os
 import re
 import subprocess
 import sys
@@ -67,9 +70,10 @@ class PatchError(Exception):
     pass
 
 
-def _git(src: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+def _git(src: Path, *args: str, check: bool = True,
+         env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     proc = subprocess.run(["git", "-C", str(src), *args], capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
+                          encoding="utf-8", errors="replace", env=env)
     if check and proc.returncode != 0:
         raise PatchError(f"git {' '.join(args)} failed:\n{proc.stderr.strip()}")
     return proc
@@ -133,6 +137,68 @@ def export(src: Path, base: str, patches_dir: Path) -> int:
           f"{len(new.keys() - old.keys())} added, {len(old.keys() - new.keys())} removed, "
           f"{changed} changed.")
     return 0
+
+
+@dataclass(frozen=True)
+class CanaryResult:
+    patch: str
+    # "clean": applies as it is. "merged": its context moved, and a three-way
+    # merge applies it. "conflict": the merge conflicts in `paths`.
+    # "failed": it can't be applied at all (`detail` says why).
+    status: str
+    paths: list[str]
+    detail: str = ""
+
+
+def canary(src: Path, onto: str, patches_dir: Path) -> list[CanaryResult]:
+    """Applies the series onto `onto` in a scratch index, patch by patch.
+
+    Nothing in the checkout changes: no files, no HEAD, no branches. A real
+    rebase would rewrite every patched file, and the build tool rebuilds what
+    it sees modified. Each patch is applied on top of the ones before it that
+    applied; a patch that doesn't apply is reported and left out.
+    """
+    _require_commit(src, onto)
+    results = []
+    with tempfile.TemporaryDirectory(prefix="canary-") as tmp:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
+        tree = _git(src, "rev-parse", f"{onto}^{{tree}}").stdout.strip()
+        for patch in list_patches(patches_dir):
+            _git(src, "read-tree", tree, env=env)
+            path = str(patch.resolve())
+            if _git(src, "apply", "--cached", "--check", path, check=False, env=env).returncode == 0:
+                _git(src, "apply", "--cached", path, env=env)
+                status, paths, detail = "clean", [], ""
+            else:
+                merge = _git(src, "apply", "--cached", "--3way", path, check=False, env=env)
+                unmerged = sorted({line.split("\t", 1)[1] for line in
+                                   _git(src, "ls-files", "-u", env=env).stdout.splitlines()})
+                if merge.returncode == 0:
+                    status, paths, detail = "merged", [], ""
+                elif unmerged:
+                    status, paths, detail = "conflict", unmerged, ""
+                else:
+                    status, paths, detail = "failed", [], merge.stderr.strip()
+            if status in ("clean", "merged"):
+                tree = _git(src, "write-tree", env=env).stdout.strip()
+            results.append(CanaryResult(patch.name, status, paths, detail))
+    return results
+
+
+def format_canary(results: list[CanaryResult], onto: str) -> str:
+    lines = []
+    for r in results:
+        if r.status == "conflict":
+            note = "CONFLICT  " + ", ".join(r.paths)
+        elif r.status == "failed":
+            note = "FAILED    " + r.detail.splitlines()[0] if r.detail else "FAILED"
+        else:
+            note = r.status
+        lines.append(f"{r.patch:<66} {note}")
+    work = sum(r.status in ("conflict", "failed") for r in results)
+    lines.append(f"{work} of {len(results)} patch(es) need work on {onto}; "
+                 f"{sum(r.status == 'merged' for r in results)} apply with moved context.")
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -282,6 +348,10 @@ def main(argv: list[str] | None = None) -> int:
                            help="recreate the branch if it already exists")
     sub.add_parser("check")
     sub.add_parser("stats")
+    c = sub.add_parser("canary")
+    c.add_argument("--src", type=Path, required=True, help="Chromium checkout (the src dir)")
+    c.add_argument("--onto", required=True,
+                   help="upstream revision to try the series on, e.g. refs/tags/<version>")
     args = parser.parse_args(argv)
 
     try:
@@ -289,6 +359,10 @@ def main(argv: list[str] | None = None) -> int:
             return apply(args.src, args.base, args.branch, args.patches_dir, args.force)
         if args.command == "export":
             return export(args.src, args.base, args.patches_dir)
+        if args.command == "canary":
+            results = canary(args.src, args.onto, args.patches_dir)
+            print(format_canary(results, args.onto))
+            return 1 if any(r.status in ("conflict", "failed") for r in results) else 0
     except PatchError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

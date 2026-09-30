@@ -75,6 +75,23 @@ python ghost/tools/patches.py stats                  # size, and which patches n
 
 ## Moving to a new release
 
+### Before moving: the canary
+
+`patches.py canary` reports how the series would fare on another upstream revision. It applies each patch in a scratch index and never touches the checkout. A real rebase would rewrite every patched file, and the build tool rebuilds whatever it sees modified.
+
+```
+git -C src fetch --depth=1 --no-tags origin +refs/tags/<version>:refs/tags/<version>
+python ghost\tools\patches.py canary --src src --onto refs/tags/<version>
+```
+
+Each patch is reported as:
+- `clean`: it applies as it is;
+- `merged`: its context moved, and a three-way merge applies it;
+- `CONFLICT` and its files: `git rebase` will stop there;
+- `FAILED`: it can't be applied at all, for example because upstream deleted the file.
+
+Patches that fail are left out, and the ones after them are tried on top of the rest. The command exits 1 when any patch needs work.
+
 ### A new security release of the same milestone
 
 1. Update `CHROMIUM_VERSION`, and `CHROMIUM_COMMIT` to the commit that chromiumdash lists for that release (`git ls-remote origin refs/tags/<new>` must agree).
@@ -85,7 +102,7 @@ python ghost/tools/patches.py stats                  # size, and which patches n
 
 ### A new milestone
 
-1. Check the nightly canary-rebase report. It lists the patches expected to conflict.
+1. Run the canary onto the new tag (above), or read the nightly canary report once the builder runs one. It lists the patches expected to conflict.
 2. Re-derive `build/requirements.json` from the new tag's `docs/windows_build_instructions.md` and `build/vs_toolchain.py`. `tools/repo.py` refuses to load requirements that name a different version.
 3. Rebase as above. Resolve conflicts, preferring to shrink a patch rather than grow it.
 4. **Review the milestone for new web-exposed APIs and new profile-scoped services.**
