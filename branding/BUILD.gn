@@ -1,0 +1,30 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import("//build/config/chrome_build.gni")
+
+# The installer's strings, with the product named from the branding file
+# (installer_strings.py). //chrome/installer/util:strings compiles this file in
+# place of the one generate_strings writes (patches/0010).
+action("installer_strings") {
+  visibility = [ "//chrome/installer/util:strings" ]
+  script = "installer_strings.py"
+
+  _generated = "$root_gen_dir/chrome/installer/util/installer_util_strings.rc"
+  inputs = [
+    _generated,
+    branding_file_path,
+  ]
+  outputs = [ "$target_gen_dir/installer_util_strings.rc" ]
+  args = [
+    "--branding",
+    rebase_path(branding_file_path, root_build_dir),
+    "--header",
+    "chrome/installer/util/installer_util_strings.h",
+    rebase_path(_generated, root_build_dir),
+    rebase_path(outputs[0], root_build_dir),
+  ]
+
+  deps = [ "//chrome/installer/util:generate_strings" ]
+}

@@ -6,6 +6,7 @@ Everything that names the product lives here. "Project Ghost" is a working name,
 |---|---|---|
 | `BRANDING` | Product and company name, copyright, in version resources and the About page | GN argument `branding_file_path` in `build/args/dev.gn`, no patch needed |
 | `install_modes.h` | Windows identity: user data and registry path, app name and AppUserModelID, ProgIDs, URL scheme, Active Setup and COM class ids, sandbox AppContainer SID prefix | Included by `chrome/install_static/install_modes.h` in place of Chromium's header (patch) |
+| `installer_strings.py`, `BUILD.gn` | The product and company names in the installer's strings: shortcuts, the Apps & features entry, firewall rules, installer messages. Names come from `BRANDING`; translations that can't name the product fall back to en-US. | `//chrome/installer/util:strings` compiles the rewritten file (patch) |
 
 ## Rules for changing values
 
@@ -20,4 +21,4 @@ Development builds show `Copyright @LASTCHANGE_YEAR@ …` in file properties. Th
 ## Not here yet
 
 - **Icons and logos:** Chromium's are used until the product has its own.
-- **Product name in UI strings:** Chromium's `chromium_strings.grd` still says "Chromium" in menus and dialogs. That's a separate change, because it touches hundreds of strings.
+- **Product name in UI strings:** Chromium's `chromium_strings.grd` still says "Chromium" in menus and dialogs. That's a separate change, because it touches hundreds of strings. The installer's 20 strings are already renamed, by rewriting the generated file: renaming in the `.grd` would unmatch every translation, which is keyed by a fingerprint of the English text.

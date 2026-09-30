@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 09:27:37 +0300
+Subject: [PATCH] installer: compile the installer strings Ghost's branding
+ names
+
+The installer's strings come from chromium_strings.grd, so shortcuts, the
+Apps & features entry, firewall rules and installer messages say
+"Chromium", and a Ghost install would share its Start menu shortcut name
+with an installed Chromium. //ghost/branding:installer_strings rewrites
+the generated .rc with the product named from the branding file; the
+strings target compiles that file instead, and generate_strings lets it
+read its output.
+
+Why: the strings target compiles generate_strings' outputs directly; there is no argument to post-process them.
+Upstream: not upstreamable: product-specific branding
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/installer/util/BUILD.gn b/chrome/installer/util/BUILD.gn
+index 798db1ade36cebd8c1eb9248ccb2de049df7dd75..4ec6f18220de28ffd165cfda099e84500657a08f 100644
+--- a/chrome/installer/util/BUILD.gn
++++ b/chrome/installer/util/BUILD.gn
+@@ -227,6 +227,7 @@ generate_embedded_i18n("generate_strings") {
+   visibility = [
+     ":strings",
+     ":with_no_strings",
++    "//ghost/branding:installer_strings",
+   ]
+   extractor_datafile =
+       "//chrome/installer/util/prebuild/create_installer_string_rc.py"
+@@ -246,10 +247,16 @@ generate_embedded_i18n("generate_strings") {
+   branding = branding_path_product
+ }
+ 
+-# Compile the generated .rc file.
++# Compile the generated strings, with the product named by Ghost's branding.
+ source_set("strings") {
+-  sources = get_target_outputs(":generate_strings")
+-  public_deps = [ ":generate_strings" ]
++  sources = [
++    "$target_gen_dir/installer_util_strings.h",
++    "$root_gen_dir/ghost/branding/installer_util_strings.rc",
++  ]
++  public_deps = [
++    ":generate_strings",
++    "//ghost/branding:installer_strings",
++  ]
+ }
+ 
+ source_set("constants") {

@@ -97,7 +97,7 @@ The rule is in [ADR 0004](adr/0004-patch-strategy.md): use upstream extension po
 
 **Hook patches expected in Phase 1:**
 - adding `//ghost` targets to `chrome` and the test targets to `gn_all`;
-- selecting our branding directory;
+- selecting our branding directory, and compiling the installer strings it names the product in;
 - adding our `ChromeBrowserMainExtraParts`;
 - instantiating our `ContentBrowserClient` subclass;
 - calling our pref and feature default registration;
