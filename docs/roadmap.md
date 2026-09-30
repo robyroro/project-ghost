@@ -1,6 +1,6 @@
 # Roadmap
 
-**Current phase: 0 (foundations).**
+**Current phase: 1 (browser shell).** Phase 0 is complete apart from the conduct contact address.
 
 The phases run in an order chosen to retire the largest risks first. Before any privacy feature is built, we prove that we can build, ship and update Chromium ourselves (Phases 1–2). Keeping up with upstream security releases is the thing most likely to fail for a small team.
 
