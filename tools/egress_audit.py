@@ -7,6 +7,7 @@
   run    launch a browser build on a fresh profile with a NetLog, leave it idle,
          load a local page, act out the scenarios, close it, then audit the log
   parse  audit an existing NetLog
+  scrub  reduce a NetLog to what the audit reads, as a test fixture
 
 The scenarios do what users do on a site, on pages served from loopback:
 "address" fills in and submits a shipping address, "login" signs in with a
@@ -28,6 +29,7 @@ from __future__ import annotations
 import argparse
 import html.parser
 import http.server
+import ipaddress
 import json
 import re
 import secrets
@@ -280,6 +282,103 @@ def extract_destinations(netlog: dict) -> dict[str, Destination]:
             else:
                 record(ip, "ip", name, raw)
     return found
+
+
+# --- Scrubbing logs into test fixtures ----------------------------------------
+
+# Parameter keys the audit reads, at any depth. Scrubbing keeps these and drops
+# everything else: headers, certificates, network adapters, DNS configuration.
+_SCRUB_KEEP = _HOST_KEYS | _ADDRESS_KEYS | {
+    "source_dependency", "id", "type",  # which UDP socket wraps which
+    "results", "domain_name", "endpoints", "aliases", "ip_endpoints", "endpoint_address"}
+_DOC_RESOLVERS = {4: ipaddress.ip_address("192.0.2.53"), 6: ipaddress.ip_address("2001:db8::53")}
+# Reserved for documentation (RFC 5737, RFC 3849): never a real machine's address.
+_DOCUMENTATION_NETS = [ipaddress.ip_network(n) for n in
+                       ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24", "2001:db8::/32")]
+
+
+def _keep(value):
+    if isinstance(value, dict):
+        return {k: _keep(v) for k, v in value.items() if k in _SCRUB_KEEP}
+    if isinstance(value, list):
+        return [_keep(v) for v in value]
+    return value
+
+
+def _replace_addresses(value, mapping: dict[str, str]):
+    if isinstance(value, dict):
+        return {k: (_replace_one(v, mapping) if k in _ADDRESS_KEYS else
+                    _replace_addresses(v, mapping)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_replace_addresses(v, mapping) for v in value]
+    return value
+
+
+def _replace_one(value, mapping: dict[str, str]):
+    if isinstance(value, list):
+        return [_replace_one(v, mapping) for v in value]
+    m = _IP_PORT_RE.match(value) if isinstance(value, str) else None
+    if not m or m.group(1).strip("[]").lower() not in mapping:
+        return value
+    new = mapping[m.group(1).strip("[]").lower()]
+    host = f"[{new}]" if ":" in new else new
+    return host + value[len(m.group(1)):]
+
+
+def scrub(netlog: dict) -> dict:
+    """Reduces a NetLog to what the audit reads, to be committed as a fixture.
+
+    The DNS resolvers' addresses, which identify the capturing network, become
+    documentation addresses. Raises if an address that is neither public nor
+    loopback survives, rather than write it out.
+    """
+    constants = netlog.get("constants", {})
+    types = {v: k for k, v in constants.get("logEventTypes", {}).items()}
+    kept = []
+    for event in netlog.get("events", []):
+        name = types.get(event.get("type"), "")
+        if "LOCAL_ADDRESS" in name:
+            continue
+        params = _keep(event.get("params") or {})
+        if params or name in _UDP_DATA_EVENTS:
+            kept.append({"source": _keep(event.get("source", {})), "type": event.get("type"),
+                         "phase": event.get("phase"), "params": params})
+    out = {"constants": {k: constants[k] for k in ("logEventTypes", "logSourceType")
+                         if k in constants},
+           "events": kept}
+
+    resolvers = sorted({d.host for d in extract_destinations(out).values() if d.kind == "dns"})
+    mapping, used = {}, {4: 0, 6: 0}
+    for ip in resolvers:
+        version = ipaddress.ip_address(ip).version
+        mapping[ip] = str(_DOC_RESOLVERS[version] + (used[version] << (16 if version == 6 else 0)))
+        used[version] += 1
+    out["events"] = [_replace_addresses(e, mapping) for e in out["events"]]
+
+    private = sorted({ip for e in out["events"] for raw in _walk(e["params"], _ADDRESS_KEYS)
+                      if (m := _IP_PORT_RE.match(raw) or re.match(r"^([0-9a-f:.]+)$", raw, re.I))
+                      and not _publishable(ip := m.group(1).strip("[]").lower())})
+    if private:
+        raise ValueError(f"non-public addresses survived scrubbing: {', '.join(private)}")
+    return out
+
+
+def _publishable(ip: str) -> bool:
+    """Public, loopback or documentation addresses; anything else identifies a network."""
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return True  # not an address
+    return (address.is_global or address.is_loopback
+            or any(address in net for net in _DOCUMENTATION_NETS))
+
+
+def write_fixture(netlog: dict, path: Path) -> None:
+    """Writes one event per line, so fixture changes read well in review."""
+    lines = [json.dumps(e, sort_keys=True) for e in netlog["events"]]
+    path.write_text('{"constants": ' + json.dumps(netlog["constants"], sort_keys=True)
+                    + ',\n"events": [\n' + ",\n".join(lines) + "\n]}\n", encoding="utf-8",
+                    newline="\n")
 
 
 def load_allowlist(path: Path = ALLOWLIST) -> list[dict]:
@@ -573,8 +672,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--netlog", type=Path, help="where to keep the NetLog (default: temp)")
     r.add_argument("--scenarios", type=parse_scenarios, default=SCENARIO_NAMES,
                    help=f"comma-separated, or all (default): {', '.join(SCENARIO_NAMES)}")
+    s = sub.add_parser("scrub")
+    s.add_argument("netlog", type=Path)
+    s.add_argument("output", type=Path)
     args = parser.parse_args(argv)
 
+    if args.command == "scrub":
+        write_fixture(scrub(load_netlog(args.netlog)), args.output)
+        print(f"wrote {args.output}; read it through before committing it")
+        return 0
     allowlist = load_allowlist(args.allowlist)
     phases: list[tuple[str, float]] = []
     if args.command == "run":

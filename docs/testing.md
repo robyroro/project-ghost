@@ -27,6 +27,7 @@
   - **Scenarios** do what users do on a site, on pages in `test/egress/site/` served from loopback: `address` fills in and submits a shipping address, and `login` signs in with a username and a fresh random password. Clicks and key presses go through DevTools' input pipeline, so Autofill and the password manager see a user typing. `--scenarios` picks a subset.
   - The report names the phase (`startup`, `idle`, `local page`, a scenario, `shutdown`) in which each host was first seen.
   - `parse <netlog>` audits an existing log.
+  - `scrub <netlog> <output>` reduces a log to what the audit reads, as a parser test fixture ([test/egress/netlogs](../test/egress/netlogs/README.md)).
   - Hosts are found by parameter name (`url`, `host`, `stream_key`, …) rather than by event type, so new NetLog events in later milestones are still covered.
   - **Reported but not counted:**
     - the system's DNS resolver;

@@ -291,6 +291,97 @@ class PhaseTest(unittest.TestCase):
         self.assertNotIn("during", egress_audit.format_report(result))
 
 
+class ScrubTest(unittest.TestCase):
+    """Scrubbed logs are committed as fixtures; they must keep what the audit
+    reads and nothing about the machine that captured them."""
+
+    RAW = {
+        "constants": {**CONSTANTS, "clientInfo": {"command_line": "C:\\Users\\someone\\chrome.exe"},
+                      "timeTickOffset": 1_000_000},
+        "events": [
+            event(104, {"url": "https://leak.example/lookup", "method": "POST",
+                        "request_headers": {"headers": ["x-goog-api-key: dummytoken"]}}),
+            event(8, {"results": [{"domain_name": "leak.example",
+                                   "endpoints": [{"address": "203.0.113.7", "port": 0}]}],
+                      "nameservers": ["192.168.1.1"]}, 2, RESOLVER_JOB),
+            event(51, {"address_list": ["203.0.113.7:443"], "local_address": "192.168.1.20:5000"},
+                  3, RESOLVER_JOB),
+            event(61, {"address": "192.168.1.20:57125"}, 4, UDP_SOCKET),
+            event(60, {"address": "[2a02:db8:1234::1]:53"}, 5, UDP_SOCKET),
+            event(62, {"byte_count": 40}, 5, UDP_SOCKET),
+            event(60, {"address": "192.168.1.1:53"}, 6, UDP_SOCKET),
+            event(62, {"byte_count": 40}, 6, UDP_SOCKET),
+            *udp_socket(13, "[2001:4860:4860::8888]:443"),
+            event(7, {"adapters": [{"AdapterName": "{GUID}", "address": "fe80::1"}]}, 7),
+        ],
+    }
+
+    def scrub(self):
+        return egress_audit.scrub(copy.deepcopy(self.RAW))
+
+    def audit_of(self, log):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "netlog.json"
+            path.write_text(json.dumps(log))
+            result = egress_audit.audit(path, [])
+        return {d.host: (d.kind, d.count) for d in
+                result.unexpected + result.allowed + result.dns + result.probes}
+
+    def test_audit_result_is_unchanged_apart_from_resolver_addresses(self):
+        before, after = self.audit_of(self.RAW), self.audit_of(self.scrub())
+        self.assertEqual(before.pop("2a02:db8:1234::1"), ("dns", 1))
+        self.assertEqual(before.pop("192.168.1.1"), ("dns", 1))
+        self.assertEqual(after.pop("2001:db8::53"), ("dns", 1))
+        self.assertEqual(after.pop("192.0.2.53"), ("dns", 1))
+        self.assertEqual(before, after)
+
+    def test_keeps_only_what_the_audit_reads(self):
+        text = json.dumps(self.scrub())
+        for private in ("someone", "dummytoken", "192.168.1", "2a02:db8:1234", "fe80::1",
+                        "AdapterName", "timeTickOffset", "method"):
+            self.assertNotIn(private, text)
+
+    def test_refuses_to_keep_an_address_on_the_local_network(self):
+        # A connection to a LAN device is not a resolver, so nothing would
+        # replace its address; it must stop the scrub rather than be written.
+        log = copy.deepcopy(self.RAW)
+        log["events"].append(event(51, {"address_list": ["192.168.1.50:8080"]}, 9, RESOLVER_JOB))
+        with self.assertRaisesRegex(ValueError, "192.168.1.50"):
+            egress_audit.scrub(log)
+
+    def test_keeps_the_datagram_events_that_tell_probes_from_traffic(self):
+        types = [e["type"] for e in self.scrub()["events"]]
+        self.assertEqual(types.count(62), 2)
+
+
+class RealNetLogTest(unittest.TestCase):
+    """A NetLog from our own build (test/egress/netlogs/README.md), captured
+    before the password leak check was turned off."""
+
+    FIXTURE = egress_audit.repo.REPO_ROOT / "test" / "egress" / "netlogs" / \
+        "scenarios-152.0.7977.140.json"
+
+    def setUp(self):
+        self.result = egress_audit.audit(self.FIXTURE, [])
+
+    def test_finds_the_leak_check(self):
+        self.assertEqual([(d.host, d.kind, d.first_event) for d in self.result.unexpected],
+                         [("passwordsleakcheck-pa.googleapis.com", "host", "CORS_REQUEST")])
+
+    def test_classifies_what_is_not_counted(self):
+        self.assertEqual([d.host for d in self.result.dns], ["2001:db8::53"])
+        self.assertEqual([d.host for d in self.result.probes], ["2001:4860:4860::8888"])
+        self.assertEqual([d.host for d in self.result.proxy], ["wpad"])
+
+    def test_every_connection_is_attributed_to_a_resolved_name(self):
+        found = egress_audit.extract_destinations(egress_audit.load_netlog(self.FIXTURE))
+        self.assertEqual([d.host for d in found.values() if d.kind == "ip"], [])
+
+    def test_fixture_holds_only_what_scrubbing_keeps(self):
+        log = egress_audit.load_netlog(self.FIXTURE)
+        self.assertEqual(egress_audit.scrub(copy.deepcopy(log)), log)
+
+
 class SiteTest(unittest.TestCase):
     def setUp(self):
         self.server, self.url = egress_audit.serve_site()
