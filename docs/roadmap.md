@@ -152,6 +152,14 @@ Remaining before Phase 0 closes:
 
    **Measured again** with the fix: 10 minutes idle, the local page, and both scenarios, with no unexpected hosts. No name was resolved on the internet during the whole run.
 8. **Installer.** The `mini_installer` target, plus a smoke test: silent per-user install, registry and shortcut checks, launch, uninstall, cleanup check. Runs in Windows Sandbox or a VM.
+
+   **Done 2026-09-30.** `tools/installer_smoke.py sandbox` passes on the dev build. It installs, launches and uninstalls in Windows Sandbox, and nothing is left behind ([testing.md](testing.md)).
+
+   **Found on the way:**
+   - The installer's strings said "Chromium" in shortcuts, Apps & features and installer messages. `branding/installer_strings.py` and patch 0010 now take the product name from `BRANDING`. The browser's own UI strings still say Chromium ([branding/README.md](../branding/README.md)).
+   - Uninstall left the PDF ProgID behind. This is an upstream bug, [crbug.com/40384442](https://crbug.com/40384442), and patch 0011 fixes it.
+
+   **Not covered yet:** system-level installs, and an official build's installer, which is signed from Phase 2.
 9. **Versioning ADR.** `chrome/VERSION` stays upstream, because the User-Agent derives from it. A separate product version (`<major>.<chromium major>.<release>`) is used by the installer, updater and About page.
 10. **Build host runbook.** Runbook and scripts for a self-hosted Windows builder. Registering it with CI requires maintainer approval.
 
