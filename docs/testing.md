@@ -65,15 +65,16 @@ The tooling tests run git with system and global config disabled. The CI runners
 - `tooling.yml` runs the tooling tests and lint on Windows and Ubuntu for every push and pull request.
 - Actions are pinned by commit SHA, and the workflow token is read-only.
 
-**Self-hosted Windows build host, from Phase 1**
-- **Persistent checkout and build cache.** A clean Chromium build takes hours, so pull-request builds are incremental.
-- **Pull requests:** apply the series, build `chrome`, `ghost_unittests` and `ghost_browsertests`, and run them.
-- **Nightly:**
-  - an official-configuration build and the installer;
-  - the egress audit and the isolation suite;
+**Self-hosted Windows build host, from Phase 1.** `tools/builder.py` runs the builds, and `.github/workflows/build.yml` schedules them. Setup and operation are in the [runbook](build/build-host.md).
+- **Persistent checkout and build cache.** A clean Chromium build takes hours, so pull-request builds are incremental. Chromium is re-synced only when the pin moves, and the series is re-applied only when it changes.
+- **Pull requests and pushes to `main`:** apply the series, build `chrome`, `ghost_unittests` and `ghost_browsertests`, and run them.
+- **Nightly, now:** the same, plus the installer, its smoke test, and the egress audit.
+- **Nightly, planned:**
+  - an official-configuration build;
+  - the isolation suite;
   - upstream suites, performance and compatibility runs;
   - the **canary rebase** of the series onto the current Beta tag ([ADR 0003](adr/0003-upstream-extended-stable.md)).
-- **Fork pull requests** never run automatically on self-hosted runners. A maintainer applies a label after reviewing the change.
+- **Fork pull requests** never run automatically on the builder. A maintainer adds the `safe to build` label after reviewing the change. Commits pushed afterwards need the label again.
 
 **Release pipeline, from Phase 2**
 - A separate builder that runs only tagged releases, from a clean checkout.

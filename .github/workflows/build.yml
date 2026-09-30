@@ -1,0 +1,53 @@
+# Chromium builds on the self-hosted Windows builder (docs/build/build-host.md):
+# pull requests and pushes to main build and run the Ghost test suites; the
+# nightly run adds the installer smoke test and the egress audit.
+#
+# Nothing runs until a maintainer has registered the builder and set the
+# repository variable GHOST_BUILDER to "enabled".
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 1 * * *"  # nightly, 01:00 UTC
+  workflow_dispatch:
+
+# The build only reads the repository. It uses no secrets.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Pull requests from forks run code on our machine, so they run only when
+    # a maintainer adds the "safe to build" label after reviewing them. Commits
+    # pushed afterwards don't run until the label is added again.
+    if: >-
+      vars.GHOST_BUILDER == 'enabled' && (
+        github.event_name != 'pull_request' ||
+        (github.event.pull_request.head.repo.full_name == github.repository &&
+         github.event.action != 'labeled') ||
+        (github.event.action == 'labeled' && github.event.label.name == 'safe to build'))
+    runs-on: [self-hosted, windows, ghost-builder]
+    timeout-minutes: 720
+    concurrency:
+      group: build-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      # Actions are pinned to commit SHAs; tags can be moved by whoever controls them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          # builder.py fetches the commit from this workspace into src/ghost;
+          # a full clone avoids fetching from a shallow repository.
+          fetch-depth: 0
+      - name: Build and test
+        run: >-
+          python tools/builder.py
+          ${{ github.event_name == 'schedule' && 'nightly' || 'pr' }}
+          --root "${{ vars.GHOST_BUILD_ROOT }}"
+          --commit "${{ github.sha }}"
+          --source .
+          ${{ vars.GHOST_BUILD_JOBS && format('--jobs {0}', vars.GHOST_BUILD_JOBS) || '' }}
