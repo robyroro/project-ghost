@@ -56,6 +56,7 @@ test("ghost_unittests") {
 test("ghost_browsertests") {
   sources = [
     "browser/features/feature_overrides_browsertest.cc",
+    "test/egress/omnibox_browsertest.cc",
     "test/google_services_browsertest.cc",
   ]
 
@@ -72,6 +73,9 @@ test("ghost_browsertests") {
     "//chrome/browser/search",
     "//chrome/browser/search_engines",
     "//chrome/browser/ssl",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui/location_bar",
+    "//chrome/browser/ui/omnibox",
     "//chrome/common",
     "//chrome/test:browser_tests_runner",
     "//chrome/test:test_support",
@@ -86,6 +90,7 @@ test("ghost_browsertests") {
     "//components/regional_capabilities",
     "//components/search_engines",
     "//content/test:test_support",
+    "//testing/gmock",
     "//testing/gtest",
     "//url",
   ]

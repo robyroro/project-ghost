@@ -33,6 +33,7 @@
     - the system's DNS resolver;
     - UDP route probes, which send nothing;
     - lookups of `wpad`, made to auto-detect a proxy while Windows' "Automatically detect settings" is on. Chromium follows the system's proxy settings, and networks that configure proxies this way depend on it.
+  - **The omnibox** is part of the browser's UI, which DevTools can't drive. `test/egress/omnibox_browsertest.cc` covers it in `ghost_browsertests`: it records every request the browser makes while the user types into the omnibox and searches, and fails on anything but the search itself.
   - **Blind spot:** NetLog sees only Chromium's network stack. Crashpad uploads crash reports from its own process, so crash upload stays disabled rather than relying on this audit.
   - **Not covered: payment cards.** Autofill handles cards only on HTTPS pages, and the loopback site is HTTP. Card requests to Google's payments servers carry an OAuth token for the signed-in Google account, and Ghost builds can't sign in.
 
