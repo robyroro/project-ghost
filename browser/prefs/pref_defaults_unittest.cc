@@ -16,9 +16,11 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "content/public/test/browser_task_environment.h"
+#include "extensions/browser/pref_names.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace ghost {
@@ -60,6 +62,21 @@ TEST_F(PrefDefaultsTest, SearchSuggestionsAreOff) {
 TEST_F(PrefDefaultsTest, TranslationIsNotOffered) {
   ExpectUsesDefault(translate::prefs::kOfferTranslateEnabled);
   EXPECT_FALSE(translate::TranslatePrefs(prefs()).IsOfferTranslateEnabled());
+}
+
+TEST_F(PrefDefaultsTest, SafeBrowsingIsOff) {
+  ExpectUsesDefault(prefs::kSafeBrowsingEnabled);
+  EXPECT_FALSE(safe_browsing::IsSafeBrowsingEnabled(*prefs()));
+  EXPECT_EQ(safe_browsing::GetSafeBrowsingState(*prefs()),
+            safe_browsing::SafeBrowsingState::NO_SAFE_BROWSING);
+}
+
+// ExternalProviderImpl reads this pref directly to decide whether to create
+// the Windows registry provider.
+TEST_F(PrefDefaultsTest, ExternalExtensionsAreBlocked) {
+  ExpectUsesDefault(extensions::pref_names::kBlockExternalExtensions);
+  EXPECT_TRUE(
+      prefs()->GetBoolean(extensions::pref_names::kBlockExternalExtensions));
 }
 
 }  // namespace

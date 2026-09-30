@@ -10,7 +10,9 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/translate/core/browser/translate_pref_names.h"
+#include "extensions/browser/pref_names.h"
 
 namespace ghost {
 
@@ -37,6 +39,23 @@ void OverrideProfilePrefDefaults(user_prefs::PrefRegistrySyncable* registry) {
   // not prompt users toward it by default.
   registry->SetDefaultPrefValue(translate::prefs::kOfferTranslateEnabled,
                                 base::Value(false));
+
+  // Safe Browsing downloads threat lists from Google and, depending on the
+  // mode, sends URL and download metadata to it. It stays off until the
+  // release gate in docs/licensing.md decides between Google's service, a
+  // privacy-preserving proxy, or none. Turning it off in every profile also
+  // stops the list updates, which run while any profile has it on.
+  registry->SetDefaultPrefValue(prefs::kSafeBrowsingEnabled,
+                                base::Value(false));
+
+  // Other programs install extensions into every Chromium-based browser by
+  // writing to HKLM\Software\Google\Chrome\Extensions, which upstream reads
+  // whatever the browser's brand. The browser downloads the extension from
+  // the Chrome Web Store before asking the user whether to enable it. On
+  // Windows this pref removes only that registry source; policy-installed and
+  // user-installed extensions are unaffected.
+  registry->SetDefaultPrefValue(
+      extensions::pref_names::kBlockExternalExtensions, base::Value(true));
 }
 
 }  // namespace ghost
