@@ -7,10 +7,14 @@
 // tests, and assert the resulting behaviour rather than the feature state.
 
 #include "base/command_line.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_first_mode_settings_tracker.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/network_time/network_time_tracker.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -28,6 +32,18 @@ IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest, MediaRouterIsDisabled) {
   EXPECT_FALSE(media_router::MediaRouterEnabled(GetProfile()));
+}
+
+IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest, NetworkTimeIsNotQueried) {
+  EXPECT_FALSE(g_browser_process->network_time_tracker()
+                   ->AreTimeFetchesEnabled());
+}
+
+IN_PROC_BROWSER_TEST_F(FeatureOverridesBrowserTest, AiModeIsDisabled) {
+  AimEligibilityService* service =
+      AimEligibilityServiceFactory::GetForProfile(GetProfile());
+  ASSERT_TRUE(service);
+  EXPECT_FALSE(service->IsAimAllowedByFeatureAndPolicy());
 }
 
 // Our overrides are defaults, not locks: an explicit --disable-features must
