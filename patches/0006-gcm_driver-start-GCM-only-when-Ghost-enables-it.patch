@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 02:37:53 +0300
+Subject: [PATCH] gcm_driver: start GCM only when Ghost enables it
+
+GCMDriverDesktop::EnsureStarted() returns GCM_DISABLED unless
+ghost::kGoogleCloudMessaging is enabled. Starting the GCM client checks
+in with android.clients.google.com and keeps a connection open to
+mtalk.google.com. Every caller already handles a client that cannot
+start, as it does when no app handler is registered.
+
+Why: GCM has no switch or pref that stops it from starting, and its
+keyed service cannot be left out because callers dereference it without
+checking.
+Upstream: not upstreamable: product-specific service policy
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/components/gcm_driver/BUILD.gn b/components/gcm_driver/BUILD.gn
+index 727e2b700e2cc3dbb474385b9971c0076f645ff8..c119f8932b371dcdf92968ec1b4b21bfc461be8c 100644
+--- a/components/gcm_driver/BUILD.gn
++++ b/components/gcm_driver/BUILD.gn
+@@ -106,6 +106,7 @@ static_library("gcm_driver") {
+     deps += [
+       "//components/crx_file",
+       "//components/version_info",
++      "//ghost/components/gcm_driver:features",
+       "//google_apis/gcm",
+     ]
+   }
+diff --git a/components/gcm_driver/gcm_driver_desktop.cc b/components/gcm_driver/gcm_driver_desktop.cc
+index 16e142aed302a67760eaae7ca62a45c92264d876..6a6fd6633394eb669f09699725b4d7ace7a7ed9d 100644
+--- a/components/gcm_driver/gcm_driver_desktop.cc
++++ b/components/gcm_driver/gcm_driver_desktop.cc
+@@ -28,6 +28,7 @@
+ #include "components/gcm_driver/system_encryptor.h"
+ #include "components/os_crypt/async/browser/os_crypt_async.h"
+ #include "components/os_crypt/async/common/encryptor.h"
++#include "ghost/components/gcm_driver/features.h"
+ #include "google_apis/gcm/engine/account_mapping.h"
+ #include "net/base/ip_endpoint.h"
+ #include "services/network/public/cpp/network_connection_tracker.h"
+@@ -1189,6 +1190,12 @@ GCMClient::Result GCMDriverDesktop::EnsureStarted(
+     GCMClient::StartMode start_mode) {
+   DCHECK(ui_thread_->RunsTasksInCurrentSequence());
+ 
++  // Starting the client checks in with Google and opens the push connection.
++  // Callers already handle a client that cannot start.
++  if (!base::FeatureList::IsEnabled(ghost::kGoogleCloudMessaging)) {
++    return GCMClient::GCM_DISABLED;
++  }
++
+   if (gcm_started_)
+     return GCMClient::SUCCESS;
+ 

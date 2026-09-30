@@ -46,7 +46,10 @@ test("ghost_unittests") {
 # Tests that need chrome's real startup sequence (feature list creation,
 # profile creation). Modelled on upstream's browser_tests.
 test("ghost_browsertests") {
-  sources = [ "browser/features/feature_overrides_browsertest.cc" ]
+  sources = [
+    "browser/features/feature_overrides_browsertest.cc",
+    "test/google_services_browsertest.cc",
+  ]
 
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
@@ -55,12 +58,15 @@ test("ghost_browsertests") {
     "//chrome/browser",
     "//chrome/browser:browser_process",
     "//chrome/browser/autocomplete:aim_eligibility_service",
+    "//chrome/browser/gcm",
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ssl",
     "//chrome/test:browser_tests_runner",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//components/gcm_driver",
+    "//components/gcm_driver:test_support",
     "//components/network_time",
     "//components/omnibox/browser",
     "//content/test:test_support",
