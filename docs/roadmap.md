@@ -160,7 +160,11 @@ Remaining before Phase 0 closes:
    - Uninstall left the PDF ProgID behind. This is an upstream bug, [crbug.com/40384442](https://crbug.com/40384442), and patch 0011 fixes it.
 
    **Not covered yet:** system-level installs, and an official build's installer, which is signed from Phase 2.
-9. **Versioning ADR.** `chrome/VERSION` stays upstream, because the User-Agent derives from it. A separate product version (`<major>.<chromium major>.<release>`) is used by the installer, updater and About page.
+9. **Versioning ADR.** [ADR 0007](adr/0007-version-numbers.md), proposed 2026-09-30.
+   - Releases keep Chromium's MAJOR.MINOR.BUILD and put Ghost's respins into the fourth part (`PATCH × 100 + respin`). The installer and updater then see a growing number with no patch.
+   - Websites and the Chrome Web Store keep seeing `CHROMIUM_VERSION`.
+   - This replaces the first sketch here: a separate product version beside an upstream `chrome/VERSION`. The installer and updater read `chrome/VERSION` itself, so that sketch could not have shipped a Ghost-only fix.
+   - Implementation lands with the release pipeline in Phase 2.
 10. **Build host runbook.** Runbook and scripts for a self-hosted Windows builder. Registering it with CI requires maintainer approval.
 
 **Exit criteria**

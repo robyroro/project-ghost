@@ -16,6 +16,7 @@ Write an ADR for anything that is expensive to reverse:
 | [0004](0004-patch-strategy.md) | Hook-first changes and a git-native patch series | Accepted |
 | [0005](0005-isolation-primitives.md) | Storage partitions for identities, off-the-record profiles for Ghost sessions | Accepted |
 | [0006](0006-blocking-engine-adblock-rust.md) | adblock-rust as the content-blocking engine | Accepted |
+| [0007](0007-version-numbers.md) | Version numbers: Chromium's, with Ghost releases in the fourth part | Proposed |
 
 ## Template
 
