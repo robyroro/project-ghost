@@ -6,11 +6,11 @@ This is the working guide for the patch series in `patches/`. The reasoning is i
 
 | | |
 |---|---|
-| `CHROMIUM_VERSION` | `152.0.7977.140` |
-| `CHROMIUM_COMMIT` | `fb7223c1c4b6365c1308b1796007d10b744ac216` (checked against the tag on every bootstrap; a mismatch stops the build) |
+| `CHROMIUM_VERSION` | `152.0.7977.149` |
+| `CHROMIUM_COMMIT` | `ba6d62e0eacecd63aed843a9bf735a148efb93c4` (checked against the tag on every bootstrap; a mismatch stops the build) |
 | Channel | Windows Extended Stable |
-| Upstream release date | 2026-09-22 |
-| Pinned on | 2026-09-28 |
+| Upstream release date | 2026-09-29 |
+| Pinned on | 2026-10-01 |
 | Toolchain for this tag | `build/requirements.json`, from the tag's `docs/windows_build_instructions.md` and `build/vs_toolchain.py` |
 
 ## When a patch is acceptable

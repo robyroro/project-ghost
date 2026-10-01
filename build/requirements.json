@@ -1,8 +1,8 @@
 {
-  "chromium_version": "152.0.7977.140",
+  "chromium_version": "152.0.7977.149",
   "sources": [
-    "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.140/docs/windows_build_instructions.md",
-    "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.140/build/vs_toolchain.py"
+    "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.149/docs/windows_build_instructions.md",
+    "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.149/build/vs_toolchain.py"
   ],
   "windows": {
     "min_windows_major": 10,
