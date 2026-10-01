@@ -169,18 +169,23 @@ Remaining before Phase 0 closes:
 
     **Done 2026-09-30:** [the runbook](build/build-host.md), `tools/builder.py`, and `.github/workflows/build.yml`.
     - The workflow stays off until a maintainer registers the runner and sets `GHOST_BUILDER`.
-    - `builder.py pr` ran end to end on the reference machine's checkout: the build, `ghost_unittests` 11/11 and `ghost_browsertests` 12/12. The sync and apply steps were skipped because the checkout was already current, so their first real runs will be on the builder.
+    - `builder.py pr` ran end to end on the reference machine's checkout: the build, `ghost_unittests` 11/11 and `ghost_browsertests` 12/12. The sync and apply steps were skipped because the checkout was already current.
+    - **2026-10-01:** `builder.py nightly` moved that checkout to the security release 152.0.7977.149, running every step. The sync and apply steps ran for the first time.
+      - The build took 4 h 39 min for about 8,600 actions. The release rolls V8, so most of Blink recompiles.
+      - `ghost_unittests` 11/11, `ghost_browsertests` 12/12, the installer smoke test and the egress audit (0 unexpected hosts) all passed.
+      - Two browser tests passed only on a retry. The launcher had marked their first run `EXCESSIVE_OUTPUT`: over 500 KB of log, mostly Blink property trees, which a DCHECK build prints when `VLOG(1)` is on. They were the first tests in their batch.
+      - From the upstream release (2026-09-29 18:30 UTC) to a tested build took 40 hours. That build was not signed or shipped; the 72-hour SLA applies from Phase 2.
     - It re-applies the series only when the series changes. Otherwise every run would rebuild the files the patches touch and their dependents: siso rebuilds by modification time, and `install_modes.h` alone reaches over a hundred files.
 
-**Exit criteria** (status 2026-09-30)
+**Exit criteria** (status 2026-10-01)
 - [ ] A clean checkout produces a branded installer through the documented steps. The steps are documented and each has run on the reference machine. A run from an empty directory needs a full build, which is planned on the builder.
 - [x] The browser browses and installs a Chrome Web Store extension.
   - The reference machine's dev build installed uBlock Origin Lite from its Web Store page, confirmed by hand.
   - The profile records the install as from the Web Store and enabled, and its service worker ran.
   - The browser's own requests went to `clients2.google.com` and `clients2.googleusercontent.com`: the download and the update check, which [privacy-model.md](privacy-model.md#data-the-browser-sends) allows.
   - The Web Store page itself loads Google Analytics, Tag Manager and Google's `/log` endpoint. Blocking in Phase 3 covers them.
-- [x] The egress audit reports no unexpected hosts: 10 minutes idle, a local page, and the `address` and `login` scenarios (step 7).
-- [x] The defaults test, `ghost_unittests` (11) and `ghost_browsertests` (12) pass.
+- [x] The egress audit reports no unexpected hosts: 10 minutes idle, a local page, and the `address` and `login` scenarios (step 7). Rerun at 152.0.7977.149 (step 10).
+- [x] The defaults test, `ghost_unittests` (11) and `ghost_browsertests` (12) pass, at 152.0.7977.149 too.
 - [x] The patch series applies with `tools/patches.py`.
 - [x] An informational rebase of the series onto the next milestone has been attempted, and its conflicts recorded.
   - `patches.py canary` onto 154.0.8037.93, the next Extended milestone, then on Stable: all 11 patches apply cleanly. Their files changed, but not their context.
