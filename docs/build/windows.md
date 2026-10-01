@@ -85,9 +85,10 @@ python tools/bootstrap.py --root D:\ghost
 5. hides `src/ghost` from Chromium's `git status`.
 
 **How the tag is checked.**
-- **An existing checkout** fetches the tag shallowly before the sync. The fetch brings in the new commit.
-- **A new checkout** is cloned at the hash. It then asks `origin` where the tag points, using `git ls-remote`, and records the tag locally.
-- Fetching the tag into a new checkout would download the whole clone a second time (1.4 GB at 152). On Windows that fetch then fails with `Permission denied`: git can't replace the identical pack it already has, which is read-only.
+- Bootstrap asks `origin` where the tag points, using `git ls-remote`, before it downloads anything. An existing checkout does this before the sync; a new one does it after the clone, which is made at the hash.
+- If the commit is already in the checkout, bootstrap only records the tag locally. Otherwise it fetches the tag shallowly.
+- It never fetches a commit the checkout already has. That fetch would download the whole clone again (1.4 GB at 152), and on Windows it fails with `Permission denied`: git can't replace the identical pack it already has, which is read-only.
+- A first run that stops after the clone is in this state, so rerunning bootstrap is safe.
 
 **Why sync by hash rather than by tag.** gclient skips its "fetch every upstream branch" step only when the requested revision is a hash that is already present locally. Given a tag, it always runs that fetch. On a shallow checkout, the fetch can go for hours without output, and gclient reports `STALL DETECTED` on `src`.
 

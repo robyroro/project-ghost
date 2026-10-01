@@ -48,9 +48,10 @@ class Step:
     # (repository, ref, expected commit): fail unless ref resolves to the commit.
     verify_ref: tuple[Path, str, str] | None = None
     # (repository, tag ref, expected commit): fail unless origin's tag peels to
-    # the commit, then point the local ref at it. Fetching the tag into a fresh
-    # --no-history clone would download the clone's pack a second time, and on
-    # Windows git cannot rename it over the identical, read-only pack.
+    # the commit, then record the tag locally. A checkout that already holds
+    # the commit gets only the ref: fetching the tag would download its pack
+    # a second time, and on Windows git cannot rename that over the identical,
+    # read-only pack. Otherwise the tag is fetched shallowly.
     tag_from_remote: tuple[Path, str, str] | None = None
 
     def render(self) -> str:
@@ -59,7 +60,7 @@ class Step:
         if self.tag_from_remote:
             repo_dir, ref, commit = self.tag_from_remote
             return (f"check that {ref} at origin of {repo_dir} is {commit}, "
-                    "then record it locally")
+                    "then record it (fetched shallowly if the commit is missing)")
         if self.verify_ref:
             repo_dir, ref, commit = self.verify_ref
             return f"check that {ref} in {repo_dir} is {commit}"
@@ -93,9 +94,8 @@ def plan(root: Path, version: str, commit: str, ghost_url: str, depot_tools: Pat
     gclient = str(gclient_path(depot_tools))
     src = root / "src"
     tag = f"refs/tags/{version}"
-    fetch_tag = Step(f"Fetch tag {version} (shallow)",
-                     ("git", "-C", str(src), "fetch", "--depth=1", "--no-tags", "origin",
-                      f"+{tag}:{tag}"))
+    record_tag = Step(f"Check tag {version} upstream and record it",
+                      tag_from_remote=(src, tag, commit))
     verify_tag = Step(f"Check that tag {version} is the pinned commit {commit[:12]}",
                       verify_ref=(src, tag, commit))
     steps = []
@@ -109,17 +109,14 @@ def plan(root: Path, version: str, commit: str, ghost_url: str, depot_tools: Pat
     # locally (IsValidRevision(..., sha_only=True) in gclient_scm.py). On a
     # shallow checkout that fetch can run for hours without output, which
     # looks exactly like a hang. An existing checkout therefore gets the tag
-    # first; a fresh one is cloned at the hash directly, and its tag is
-    # checked upstream instead of fetched.
+    # first; a fresh one is cloned at the hash directly.
     if have_src:
-        steps += [fetch_tag, verify_tag]
+        steps += [record_tag, verify_tag]
     steps.append(Step(f"Sync Chromium {version} and src/ghost (first run takes over an hour)",
                       (gclient, "sync", "--nohooks", "--no-history",
                        "--revision", f"src@{commit}", "--jobs", str(jobs)), cwd=root))
     if not have_src:
-        steps += [Step(f"Check tag {version} upstream and record it",
-                       tag_from_remote=(src, tag, commit)),
-                  verify_tag]
+        steps += [record_tag, verify_tag]
     steps += [
         Step("Run gclient hooks (toolchains, PGO profiles if enabled)",
              (gclient, "runhooks"), cwd=root),
@@ -194,11 +191,12 @@ def execute(step: Step, env: dict[str, str]) -> None:
         _check_pin(f"{ref} at origin", found.get(f"{ref}^{{}}", found.get(ref, "")), expected)
         present = subprocess.run(["git", "-C", str(repo_dir), "cat-file", "-e",
                                   f"{expected}^{{commit}}"], capture_output=True, env=env)
-        if present.returncode != 0:
-            raise BootstrapError(f"{expected} is not in the checkout at {repo_dir}; "
-                                 "the sync should have fetched it.")
-        subprocess.run(["git", "-C", str(repo_dir), "update-ref", ref, expected],
-                       env=env, check=True)
+        if present.returncode == 0:
+            subprocess.run(["git", "-C", str(repo_dir), "update-ref", ref, expected],
+                           env=env, check=True)
+        else:
+            subprocess.run(["git", "-C", str(repo_dir), "fetch", "--depth=1", "--no-tags",
+                            "origin", f"+{ref}:{ref}"], env=env, check=True)
     else:
         subprocess.run(step.argv, cwd=step.cwd, env=env, check=True)
 

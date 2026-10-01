@@ -7,6 +7,7 @@ import io
 import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import bootstrap
 import repo
@@ -66,24 +67,19 @@ class PlanTest(unittest.TestCase):
         self.assertIn("--no-history", sync.argv)
         self.assertEqual(sync.cwd, ROOT)
 
-    def test_existing_checkout_fetches_and_verifies_tag_before_sync(self):
+    def test_existing_checkout_records_and_verifies_tag_before_sync(self):
         self.assertEqual(self.kinds(self.make(have_src=True)),
-                         ["write", "fetch", "verify", "sync", "runhooks", "append"])
+                         ["write", "tag", "verify", "sync", "runhooks", "append"])
 
-    def test_fresh_checkout_verifies_tag_after_clone(self):
-        # The clone already holds the pinned commit; fetching the tag would
-        # download the same pack again (see Step.tag_from_remote).
+    def test_fresh_checkout_records_and_verifies_tag_after_clone(self):
         self.assertEqual(self.kinds(self.make(have_src=False)),
                          ["write", "sync", "tag", "verify", "runhooks", "append"])
-        tag = next(s for s in self.make(have_src=False) if s.tag_from_remote)
-        self.assertEqual(tag.tag_from_remote,
-                         (ROOT / "src", "refs/tags/152.0.7977.140", COMMIT))
 
-    def test_tag_fetch_is_shallow_and_targeted(self):
-        fetch = next(s for s in self.make(have_src=True) if "fetch" in s.argv)
-        self.assertIn("--depth=1", fetch.argv)
-        self.assertEqual(fetch.argv[-1],
-                         "+refs/tags/152.0.7977.140:refs/tags/152.0.7977.140")
+    def test_tag_step_names_the_pinned_tag_and_commit(self):
+        for have_src in (True, False):
+            tag = next(s for s in self.make(have_src=have_src) if s.tag_from_remote)
+            self.assertEqual(tag.tag_from_remote,
+                             (ROOT / "src", "refs/tags/152.0.7977.140", COMMIT))
 
 
 class ValidateRootTest(unittest.TestCase):
@@ -133,8 +129,10 @@ class ExecuteTest(GitTestCase):
                               {})
 
     def clone_without_tags(self, upstream: Path) -> Path:
+        # Shallow over file://, like gclient's --no-history clone of Chromium.
         src = self.tmp / "src"
-        subprocess.run(["git", "clone", "-q", "--no-tags", str(upstream), str(src)], check=True)
+        subprocess.run(["git", "clone", "-q", "--depth=1", "--no-tags", upstream.as_uri(),
+                        str(src)], check=True)
         return src
 
     def tag_step(self, src: Path, sha: str) -> bootstrap.Step:
@@ -173,14 +171,26 @@ class ExecuteTest(GitTestCase):
         with self.assertRaisesRegex(bootstrap.BootstrapError, "resolves to nothing"):
             bootstrap.execute(self.tag_step(src, sha), dict(bootstrap.os.environ))
 
-    def test_tag_from_remote_requires_the_commit_locally(self):
+    def test_tag_from_remote_fetches_a_missing_commit(self):
         upstream = self.init_repo("ahead")
         self.commit(upstream, {"a.txt": "a\n"}, "a")
         src = self.clone_without_tags(upstream)
         later = self.commit(upstream, {"a.txt": "b\n"}, "b")
         self.git(upstream, "tag", "1.0.0.0")
-        with self.assertRaisesRegex(bootstrap.BootstrapError, "not in the checkout"):
-            bootstrap.execute(self.tag_step(src, later), dict(bootstrap.os.environ))
+        bootstrap.execute(self.tag_step(src, later), dict(bootstrap.os.environ))
+        self.assertEqual(self.git(src, "rev-parse", "refs/tags/1.0.0.0^{commit}").strip(), later)
+
+    def test_tag_from_remote_does_not_fetch_a_present_commit(self):
+        # With Chromium's pack, that fetch downloads the same 1.4 GB again, and
+        # on Windows git fails to rename it over the read-only original.
+        upstream = self.init_repo("present")
+        sha = self.commit(upstream, {"a.txt": "a\n"}, "a")
+        self.git(upstream, "tag", "1.0.0.0")
+        src = self.clone_without_tags(upstream)
+        with mock.patch.object(bootstrap.subprocess, "run", wraps=subprocess.run) as run:
+            bootstrap.execute(self.tag_step(src, sha), dict(bootstrap.os.environ))
+        self.assertNotIn("fetch", [a for c in run.call_args_list for a in c.args[0]])
+        self.assertEqual(self.git(src, "rev-parse", "refs/tags/1.0.0.0^{commit}").strip(), sha)
 
     def test_write_creates_parents(self):
         target = self.tmp / "new" / ".gclient"
