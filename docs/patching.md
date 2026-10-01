@@ -95,20 +95,22 @@ Patches that fail are left out, and the ones after them are tried on top of the 
 ### A new security release of the same milestone
 
 1. Update `CHROMIUM_VERSION`, and `CHROMIUM_COMMIT` to the commit that chromiumdash lists for that release (`git ls-remote origin refs/tags/<new>` must agree).
-2. Re-run `tools/bootstrap.py`. It fetches the new tag, checks it against `CHROMIUM_COMMIT`, and syncs by hash.
-3. `git rebase --onto refs/tags/<new> refs/tags/<old>` on the working branch. Usually no conflicts.
-4. `patches.py export`. The diff of `patches/` should show only context changes.
+2. Fetch the new tag (see [Shallow checkouts](#shallow-checkouts)). On a new branch named after it, run `git rebase --onto refs/tags/<new> refs/tags/<old>`. There are usually no conflicts.
+3. `patches.py export`. The diff of `patches/` should show only context changes.
+4. Re-run `tools/bootstrap.py`. It checks the tag against `CHROMIUM_COMMIT` and syncs the dependencies by hash.
 5. Build, run the full test suite, release. The SLA is in [roadmap.md](roadmap.md#security-release-sla).
+
+**Rebase before syncing.** The working branch tracks no remote, so `gclient sync --revision src@<hash>` runs `git rebase <hash>` on it. That is a no-op once the branch sits on the new tag. On a shallow checkout the old and new tags share no history, and git would replay the old tag's whole tree as well as the series.
 
 ### A new milestone
 
 1. Run the canary onto the new tag (above), or read the nightly canary report once the builder runs one. It lists the patches expected to conflict.
 2. Re-derive `build/requirements.json` from the new tag's `docs/windows_build_instructions.md` and `build/vs_toolchain.py`. `tools/repo.py` refuses to load requirements that name a different version.
-3. Rebase as above. Resolve conflicts, preferring to shrink a patch rather than grow it.
+3. Rebase, export and sync as above, in that order. Resolve conflicts, preferring to shrink a patch rather than grow it.
 4. **Review the milestone for new web-exposed APIs and new profile-scoped services.**
    - New APIs are classified for fingerprinting exposure ([privacy-model.md](privacy-model.md#limitations)).
    - New storage or services are classified in the isolation contract ([architecture.md](architecture.md#testing-isolation)).
-5. Export, build, run the full suite plus the compatibility and performance runs.
+5. Build, run the full suite plus the compatibility and performance runs.
 6. Record the rebase time. Two consecutive milestones over two engineer-days trigger the ADR 0004 review.
 
 ### Shallow checkouts
