@@ -80,9 +80,14 @@ python tools/bootstrap.py --root D:\ghost
 `bootstrap.py` does five things:
 1. clones depot_tools, unless `--depot-tools` points at an existing copy;
 2. writes `.gclient` with two solutions (`src` and `src/ghost`);
-3. fetches the `CHROMIUM_VERSION` tag shallowly, and checks that it points at `CHROMIUM_COMMIT`;
+3. checks that the `CHROMIUM_VERSION` tag points at `CHROMIUM_COMMIT`;
 4. syncs Chromium **by commit hash** and runs the hooks;
 5. hides `src/ghost` from Chromium's `git status`.
+
+**How the tag is checked.**
+- **An existing checkout** fetches the tag shallowly before the sync. The fetch brings in the new commit.
+- **A new checkout** is cloned at the hash. It then asks `origin` where the tag points, using `git ls-remote`, and records the tag locally.
+- Fetching the tag into a new checkout would download the whole clone a second time (1.4 GB at 152). On Windows that fetch then fails with `Permission denied`: git can't replace the identical pack it already has, which is read-only.
 
 **Why sync by hash rather than by tag.** gclient skips its "fetch every upstream branch" step only when the requested revision is a hash that is already present locally. Given a tag, it always runs that fetch. On a shallow checkout, the fetch can go for hours without output, and gclient reports `STALL DETECTED` on `src`.
 

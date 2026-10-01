@@ -47,10 +47,19 @@ class Step:
     append_line: tuple[Path, str] | None = None
     # (repository, ref, expected commit): fail unless ref resolves to the commit.
     verify_ref: tuple[Path, str, str] | None = None
+    # (repository, tag ref, expected commit): fail unless origin's tag peels to
+    # the commit, then point the local ref at it. Fetching the tag into a fresh
+    # --no-history clone would download the clone's pack a second time, and on
+    # Windows git cannot rename it over the identical, read-only pack.
+    tag_from_remote: tuple[Path, str, str] | None = None
 
     def render(self) -> str:
         if self.write:
             return f"write {self.write[0]}"
+        if self.tag_from_remote:
+            repo_dir, ref, commit = self.tag_from_remote
+            return (f"check that {ref} at origin of {repo_dir} is {commit}, "
+                    "then record it locally")
         if self.verify_ref:
             repo_dir, ref, commit = self.verify_ref
             return f"check that {ref} in {repo_dir} is {commit}"
@@ -100,14 +109,17 @@ def plan(root: Path, version: str, commit: str, ghost_url: str, depot_tools: Pat
     # locally (IsValidRevision(..., sha_only=True) in gclient_scm.py). On a
     # shallow checkout that fetch can run for hours without output, which
     # looks exactly like a hang. An existing checkout therefore gets the tag
-    # first; a fresh one is cloned at the hash directly.
+    # first; a fresh one is cloned at the hash directly, and its tag is
+    # checked upstream instead of fetched.
     if have_src:
         steps += [fetch_tag, verify_tag]
     steps.append(Step(f"Sync Chromium {version} and src/ghost (first run takes over an hour)",
                       (gclient, "sync", "--nohooks", "--no-history",
                        "--revision", f"src@{commit}", "--jobs", str(jobs)), cwd=root))
     if not have_src:
-        steps += [fetch_tag, verify_tag]
+        steps += [Step(f"Check tag {version} upstream and record it",
+                       tag_from_remote=(src, tag, commit)),
+                  verify_tag]
     steps += [
         Step("Run gclient hooks (toolchains, PGO profiles if enabled)",
              (gclient, "runhooks"), cwd=root),
@@ -172,14 +184,31 @@ def execute(step: Step, env: dict[str, str]) -> None:
         repo_dir, ref, expected = step.verify_ref
         proc = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "--verify", "--quiet",
                                f"{ref}^{{commit}}"], capture_output=True, text=True, env=env)
-        actual = proc.stdout.strip()
-        if actual != expected:
-            raise BootstrapError(
-                f"{ref} resolves to {actual or 'nothing'}, but CHROMIUM_COMMIT pins {expected}. "
-                "Either the upstream tag moved or the pin is wrong; do not build until "
-                "this is explained.")
+        _check_pin(ref, proc.stdout.strip(), expected)
+    elif step.tag_from_remote:
+        repo_dir, ref, expected = step.tag_from_remote
+        proc = subprocess.run(["git", "-C", str(repo_dir), "ls-remote", "origin", ref,
+                               f"{ref}^{{}}"], capture_output=True, text=True, env=env, check=True)
+        found = dict(reversed(line.split("\t", 1)) for line in proc.stdout.splitlines())
+        # An annotated tag is listed twice; its peeled line names the commit.
+        _check_pin(f"{ref} at origin", found.get(f"{ref}^{{}}", found.get(ref, "")), expected)
+        present = subprocess.run(["git", "-C", str(repo_dir), "cat-file", "-e",
+                                  f"{expected}^{{commit}}"], capture_output=True, env=env)
+        if present.returncode != 0:
+            raise BootstrapError(f"{expected} is not in the checkout at {repo_dir}; "
+                                 "the sync should have fetched it.")
+        subprocess.run(["git", "-C", str(repo_dir), "update-ref", ref, expected],
+                       env=env, check=True)
     else:
         subprocess.run(step.argv, cwd=step.cwd, env=env, check=True)
+
+
+def _check_pin(ref: str, actual: str, expected: str) -> None:
+    if actual != expected:
+        raise BootstrapError(
+            f"{ref} resolves to {actual or 'nothing'}, but CHROMIUM_COMMIT pins {expected}. "
+            "Either the upstream tag moved or the pin is wrong; do not build until "
+            "this is explained.")
 
 
 def main(argv: list[str] | None = None) -> int:

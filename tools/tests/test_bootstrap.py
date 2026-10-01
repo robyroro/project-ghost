@@ -50,7 +50,8 @@ class PlanTest(unittest.TestCase):
         return [s.argv[1] if s.argv and s.argv[0] == "git" and s.argv[1] == "clone"
                 else s.argv[3] if s.argv and s.argv[0] == "git"
                 else s.argv[1] if s.argv
-                else "write" if s.write else "verify" if s.verify_ref else "append"
+                else "write" if s.write else "verify" if s.verify_ref
+                else "tag" if s.tag_from_remote else "append"
                 for s in steps]
 
     def test_clones_depot_tools_only_when_missing(self):
@@ -70,8 +71,13 @@ class PlanTest(unittest.TestCase):
                          ["write", "fetch", "verify", "sync", "runhooks", "append"])
 
     def test_fresh_checkout_verifies_tag_after_clone(self):
+        # The clone already holds the pinned commit; fetching the tag would
+        # download the same pack again (see Step.tag_from_remote).
         self.assertEqual(self.kinds(self.make(have_src=False)),
-                         ["write", "sync", "fetch", "verify", "runhooks", "append"])
+                         ["write", "sync", "tag", "verify", "runhooks", "append"])
+        tag = next(s for s in self.make(have_src=False) if s.tag_from_remote)
+        self.assertEqual(tag.tag_from_remote,
+                         (ROOT / "src", "refs/tags/152.0.7977.140", COMMIT))
 
     def test_tag_fetch_is_shallow_and_targeted(self):
         fetch = next(s for s in self.make(have_src=True) if "fetch" in s.argv)
@@ -125,6 +131,56 @@ class ExecuteTest(GitTestCase):
         with self.assertRaisesRegex(bootstrap.BootstrapError, "upstream tag moved"):
             bootstrap.execute(bootstrap.Step("x", verify_ref=(r, "refs/tags/1.0.0.0", pinned)),
                               {})
+
+    def clone_without_tags(self, upstream: Path) -> Path:
+        src = self.tmp / "src"
+        subprocess.run(["git", "clone", "-q", "--no-tags", str(upstream), str(src)], check=True)
+        return src
+
+    def tag_step(self, src: Path, sha: str) -> bootstrap.Step:
+        return bootstrap.Step("x", tag_from_remote=(src, "refs/tags/1.0.0.0", sha))
+
+    def test_tag_from_remote_records_the_pinned_tag(self):
+        upstream = self.init_repo("upstream")
+        sha = self.commit(upstream, {"a.txt": "a\n"}, "a")
+        self.git(upstream, "tag", "1.0.0.0")
+        src = self.clone_without_tags(upstream)
+        bootstrap.execute(self.tag_step(src, sha), dict(bootstrap.os.environ))
+        self.assertEqual(self.git(src, "rev-parse", "refs/tags/1.0.0.0^{commit}").strip(), sha)
+
+    def test_tag_from_remote_peels_an_annotated_tag(self):
+        upstream = self.init_repo("annotated")
+        sha = self.commit(upstream, {"a.txt": "a\n"}, "a")
+        self.git(upstream, "tag", "-a", "-m", "release", "1.0.0.0")
+        src = self.clone_without_tags(upstream)
+        bootstrap.execute(self.tag_step(src, sha), dict(bootstrap.os.environ))
+        self.assertEqual(self.git(src, "rev-parse", "refs/tags/1.0.0.0^{commit}").strip(), sha)
+
+    def test_tag_from_remote_rejects_a_moved_tag(self):
+        upstream = self.init_repo("moved")
+        pinned = self.commit(upstream, {"a.txt": "a\n"}, "a")
+        self.commit(upstream, {"a.txt": "b\n"}, "b")
+        self.git(upstream, "tag", "1.0.0.0")
+        src = self.clone_without_tags(upstream)
+        with self.assertRaisesRegex(bootstrap.BootstrapError, "upstream tag moved"):
+            bootstrap.execute(self.tag_step(src, pinned), dict(bootstrap.os.environ))
+        self.assertEqual(self.git(src, "tag", "--list"), "")
+
+    def test_tag_from_remote_rejects_a_missing_tag(self):
+        upstream = self.init_repo("untagged")
+        sha = self.commit(upstream, {"a.txt": "a\n"}, "a")
+        src = self.clone_without_tags(upstream)
+        with self.assertRaisesRegex(bootstrap.BootstrapError, "resolves to nothing"):
+            bootstrap.execute(self.tag_step(src, sha), dict(bootstrap.os.environ))
+
+    def test_tag_from_remote_requires_the_commit_locally(self):
+        upstream = self.init_repo("ahead")
+        self.commit(upstream, {"a.txt": "a\n"}, "a")
+        src = self.clone_without_tags(upstream)
+        later = self.commit(upstream, {"a.txt": "b\n"}, "b")
+        self.git(upstream, "tag", "1.0.0.0")
+        with self.assertRaisesRegex(bootstrap.BootstrapError, "not in the checkout"):
+            bootstrap.execute(self.tag_step(src, later), dict(bootstrap.os.environ))
 
     def test_write_creates_parents(self):
         target = self.tmp / "new" / ".gclient"
