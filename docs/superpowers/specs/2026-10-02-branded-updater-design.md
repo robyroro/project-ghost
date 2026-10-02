@@ -32,6 +32,15 @@ These were settled in discussion on 2026-10-02:
 | Updater registry, and the browser's registration | — | `Software\Project Ghost\Update`, `…\Update\Clients\{appid}` |
 
   Only test installs exist, so this is the cheapest moment for the move. The final name will need the same structure. Shortcuts and the product name people see stay `Project Ghost`.
+- **Updates carry Ghost's publisher proof.**
+  - On Windows an update is a CRX3 that wraps the browser installer (Omaha 4's `download` then `crx3` operations).
+  - The production updater requires a publisher proof (`CRX3_WITH_PUBLISHER_PROOF`), a second signature by a key whose hash the client pins. Upstream pins Google's key. The same constant verifies Chrome Web Store extensions, so it stays as it is.
+  - A new verifier format, `CRX3_WITH_GHOST_PUBLISHER_PROOF`, accepts only Ghost's publisher key, and the updater requires it.
+  - **Why it matters:** the CUP key signs each response live, so it sits on the server. The publisher key signs packages and is kept offline (sub-project D decides where). A compromised server therefore cannot publish an update. This is the mitigation [threat-model.md](../../threat-model.md) names: "Offline and HSM-held signing keys".
+  - In B the publisher key is a test key, which also serves as the CRX's developer key.
+- **CUP signs with ECDSA.**
+  - `request_sender.cc` also carries a post-quantum ML-DSA-44 key, chosen when the `PqcCupSigning` feature is on. The feature is off by default at 152.
+  - The patch pins ECDSA with Ghost's key, so an upstream change of that default cannot make every update fail. Post-quantum CUP is decided with the production keys in sub-project D.
 
 ## What upstream provides, and what it assumes
 
@@ -66,6 +75,8 @@ Measured at 152.0.7977.149:
   - `crash_upload_url`, `updater_event_logging_url`, `app_logo_url` and `help_center_url` are empty;
   - `crx_pkhash` is empty until the updater updates itself through our server (sub-project C).
 
+**`branding/crx_publisher_key.h`:** the SHA-256 of Ghost's CRX3 publisher key (DER SubjectPublicKeyInfo), in the form `crx_verifier.cc` compares. In B it is the test key's hash; sub-project D replaces it.
+
 **`branding/cup_key.h`:** the CUP public key and its key version.
 - In the test identity the key is a test key. Its private half is committed in `test/updater/`, marked as test-only.
 - Sub-project D replaces it with the production key and decides where the private key lives.
@@ -92,13 +103,15 @@ Measured at 152.0.7977.149:
 
 **`tools/update_server.py`:** a stdlib-only Omaha 4 test server, tested like the rest of `tools/`.
 - **`keygen`** generates the test CUP key pair. The private key goes to `test/updater/`; the public key goes to `branding/cup_key.h`, in the encoding `request_sender.cc` uses.
+- **`crx`** packs an installer into a CRX3 signed with the test publisher key (ECDSA P-256, the same pure-Python code as CUP). The browser installer is its only file.
 - **`serve`** listens on `127.0.0.1:8484`:
-  - it answers update checks for the browser's app ID with an update (URL, size, SHA-256) when the request's version is older than the installer it serves;
+  - it answers update checks for the browser's app ID with an update when the request's version is older than the CRX it serves: a `download` operation (URL, size, SHA-256) then a `crx3` operation running `mini_installer.exe`;
   - it signs every response with CUP (ECDSA P-256 over the response body plus the request hash, sent in `X-Cup-Server-Proof`), in pure Python;
   - it logs every request body to a JSONL file;
   - it serves the installer files.
 - **Its tests** check:
   - the CUP signature against a verifier written from [cup.md](https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.149/docs/updater/cup.md);
+  - the CRX3 layout and its signatures, against the format in `components/crx_file/crx3.proto`;
   - the response format;
   - the allow-list checker that the end-to-end test also uses.
 
@@ -117,7 +130,9 @@ Measured at 152.0.7977.149:
 | `chrome/updater/branding.gni` | Imports `//ghost/branding/updater.gni` instead of the Chromium values |
 | `chrome/install_static/BUILD.gn` | Turns the installer's registration (`USE_GOOGLE_UPDATE_INTEGRATION`) on for Ghost builds |
 | `chrome/install_static/install_modes.cc` | Registration under `Software\Project Ghost\Update\…`, the updater's company path, instead of `Software\Google\Update\…` |
-| `components/update_client/request_sender.cc` | The CUP key from `//ghost/branding/cup_key.h` |
+| `components/update_client/request_sender.cc` | The CUP key from `//ghost/branding/cup_key.h`, always ECDSA |
+| `components/crx_file/crx_verifier.{h,cc}` | Adds `CRX3_WITH_GHOST_PUBLISHER_PROOF`, which accepts only the key in `//ghost/branding/crx_publisher_key.h` |
+| `chrome/updater/external_constants_default.cc` | The updater requires `CRX3_WITH_GHOST_PUBLISHER_PROOF` |
 | `components/update_client` (request assembly) | Calls the scrubber |
 | `chrome/browser/updater/browser_updater_client_win.cc` | Registers `ghost::ReleaseVersion()`: the requirement sub-project A's [audit](2026-10-02-release-version-spike.md#audit-of-version_info-callers) left for B |
 
@@ -135,7 +150,7 @@ Measured at 152.0.7977.149:
 **Update.**
 1. The updater wakes from its scheduled task, or `updater.exe --wake` in the test.
 2. It sends a scrubbed request, and receives a CUP-signed response naming the new `mini_installer.exe`.
-3. It downloads it, checks the SHA-256 and runs it.
+3. It downloads the CRX3, checks its SHA-256 and Ghost's publisher proof, unpacks it and runs the installer inside.
 4. `setup.exe` installs the new version beside the old one and updates `pv`. If the browser is running, upstream's `new_chrome.exe` mechanism swaps at the next launch.
 
 **Uninstall.**
@@ -179,6 +194,7 @@ The spike lists every code path the flag enables in the installer and the browse
 - **`tools/tests`:** `update_server.py` (CUP, the response, the allow-list) and `offline_installer.py` (manifest contents).
 - **Mutation checks of the end-to-end test.** Each of these must fail the test:
   - **The server signs with another CUP key.** The update is rejected and `pv` stays at `…14901`.
+  - **The CRX is signed with another publisher key.** The update is rejected and `pv` stays at `…14901`.
   - **The scrubber hook is removed.** Forbidden fields appear in the server's log.
   - **The registration path patch is removed.** The updater doesn't find the browser.
 
