@@ -198,3 +198,25 @@ Remaining before Phase 0 closes:
   - `patches.py canary` onto 154.0.8037.93, the next Extended milestone, then on Stable: all 11 patches apply cleanly. Their files changed, but not their context.
   - The result was not built. Compile errors in `//ghost` code against 154's APIs would show only in a build.
   - Upstream's PDF ProgID bug (patch 0011) is still present in 154.
+
+## Phase 2: release engineering
+
+Runs under a **test identity** until the final name is chosen: test app IDs, a test server domain and test keys, on test machines only ([licensing.md](licensing.md#trademarks)). Moving to the final name is one step, through `branding/` and the server configuration, before the first public build.
+
+Sub-projects, each with its own design and plan in `docs/superpowers/`:
+
+1. **A. Release version.** [ADR 0007](adr/0007-version-numbers.md) in builds.
+
+   **Done 2026-10-02.** `tools/release_version.py`, `//ghost/version`, patches 0012–0014; [design](superpowers/specs/2026-10-02-release-version-design.md), [spike results](superpowers/specs/2026-10-02-release-version-spike.md).
+   - A respin (`152.0.7977.149-1`) installs in Windows Sandbox as `152.0.7977.14901`, while the web sees `152.0.7977.149`.
+   - A respin rebuilds 380 actions, about 12 minutes on the reference machine.
+   - `ghost_unittests` (17) and `ghost_browsertests` (15) pass with the two versions different. Each hook patch is mutation-checked.
+2. **B. Branded `//chrome/updater`.** Our app IDs and server, installed with the browser. It also patches the updater client to register the release version (see the spike's audit).
+3. **C. Update server.** Omaha 4, CUP-signed responses, no IP retention; components later.
+4. **D. Signing.** Authenticode, the CUP key, the CRX3 key, and where the keys live.
+5. **E. Release pipeline.** Official build from a tag, SBOM and provenance, staged rollout with a halt switch. It calls `release_version.py write` after `patches.py apply`.
+6. **F. Security release runbook,** and one measured milestone move (to 154).
+
+**Exit criteria**
+- [ ] An update shipped end to end to test machines.
+- [ ] One milestone move measured.

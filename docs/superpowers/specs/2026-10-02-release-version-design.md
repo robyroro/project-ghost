@@ -1,6 +1,6 @@
 # Release version: design
 
-- Status: approved in discussion 2026-10-02, waiting for review of this document
+- Status: implemented 2026-10-02 ([spike results](2026-10-02-release-version-spike.md))
 - Phase 2, sub-project A
 - Implements [ADR 0007](../../adr/0007-version-numbers.md)
 
@@ -46,9 +46,8 @@ Both files already exist:
 **The installer and the file resources read `//chrome/VERSION` separately**, in more than 20 build files. So do `chrome/common`'s version header and the updater.
 
 **The hook is one patch to `base/version_info/BUILD.gn`.**
-- It adds a second file to `generate_version_info`'s sources, after `//chrome/VERSION`.
-- `version.py` reads the files in order, and a later file overrides the earlier one's keys. So `version_info` gets Chromium's MAJOR, MINOR, BUILD and PATCH.
-- `//ghost/build/version.gni` writes that file at `gn gen` time, with `read_file` and `write_file`, from `CHROMIUM_VERSION`. No action is needed.
+- It passes `-e MAJOR=… -e MINOR=… -e BUILD=… -e PATCH=…` to `generate_version_info`. `version.py` applies `-e` values after reading `//chrome/VERSION`, so `version_info` gets the Chromium release.
+- `//ghost/build/version.gni` builds those arguments from `CHROMIUM_VERSION` at `gn gen` time. Nothing is written to disk.
 - In development builds both versions are equal, so the hook changes nothing visible.
 
 **Rejected: patching each place that sends the version out.**

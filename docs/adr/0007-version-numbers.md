@@ -63,3 +63,19 @@ The roadmap's first sketch kept `chrome/VERSION` upstream and gave the installer
 - **Chromium's MAJOR, then a product version** (`152.1.4.2`, Brave's scheme). Numbers grow and read well. But MINOR and BUILD no longer match upstream's. With a product major of 0, as ours is before 1.0, `152.0.4.2` sorts below `152.0.7977`, so extensions written for this Chromium release would be refused. It also needs the same hook for the web.
 - **Ship only on upstream releases.** No scheme is needed, but every Ghost fix, including one for a Ghost security bug, waits for Google's next release of the milestone.
 - **Report the release version to the web.** Every respin would carry a version no Chrome has, and a site could tell Ghost users apart by it.
+
+## Implementation
+
+Added 2026-10-02 (Phase 2, sub-project A; [design](../superpowers/specs/2026-10-02-release-version-design.md), [spike](../superpowers/specs/2026-10-02-release-version-spike.md)).
+
+- **The cut is at `version_info`, not at each place that sends the version.**
+  - Patch 0012 passes `CHROMIUM_VERSION` to `version.py` as `-e` overrides for `//base/version_info`.
+  - Every `version_info` caller, including ones a future milestone adds, therefore reports the Chromium release.
+  - The installer, the updater and Windows read `chrome/VERSION` unpatched.
+- **Ghost code that needs the release version** reads `//ghost/version`.
+  - The upgrade detector (patch 0013) compares the installed version with it.
+  - About and `chrome://version` (patch 0014) show `DisplayVersion()`.
+- **`tools/release_version.py`** computes the release version from the release tag, `<CHROMIUM_VERSION>[-<respin>]`, and writes it into `chrome/VERSION`.
+  - It also refuses a fourth part above 65535. With PATCH at 655, that allows respins up to 35.
+- **`//ghost/build/version.gni`** stops `gn gen` when `chrome/VERSION` is neither the pinned Chromium release nor a release of it.
+- **The updater client** registers the browser's version through `version_info` (`browser_updater_client_win.cc`). Sub-project B patches it to the release version when it turns the updater on.

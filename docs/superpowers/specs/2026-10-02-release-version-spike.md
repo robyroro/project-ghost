@@ -57,7 +57,7 @@ Every test passed with the two versions different: `ghost_unittests` 17/17 and `
 | `chrome/browser/extensions/chrome_extensions_browser_client.cc` | `kLastChromeVersion`; extensions' minimum browser version | Profile data written and read through `version_info`; minimums are stated against Chromium releases (ADR 0007). |
 | `chrome/common/extensions/manifest_handlers/minimum_chrome_version_checker.cc` | `minimum_chrome_version` | Same as above. |
 | `chrome/browser/extensions/preinstalled_extensions.cc` | whether the profile was created by this version | Compared with a version written through `version_info`. |
-| `chrome/browser/metrics/variations/chrome_variations_service_client.cc` | version for the variations service | Reported to a server: the Chromium release, as for the web. Variations are off in Ghost. |
+| `chrome/browser/metrics/variations/chrome_variations_service_client.cc` | version for the variations service | Reported to a server: the Chromium release, as for the web. Ghost fetches no variations seed; the egress audit sees no such request. |
 | `chrome/browser/privacy_sandbox/notice/notice_storage.cc` | version stored with a notice event | Profile data, written and read through `version_info`. |
 | `chrome/browser/search_engines/ui_thread_search_terms_data.cc` | version in search terms data sent to search engines | Sent out, so the Chromium release. |
 | `chrome/browser/signin/signin_hats_util.cc` | version in survey data | Sent to Google, so the Chromium release. Sign-in is off in Ghost. |
