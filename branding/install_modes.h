@@ -90,8 +90,10 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
                                 {0xb9, 0xff, 0x45, 0x74, 0xaf, 0x72, 0x05,
                                  0x00}},
         .old_tracing_service_iids = {},
+        // One channel, which the registry cannot switch: the empty name is
+        // stable (Ghost follows Extended Stable, docs/adr/0003).
         .default_channel_name = L"",
-        .channel_strategy = ChannelStrategy::UNSUPPORTED,
+        .channel_strategy = ChannelStrategy::FIXED,
         .supports_system_level = true,
         .supports_set_as_default_browser = true,
         .app_icon_resource_index = icon_resources::kApplicationIndex,
