@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 18:50:00 +0300
+Subject: [PATCH] install_static: register with Ghost's updater
+
+The browser records its version and install result where Ghost's updater
+reads them: Software\<company>\Update\Clients\{app_guid} and its
+ClientState keys.
+
+Why: USE_GOOGLE_UPDATE_INTEGRATION is tied to is_chrome_branded, and the
+key paths name Google.
+Upstream: not upstreamable: product-specific updater integration
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/install_static/BUILD.gn b/chrome/install_static/BUILD.gn
+index 9ddd7ccd3420cae6eb0eaf19f0398e2e9f84aae1..7aa05831680dcaf7a62df7096647242085708786 100644
+--- a/chrome/install_static/BUILD.gn
++++ b/chrome/install_static/BUILD.gn
+@@ -8,7 +8,8 @@ import("//testing/test.gni")
+ 
+ buildflag_header("buildflags") {
+   header = "buildflags.h"
+-  if (is_chrome_branded && is_win) {
++  # Ghost: the browser registers with Ghost's updater on Windows.
++  if (is_win) {
+     flags = [ "USE_GOOGLE_UPDATE_INTEGRATION=true" ]
+   } else {
+     flags = [ "USE_GOOGLE_UPDATE_INTEGRATION=false" ]
+diff --git a/chrome/install_static/install_modes.cc b/chrome/install_static/install_modes.cc
+index bdd057bf4a266f30a3d9d93eef1ebcc1853bcf83..2e047165771b5a840024e14d3c255142bbbb3081 100644
+--- a/chrome/install_static/install_modes.cc
++++ b/chrome/install_static/install_modes.cc
+@@ -11,18 +11,27 @@ namespace install_static {
+ namespace {
+ 
+ #if BUILDFLAG(USE_GOOGLE_UPDATE_INTEGRATION)
++// Ghost: Ghost's updater keeps its keys under the company directory
++// (branding/install_modes.h, branding/updater.gni).
++std::wstring GetUpdaterKeyPath(const wchar_t* subkey, const wchar_t* app_guid) {
++  return std::wstring(L"Software\\")
++      .append(kCompanyPathName)
++      .append(L"\\Update\\")
++      .append(subkey)
++      .append(L"\\")
++      .append(app_guid);
++}
++
+ std::wstring GetClientsKeyPathForApp(const wchar_t* app_guid) {
+-  return std::wstring(L"Software\\Google\\Update\\Clients\\").append(app_guid);
++  return GetUpdaterKeyPath(L"Clients", app_guid);
+ }
+ 
+ std::wstring GetClientStateKeyPathForApp(const wchar_t* app_guid) {
+-  return std::wstring(L"Software\\Google\\Update\\ClientState\\")
+-      .append(app_guid);
++  return GetUpdaterKeyPath(L"ClientState", app_guid);
+ }
+ 
+ std::wstring GetClientStateMediumKeyPathForApp(const wchar_t* app_guid) {
+-  return std::wstring(L"Software\\Google\\Update\\ClientStateMedium\\")
+-      .append(app_guid);
++  return GetUpdaterKeyPath(L"ClientStateMedium", app_guid);
+ }
+ #else
+ std::wstring GetUnregisteredKeyPathForProduct() {

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 18:50:14 +0300
+Subject: [PATCH] updater: register the browser's release version
+
+The updater compares the registered version with what it installed, the
+release version (ADR 0007). version_info reports the Chromium release.
+
+Why: the registration reads version_info directly.
+Upstream: not upstreamable: product-specific versioning
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/updater/BUILD.gn b/chrome/browser/updater/BUILD.gn
+index b9c442efe4805721eeb732eed905d4e4a668a7aa..005a354648407505dccbe0c334c0d18b85454009 100644
+--- a/chrome/browser/updater/BUILD.gn
++++ b/chrome/browser/updater/BUILD.gn
+@@ -51,6 +51,7 @@ source_set("updater") {
+         "//chrome/install_static:install_static_util",
+         "//chrome/installer/util:with_no_strings",
+         "//chrome/updater:browser_sources",
++        "//ghost/version",
+       ]
+     }
+ 
+diff --git a/chrome/browser/updater/browser_updater_client_win.cc b/chrome/browser/updater/browser_updater_client_win.cc
+index 6cf1187ebe8b99c95e15f04af63368a6ffedf2ec..ae90691a3f458efd2cd13a2c17fb5ddd06e972dc 100644
+--- a/chrome/browser/updater/browser_updater_client_win.cc
++++ b/chrome/browser/updater/browser_updater_client_win.cc
+@@ -14,7 +14,7 @@
+ #include "chrome/browser/google/google_brand.h"
+ #include "chrome/install_static/install_details.h"
+ #include "chrome/updater/registration_data.h"
+-#include "components/version_info/version_info.h"
++#include "ghost/version/version.h"
+ 
+ namespace updater {
+ 
+@@ -31,7 +31,7 @@ RegistrationRequest BrowserUpdaterClient::GetRegistrationRequest() {
+   RegistrationRequest req;
+   req.app_id = GetAppId();
+   google_brand::GetBrand(&req.brand_code);
+-  req.version = version_info::GetVersionNumber();
++  req.version = ghost::ReleaseVersion().GetString();
+   req.ap =
+       base::SysWideToUTF8(install_static::InstallDetails::Get().update_ap());
+   return req;
