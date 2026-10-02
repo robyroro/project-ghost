@@ -152,7 +152,7 @@ class UninstalledTest(unittest.TestCase):
             self.assertTrue(self.failures(classes=[leftover]), leftover)
         self.assertTrue(self.failures(product_parent_keys=["Browser"]))
 
-    def test_a_kept_profile_keeps_only_the_taskbar_pin_state(self):
+    def test_a_kept_profile_keeps_only_its_local_state(self):
         # A normal uninstall keeps the profile; upstream then leaves the
         # product key with the installer's taskbar pin state.
         kept = {"values": ["InstallerPinned"], "subkeys": []}
@@ -162,6 +162,10 @@ class UninstalledTest(unittest.TestCase):
                                                    "subkeys": []}))
         self.assertTrue(self.failures(product_parent_keys=["Browser"],
                                       product_key={"values": [], "subkeys": ["Sub"]}))
+        after_launch = {"values": ["InstallerPinned", "UsageStatsInSample"],
+                        "subkeys": ["PreferenceMACs", "StabilityMetrics"]}
+        self.assertEqual(self.failures(product_parent_keys=["Browser"],
+                                       product_key=after_launch), [])
 
     def test_the_company_key_may_hold_only_the_updater(self):
         self.assertEqual(self.failures(product_parent_keys=["Update"]), [])

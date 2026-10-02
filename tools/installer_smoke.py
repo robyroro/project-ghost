@@ -154,14 +154,19 @@ _COMPANY_KEYS_ALLOWED_AFTER_UNINSTALL = ("Update",)
 
 # A normal uninstall keeps the profile, and upstream clears the product key
 # only with it (RemoveDistributionRegistryState runs when the profile is
-# deleted). What it leaves is the installer's taskbar pin state.
-_PRODUCT_VALUES_KEPT_WITH_THE_PROFILE = ("InstallerPinned",)
+# deleted). What stays is the profile's local state: the installer's taskbar
+# pin, the metrics sampling decision, the preferences' MACs and the stability
+# counters, none of which leaves the machine. Anything else fails, so a
+# milestone that adds state here gets reviewed.
+_PRODUCT_VALUES_KEPT_WITH_THE_PROFILE = ("InstallerPinned", "UsageStatsInSample")
+_PRODUCT_SUBKEYS_KEPT_WITH_THE_PROFILE = ("PreferenceMACs", "StabilityMetrics")
 
 
 def _kept_with_the_profile(snap: dict) -> bool:
     key = snap.get("product_key")
-    return bool(key) and not key["subkeys"] and set(key["values"]) <= set(
-        _PRODUCT_VALUES_KEPT_WITH_THE_PROFILE)
+    return (bool(key)
+            and set(key["values"]) <= set(_PRODUCT_VALUES_KEPT_WITH_THE_PROFILE)
+            and set(key["subkeys"]) <= set(_PRODUCT_SUBKEYS_KEPT_WITH_THE_PROFILE))
 
 
 def _outside_company(snap: dict, exp: Expectations) -> list[str]:
