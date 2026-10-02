@@ -230,6 +230,16 @@ class SandboxConfigTest(unittest.TestCase):
         self.assertIn(r"--results C:\ghost\results > C:\ghost\results\run.log 2>&1 & shutdown",
                       command)
 
+    def test_runs_another_script_when_given_one(self):
+        config = ET.fromstring(installer_smoke.sandbox_config(
+            installer_dir=Path(r"D:\payload"), tools_dir=Path(r"D:\ghost\tools"),
+            python_dir=Path(r"C:\Python314"), results_dir=Path(r"C:\tmp\results"),
+            script_args=r"update_smoke.py run --x 1"))
+        command = config.findtext("LogonCommand/Command")
+        self.assertIn(r"C:\ghost\python\python.exe C:\ghost\tools\update_smoke.py run --x 1 "
+                      r"> C:\ghost\results\run.log 2>&1 & shutdown /s /t 0", command)
+        self.assertNotIn("installer_smoke.py", command)
+
 
 class StageTest(unittest.TestCase):
     def test_installer_runs_from_a_writable_copy(self):

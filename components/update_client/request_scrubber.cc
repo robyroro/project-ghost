@@ -4,12 +4,11 @@
 
 #include "ghost/components/update_client/request_scrubber.h"
 
+#include <algorithm>
 #include <initializer_list>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include "base/containers/contains.h"
 
 namespace ghost {
 namespace {
@@ -19,7 +18,7 @@ using Keys = std::initializer_list<std::string_view>;
 void KeepOnly(base::DictValue& dict, Keys keys) {
   std::vector<std::string> drop;
   for (const auto [key, value] : dict) {
-    if (!base::Contains(keys, key)) {
+    if (!std::ranges::contains(keys, key)) {
       drop.push_back(key);
     }
   }
