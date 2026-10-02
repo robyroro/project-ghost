@@ -7,9 +7,9 @@
 // chromium_install_modes.h (patches/0004), and structured the same way.
 //
 // Everything a second browser could collide with on the same machine is
-// unique: the user data and registry path (kProductPathName), the app name
-// and AppUserModelID, ProgIDs, the URL scheme, Active Setup and the COM class
-// ids. The two interface ids (IElevator, ISystemTraceSession) stay upstream's
+// unique: the user data and registry path (kCompanyPathName\kProductPathName),
+// the app name and AppUserModelID, ProgIDs, the URL scheme, Active Setup and
+// the COM class ids. The two interface ids (IElevator, ISystemTraceSession) stay upstream's
 // because they are also compiled into the services' IDL files; changing them
 // here alone would break those services.
 
@@ -24,9 +24,13 @@
 
 namespace install_static {
 
-inline constexpr wchar_t kCompanyPathName[] = L"";
+// The company directory holds the browser and, beside it, the updater
+// (branding/updater.gni uses the same company name). Uninstalling the browser
+// clears Software\<company>\<product>, so the updater's
+// Software\<company>\Update survives it.
+inline constexpr wchar_t kCompanyPathName[] = L"Project Ghost";
 
-inline constexpr wchar_t kProductPathName[] = L"Project Ghost";
+inline constexpr wchar_t kProductPathName[] = L"Browser";
 
 // Sent to Google's Safe Browsing service as the client name. Kept at
 // upstream's value until the Safe Browsing release gate is decided

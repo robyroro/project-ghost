@@ -14,8 +14,8 @@ thrown away.
 
 What is checked comes from branding/, CHROMIUM_VERSION and the installer's
 file version, which is the release version (ADR 0007):
-- after install: the browser, and setup.exe in the release version's
-  directory; the Apps & features entry with the product name, publisher and
+- after install: the browser, under the company directory, and setup.exe in
+  the release version's directory; the Apps & features entry with the product name, publisher and
   release version; registration as a browser (StartMenuInternet and the HTML
   ProgID); Start menu and Desktop shortcuts named for the product and opening
   it; the product name in chrome.exe's file properties; and nothing named
@@ -63,6 +63,7 @@ _IN_SANDBOX = {"installer": r"C:\ghost\installer", "tools": r"C:\ghost\tools",
 @dataclass(frozen=True)
 class Expectations:
     product_path: str     # kProductPathName: install and registry directory name
+    company_path: str     # kCompanyPathName: the directory above product_path, may be empty
     app_name: str         # base_app_name: StartMenuInternet key prefix
     prog_id_prefix: str   # browser_prog_id_prefix
     pdf_prog_id_prefix: str
@@ -71,6 +72,18 @@ class Expectations:
     company_name: str     # BRANDING COMPANY_FULLNAME: publisher
     release_version: str  # the installer's file version: install directory, Apps & features
     web_version: str      # CHROMIUM_VERSION: what the running browser reports
+
+    @property
+    def install_dir_parts(self) -> tuple[str, ...]:
+        return tuple(p for p in (self.company_path, self.product_path) if p)
+
+    @property
+    def registry_root(self) -> str:
+        return self.company_path or self.product_path
+
+    @property
+    def uninstall_key(self) -> str:
+        return " ".join(self.install_dir_parts)
 
 
 def expectations(root: Path, release_version: str) -> Expectations:
@@ -82,9 +95,6 @@ def expectations(root: Path, release_version: str) -> Expectations:
             raise ValueError(f"branding/install_modes.h: no match for {pattern}")
         return m.group(1)
 
-    if field(r'kCompanyPathName\[\]\s*=\s*L"([^"]*)"'):
-        # The install directory and uninstall key would then combine both names.
-        raise ValueError("the smoke test assumes an empty kCompanyPathName")
     branding = {}
     for line in (root / "branding" / "BRANDING").read_text(encoding="utf-8").splitlines():
         key, sep, value = line.partition("=")
@@ -92,6 +102,7 @@ def expectations(root: Path, release_version: str) -> Expectations:
             branding[key.strip()] = value.strip()
     return Expectations(
         product_path=field(r'kProductPathName\[\]\s*=\s*L"([^"]*)"'),
+        company_path=field(r'kCompanyPathName\[\]\s*=\s*L"([^"]*)"'),
         app_name=field(r'\.base_app_name\s*=\s*L"([^"]*)"'),
         prog_id_prefix=field(r'\.browser_prog_id_prefix\s*=\s*L"([^"]*)"'),
         pdf_prog_id_prefix=field(r'\.pdf_prog_id_prefix\s*=\s*L"([^"]*)"'),
@@ -129,7 +140,7 @@ def _registration_kinds(exp: Expectations) -> list[tuple[str, str, Callable[[str
         (f"{exp.pdf_prog_id_prefix}.* ProgID", "classes",
          lambda k: k.startswith(exp.pdf_prog_id_prefix + ".")),
         (f"{exp.url_scheme}: URL scheme", "classes", lambda k: k == exp.url_scheme),
-        (f"Software\\{exp.product_path}", "software", lambda k: k == exp.product_path),
+        (f"Software\\{exp.registry_root}", "software", lambda k: k == exp.registry_root),
     ]
 
 
@@ -255,7 +266,7 @@ def snapshot(exp: Expectations) -> dict:
         except OSError:
             return None
 
-    app_dir = Path(os.environ["LOCALAPPDATA"]) / exp.product_path / "Application"
+    app_dir = Path(os.environ["LOCALAPPDATA"]).joinpath(*exp.install_dir_parts) / "Application"
     start_menu = Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs"
     desktop = Path(os.environ["USERPROFILE"]) / "Desktop"
     links = sorted(str(p) for p in list(start_menu.rglob("*.lnk")) + list(desktop.glob("*.lnk")))
@@ -276,7 +287,7 @@ def snapshot(exp: Expectations) -> dict:
                   "setup.exe": (app_dir / exp.release_version / "Installer"
                                 / "setup.exe").exists()},
         "uninstall": values(rf"Software\Microsoft\Windows\CurrentVersion\Uninstall"
-                            rf"\{exp.product_path}"),
+                            rf"\{exp.uninstall_key}"),
         "software": subkeys("Software"),
         "start_menu_internet": subkeys(r"Software\Clients\StartMenuInternet"),
         "classes": subkeys(r"Software\Classes"),

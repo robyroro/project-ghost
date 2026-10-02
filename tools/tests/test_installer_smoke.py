@@ -13,12 +13,12 @@ import installer_smoke
 import repo
 
 EXP = installer_smoke.Expectations(
-    product_path="Project Ghost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
+    product_path="Browser", company_path="Project Ghost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
     pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost", product_name="Project Ghost",
     company_name="Project Ghost", release_version="152.0.7977.14001",
     web_version="152.0.7977.140")
 LOCALAPPDATA = r"C:\Users\WDAGUtilityAccount\AppData\Local"
-CHROME = LOCALAPPDATA + r"\Project Ghost\Application\chrome.exe"
+CHROME = LOCALAPPDATA + r"\Project Ghost\Browser\Application\chrome.exe"
 PROGRAMS = r"C:\Users\WDAGUtilityAccount\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
 DESKTOP = r"C:\Users\WDAGUtilityAccount\Desktop"
 
@@ -61,7 +61,8 @@ class ExpectationsTest(unittest.TestCase):
     def test_come_from_the_branding_directory_the_pin_and_the_installer(self):
         exp = installer_smoke.expectations(repo.REPO_ROOT, release_version="152.0.7977.14901")
         self.assertEqual(exp, installer_smoke.Expectations(
-            product_path="Project Ghost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
+            product_path="Browser", company_path="Project Ghost", app_name="Project Ghost",
+            prog_id_prefix="GhostHTM",
             pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost",
             product_name="Project Ghost", company_name="Project Ghost",
             release_version="152.0.7977.14901", web_version=repo.read_chromium_version()))
@@ -151,6 +152,19 @@ class UninstalledTest(unittest.TestCase):
         # The same check guards `run` against a machine that has Ghost already.
         self.assertEqual(installer_smoke.evaluate_uninstalled(UNINSTALLED, EXP), [])
         self.assertTrue(installer_smoke.evaluate_uninstalled(INSTALLED, EXP))
+
+
+class LayoutTest(unittest.TestCase):
+    def test_company_and_product_paths(self):
+        self.assertEqual(EXP.install_dir_parts, ("Project Ghost", "Browser"))
+        self.assertEqual(EXP.registry_root, "Project Ghost")
+        self.assertEqual(EXP.uninstall_key, "Project Ghost Browser")
+
+    def test_without_a_company(self):
+        exp = installer_smoke.Expectations(**{**EXP.__dict__, "company_path": ""})
+        self.assertEqual(exp.install_dir_parts, ("Browser",))
+        self.assertEqual(exp.registry_root, "Browser")
+        self.assertEqual(exp.uninstall_key, "Browser")
 
 
 class LaunchTest(unittest.TestCase):
