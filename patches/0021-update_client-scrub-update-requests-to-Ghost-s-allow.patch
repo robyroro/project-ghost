@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 19:03:54 +0300
+Subject: [PATCH] update_client: scrub update requests to Ghost's allow-list
+
+Why: the serializer writes install IDs, activity counters and hardware
+details with no embedder control.
+Upstream: not upstreamable: product-specific privacy policy
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
+index 79283725781e21ff5e70e6e2f64b5022eb434e9d..e7f338b9cfbd9cbbda6cd059176ed3fc53856143 100644
+--- a/components/update_client/BUILD.gn
++++ b/components/update_client/BUILD.gn
+@@ -185,6 +185,7 @@ static_library("update_client") {
+     "//components/zucchini:zucchini_lib",
+     "//crypto",
+     "//ghost/branding:keys",
++    "//ghost/components/update_client:request_scrubber",
+     "//third_party/zlib/google:compression_utils",
+     "//url",
+   ]
+diff --git a/components/update_client/protocol_serializer_json.cc b/components/update_client/protocol_serializer_json.cc
+index 5ee118ea373429e25d7bbf02c62bc51bb895f9ca..2a64683dd4c02433b9d4b959595e10cb5a95a503 100644
+--- a/components/update_client/protocol_serializer_json.cc
++++ b/components/update_client/protocol_serializer_json.cc
+@@ -15,6 +15,7 @@
+ #include "build/branding_buildflags.h"
+ #include "build/build_config.h"
+ #include "components/update_client/activity_data_service.h"
++#include "ghost/components/update_client/request_scrubber.h"
+ 
+ namespace update_client {
+ 
+@@ -256,6 +257,9 @@ std::string ProtocolSerializerJSON::Serialize(
+ 
+   root_node.Set("request", std::move(request_node));
+ 
++  // Ghost: only the keys docs/privacy-model.md allows leave the machine.
++  ghost::ScrubUpdateRequest(root_node);
++
+   std::string msg;
+   return base::JSONWriter::WriteWithOptions(
+              root_node, base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION,

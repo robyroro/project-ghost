@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 19:04:04 +0300
+Subject: [PATCH] update_client: send no event requests
+
+Why: events are sent unconditionally after every update operation.
+Upstream: not upstreamable: product-specific privacy policy
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/components/update_client/ping_manager.cc b/components/update_client/ping_manager.cc
+index ca529062096dbf39ef7455f394c1c0847391bc4b..1709800f1ba7132638ec9e1c6313c05e1bd3db63 100644
+--- a/components/update_client/ping_manager.cc
++++ b/components/update_client/ping_manager.cc
+@@ -41,6 +41,10 @@ void PingManager::SendPing(const std::string& session_id,
+                            base::OnceClosure callback) {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+ 
++  // Ghost: no event requests (docs/privacy-model.md). The branch below
++  // returns without sending.
++  events.clear();
++
+   if (events.empty()) {
+     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+         FROM_HERE, base::BindOnce(std::move(callback)));

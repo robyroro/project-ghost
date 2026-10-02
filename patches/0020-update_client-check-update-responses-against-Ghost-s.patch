@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 19:03:42 +0300
+Subject: [PATCH] update_client: check update responses against Ghost's CUP key
+
+Why: the CUP public key is a constant in request_sender.cc.
+Upstream: not upstreamable: product-specific signing key
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
+index 3b2f387695256c03e84f2221b066f496a0a3b91e..79283725781e21ff5e70e6e2f64b5022eb434e9d 100644
+--- a/components/update_client/BUILD.gn
++++ b/components/update_client/BUILD.gn
+@@ -184,6 +184,7 @@ static_library("update_client") {
+     "//components/version_info",
+     "//components/zucchini:zucchini_lib",
+     "//crypto",
++    "//ghost/branding:keys",
+     "//third_party/zlib/google:compression_utils",
+     "//url",
+   ]
+diff --git a/components/update_client/request_sender.cc b/components/update_client/request_sender.cc
+index 154cafd14623e5033718089376dd0d4629f9516e..152462bee56859cb830d076949cc1e9b6d01be8b 100644
+--- a/components/update_client/request_sender.cc
++++ b/components/update_client/request_sender.cc
+@@ -7,6 +7,7 @@
+ #include <algorithm>
+ #include <array>
+ #include <optional>
++#include <tuple>
+ #include <utility>
+ #include <vector>
+ 
+@@ -27,6 +28,7 @@
+ #include "components/update_client/update_client_errors.h"
+ #include "components/update_client/update_client_metrics.h"
+ #include "components/update_client/utils.h"
++#include "ghost/branding/cup_key.h"
+ #include "url/gurl.h"
+ 
+ namespace update_client {
+@@ -191,12 +193,16 @@ const std::string& SelectCupServerProof(
+ }
+ 
+ client_update_protocol::Cup BuildSigner() {
+-  return base::FeatureList::IsEnabled(
+-             client_update_protocol::features::kPqcCupSigning)
+-             ? client_update_protocol::Cup(
+-                   kMldsa44KeyVersion, base::as_byte_span(kMldsa44PublicKey))
+-             : client_update_protocol::Cup(kEcdsaKeyVersion,
+-                                           base::as_byte_span(kEcdsaPublicKey));
++  // Ghost: Ghost's update server signs responses with its own ECDSA key
++  // (//ghost/branding/cup_key.h). Post-quantum CUP waits for Ghost's
++  // production keys, so kPqcCupSigning is not consulted. Upstream's keys stay
++  // above, unused, so that their yearly rotations still apply cleanly.
++  std::ignore = kEcdsaKeyVersion;
++  std::ignore = kEcdsaPublicKey;
++  std::ignore = kMldsa44KeyVersion;
++  std::ignore = kMldsa44PublicKey;
++  return client_update_protocol::Cup(ghost::kCupKeyVersion,
++                                     base::as_byte_span(ghost::kCupPublicKey));
+ }
+ 
+ }  // namespace
