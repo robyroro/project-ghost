@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 16:49:43 +0300
+Subject: [PATCH] version_ui: show Ghost's release as people read it
+
+About and chrome://version show ADR 0007's display version,
+152.0.7977.149-1, instead of version_info's Chromium release.
+
+Why: both pages take the version string from version_info directly.
+Upstream: not upstreamable: product-specific versioning
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/ui/webui/version/BUILD.gn b/chrome/browser/ui/webui/version/BUILD.gn
+index 8c207f69b19c3c55ce8163d1271f28ab16959669..64c75ea13d3a092fa09ca23a50bc54d1d4067ae0 100644
+--- a/chrome/browser/ui/webui/version/BUILD.gn
++++ b/chrome/browser/ui/webui/version/BUILD.gn
+@@ -30,6 +30,7 @@ source_set("version") {
+     "//components/webui/version",
+     "//components/webui/version/resources",
+     "//content/public/common",
++    "//ghost/version",
+     "//ui/base",
+     "//v8:v8_version",
+   ]
+diff --git a/chrome/browser/ui/webui/version/version_ui.cc b/chrome/browser/ui/webui/version/version_ui.cc
+index 6f1f293bacaefada3d5be117f67cac69fe1f973b..ac7b483cea9a649d4c74d74e5932ddd1f418d7c4 100644
+--- a/chrome/browser/ui/webui/version/version_ui.cc
++++ b/chrome/browser/ui/webui/version/version_ui.cc
+@@ -40,6 +40,7 @@
+ #include "content/public/browser/url_data_source.h"
+ #include "content/public/browser/web_ui.h"
+ #include "content/public/browser/web_ui_data_source.h"
++#include "ghost/version/version.h"
+ #include "ui/base/l10n/l10n_util.h"
+ #include "ui/base/resource/resource_bundle.h"
+ #include "ui/base/webui/web_ui_util.h"
+@@ -247,8 +248,7 @@ void VersionUI::AddVersionDetailStrings(content::WebUIDataSource* html_source) {
+                                   VersionProcessorVariation());
+ 
+   // Data strings.
+-  html_source->AddString(version_ui::kVersion,
+-                         version_info::GetVersionNumber());
++  html_source->AddString(version_ui::kVersion, ghost::DisplayVersion());
+   html_source->AddString(version_ui::kVersionSuffix,
+                          GetVersionInformationalSuffix());
+ 
+@@ -340,7 +340,7 @@ void VersionUI::AddVersionDetailStrings(content::WebUIDataSource* html_source) {
+ std::u16string VersionUI::GetAnnotatedVersionStringForUi() {
+   return l10n_util::GetStringFUTF16(
+       IDS_SETTINGS_ABOUT_PAGE_BROWSER_VERSION,
+-      base::UTF8ToUTF16(version_info::GetVersionNumber()),
++      base::UTF8ToUTF16(ghost::DisplayVersion()),
+       base::UTF8ToUTF16(GetVersionInformationalSuffix()),
+       l10n_util::GetStringUTF16(version_info::IsOfficialBuild()
+                                     ? IDS_VERSION_UI_OFFICIAL
