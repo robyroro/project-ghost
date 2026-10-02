@@ -1,0 +1,35 @@
+{
+  "request": {
+    "protocol": "4.0", "ismachine": false, "dedup": "cr",
+    "acceptformat": "crx3,download,puff,run,xz,zucc",
+    "sessionid": "{11111111-1111-4111-8111-111111111111}",
+    "requestid": "{22222222-2222-4222-8222-222222222222}",
+    "@updater": "ProjectGhostUpdater", "updaterversion": "152.0.7977.149",
+    "prodversion": "152.0.7977.149", "updaterchannel": "stable", "prodchannel": "stable",
+    "@os": "win", "arch": "x86_64", "wow64": false, "dlpref": "cacheable",
+    "domainjoined": false, "extra": "attribute", "futurekey": "x",
+    "hw": {"physmemory": 32, "sse": true, "sse2": true, "sse3": true, "sse41": true,
+           "sse42": true, "ssse3": true, "avx": true},
+    "os": {"platform": "Windows", "arch": "x86_64", "version": "10.0.26120.1", "sp": "",
+           "futurekey": "x"},
+    "updaters": {"name": "ProjectGhostUpdater", "ismachine": false,
+                 "autoupdatecheckenabled": true, "updatepolicy": 1,
+                 "version": "152.0.7977.149", "lastchecked": 0, "laststarted": 0},
+    "apps": [{
+      "appid": "{33333333-3333-4333-8333-333333333333}", "version": "152.0.7977.14901",
+      "ap": "", "brand": "GGLS", "lang": "en-US", "installdate": 7000, "iid": "{44444444-4444-4444-8444-444444444444}",
+      "installsource": "taggedmi", "installedby": "other", "release_channel": "stable",
+      "cohort": "1:a:", "cohortname": "Stable", "cohorthint": "x", "enabled": true,
+      "_installer_attribute": "x", "futurekey": "x",
+      "cached_items": [{"sha256": "00", "futurekey": "x"}],
+      "disabled": [{"reason": 0, "futurekey": "x"}],
+      "updatecheck": {"updatedisabled": true, "rollback_allowed": true,
+                      "sameversionupdate": true, "targetversionprefix": "152.",
+                      "futurekey": "x"},
+      "data": [{"name": "install", "index": "verboselogging", "#text": "untrusted",
+                "futurekey": "x"}],
+      "ping": {"ping_freshness": "{x}", "ad": 7000, "a": 1, "rd": 7000, "r": 1},
+      "events": [{"eventtype": 2, "eventresult": 1}]
+    }]
+  }
+}

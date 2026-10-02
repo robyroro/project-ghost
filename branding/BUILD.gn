@@ -28,3 +28,12 @@ action("installer_strings") {
 
   deps = [ "//chrome/installer/util:generate_strings" ]
 }
+
+# The updater's keys, compiled into update_client and crx_file
+# (patches/0018, 0020). Test identity until sub-project D.
+source_set("keys") {
+  sources = [
+    "crx_publisher_key.h",
+    "cup_key.h",
+  ]
+}
