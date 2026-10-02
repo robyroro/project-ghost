@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 16:45:47 +0300
+Subject: [PATCH] upgrade_detector: compare the installed version with Ghost's
+ release version
+
+The installer records the release version (chrome/VERSION), while
+version_info reports the Chromium release (ADR 0007). Comparing the two
+would find an update on every launch of a release build. The simulated
+upgrade for --simulate-upgrade starts from the release version too.
+
+Why: the upgrade detector compares the installed version with
+version_info directly; there is no hook for another running version.
+Upstream: not upstreamable: product-specific versioning
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/upgrade_detector/BUILD.gn b/chrome/browser/upgrade_detector/BUILD.gn
+index 292985cd57cbaf3125d49d97ddcc9206116df323..1a1cc16c0cda5cfc5ed7fdb7c440a2b37b36c475 100644
+--- a/chrome/browser/upgrade_detector/BUILD.gn
++++ b/chrome/browser/upgrade_detector/BUILD.gn
+@@ -105,6 +105,7 @@ source_set("impl") {
+         "//chrome/browser/google",
+         "//chrome/browser/obsolete_system",
+         "//content/public/browser",
++        "//ghost/version",
+       ]
+     } else {
+       sources += [
+diff --git a/chrome/browser/upgrade_detector/installed_version_poller.cc b/chrome/browser/upgrade_detector/installed_version_poller.cc
+index 3b9337d0d82dd02f6e69bcc99de31405ae9de810..6542690275b1f45dc85230b2139007ee2146033d 100644
+--- a/chrome/browser/upgrade_detector/installed_version_poller.cc
++++ b/chrome/browser/upgrade_detector/installed_version_poller.cc
+@@ -21,7 +21,7 @@
+ #include "chrome/browser/upgrade_detector/get_installed_version.h"
+ #include "chrome/browser/upgrade_detector/installed_version_monitor.h"
+ #include "chrome/common/chrome_switches.h"
+-#include "components/version_info/version_info.h"
++#include "ghost/version/version.h"
+ 
+ namespace {
+ 
+@@ -54,7 +54,7 @@ void SimulateGetInstalledVersion(uint32_t testing_options,
+                                  InstalledVersionCallback callback) {
+   DCHECK_NE(0U, testing_options);
+ 
+-  std::vector<uint32_t> components = version_info::GetVersion().components();
++  std::vector<uint32_t> components = ghost::ReleaseVersion().components();
+   components[3] += 2;
+ 
+   InstalledAndCriticalVersion result((base::Version(components)));
+@@ -186,7 +186,7 @@ void InstalledVersionPoller::OnInstalledVersion(
+   // Consider either an invalid version or a higher version a normal update.
+   BuildState::UpdateType update_type = BuildState::UpdateType::kNormalUpdate;
+   if (versions.installed_version.IsValid()) {
+-    switch (versions.installed_version.CompareTo(version_info::GetVersion())) {
++    switch (versions.installed_version.CompareTo(ghost::ReleaseVersion())) {
+       case -1:
+         update_type = BuildState::UpdateType::kEnterpriseRollback;
+         break;
+diff --git a/chrome/browser/upgrade_detector/upgrade_detector_impl.cc b/chrome/browser/upgrade_detector/upgrade_detector_impl.cc
+index 75e155bf953d67a653eb5812bd7f200a83931f81..10d5ffb7ea824fa52b72be8f69bd9f57476b1e3c 100644
+--- a/chrome/browser/upgrade_detector/upgrade_detector_impl.cc
++++ b/chrome/browser/upgrade_detector/upgrade_detector_impl.cc
+@@ -38,9 +38,9 @@
+ #include "chrome/common/pref_names.h"
+ #include "components/network_time/network_time_tracker.h"
+ #include "components/prefs/pref_service.h"
+-#include "components/version_info/version_info.h"
+ #include "content/public/browser/browser_task_traits.h"
+ #include "content/public/browser/browser_thread.h"
++#include "ghost/version/version.h"
+ 
+ #if BUILDFLAG(IS_WIN)
+ #include "chrome/installer/util/google_update_settings.h"
+@@ -548,7 +548,7 @@ void UpgradeDetectorImpl::OnUpdate(const BuildState* build_state) {
+     // error fetching the installed version. This is generally an indication
+     // that something has gone wrong, so behave as if a normal update is
+     // available in the hopes that a restart will make everything alright.
+-    UpgradeDetected(build_state->critical_version() > version_info::GetVersion()
++    UpgradeDetected(build_state->critical_version() > ghost::ReleaseVersion()
+                         ? UPGRADE_AVAILABLE_CRITICAL
+                         : UPGRADE_AVAILABLE_REGULAR);
+   }
