@@ -63,6 +63,7 @@ test("ghost_browsertests") {
     "browser/features/feature_overrides_browsertest.cc",
     "test/egress/omnibox_browsertest.cc",
     "test/google_services_browsertest.cc",
+    "test/web_version_browsertest.cc",
   ]
 
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
@@ -81,6 +82,7 @@ test("ghost_browsertests") {
     "//chrome/browser/ui",
     "//chrome/browser/ui/location_bar",
     "//chrome/browser/ui/omnibox",
+    "//chrome/browser/ui/webui/version",
     "//chrome/common",
     "//chrome/test:browser_tests_runner",
     "//chrome/test:test_support",
@@ -95,6 +97,7 @@ test("ghost_browsertests") {
     "//components/regional_capabilities",
     "//components/search_engines",
     "//content/test:test_support",
+    "//ghost/version",
     "//testing/gmock",
     "//testing/gtest",
     "//url",
