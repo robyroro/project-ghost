@@ -64,17 +64,22 @@ def install_arguments(appid: str) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--src", type=Path, required=True, help="Chromium checkout (src)")
-    parser.add_argument("--out", type=Path, required=True, help="output dir, relative to --src")
+    parser.add_argument("--out", type=Path, required=True,
+                        help="output dir with UpdaterSetup.exe, relative to --src; a static "
+                             "build, since the metainstaller runs alone")
     parser.add_argument("--version", required=True, help="the browser installer's version")
     parser.add_argument("--appid", required=True, help="the browser's app ID")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--installer", type=Path,
+                        help="the browser installer (default: mini_installer.exe in --out)")
     parser.add_argument("--depot-tools", type=Path, default=Path(r"C:\src\depot_tools"))
     args = parser.parse_args(argv)
     out_dir = (args.src / args.out).resolve()
     with tempfile.TemporaryDirectory() as tmp:
         manifest = Path(tmp) / "OfflineManifest.gup"
         manifest.write_text(MANIFEST, encoding="utf-8", newline="\n")
-        command = sign_command(args.depot_tools, out_dir, out_dir / "mini_installer.exe",
+        installer = (args.installer or out_dir / "mini_installer.exe").resolve()
+        command = sign_command(args.depot_tools, out_dir, installer,
                                manifest, args.appid, args.version, args.output.resolve())
         return subprocess.run(command, cwd=out_dir / "UpdaterSigning").returncode
 

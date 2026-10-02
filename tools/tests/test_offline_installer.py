@@ -5,6 +5,7 @@
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from unittest import mock
 
 import offline_installer as oi
 
@@ -33,6 +34,20 @@ class CommandTest(unittest.TestCase):
                          str(out / "UpdaterSigning" / "7zr.exe"))
         self.assertIn("'${INSTALLER_VERSION}': '152.0.7977.14901'",
                       argv[argv.index("--manifest_dict_replacements") + 1])
+
+    def test_browser_installer_may_come_from_another_output_dir(self):
+        # The metainstaller must be a static build (out/updater); the browser
+        # installer may come from the component build.
+        with mock.patch.object(oi.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            oi.main(["--src", r"C:\src", "--out", r"out\updater", "--version", "1.2.3.4",
+                     "--appid", "{A}", "--output", r"C:\x\Setup.exe",
+                     "--installer", r"C:\src\out\vanilla\mini_installer.exe"])
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[argv.index("--installer_path") + 1],
+                         str(Path(r"C:\src\out\vanilla\mini_installer.exe").resolve()))
+        self.assertEqual(argv[argv.index("--in_file") + 1],
+                         str(Path(r"C:\src\out\updater").resolve() / "UpdaterSetup.exe"))
 
     def test_install_arguments(self):
         self.assertEqual(oi.install_arguments("{APPID}"),
