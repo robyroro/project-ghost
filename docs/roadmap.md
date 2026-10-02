@@ -177,8 +177,15 @@ Remaining before Phase 0 closes:
       - From the upstream release (2026-09-29 18:30 UTC) to a tested build took 40 hours. That build was not signed or shipped; the 72-hour SLA applies from Phase 2.
     - It re-applies the series only when the series changes. Otherwise every run would rebuild the files the patches touch and their dependents: siso rebuilds by modification time, and `install_modes.h` alone reaches over a hundred files.
 
-**Exit criteria** (status 2026-10-01)
-- [ ] A clean checkout produces a branded installer through the documented steps. The steps are documented and each has run on the reference machine. A run from an empty directory needs a full build, which is planned on the builder.
+**Exit criteria** (status 2026-10-02: all met, Phase 1 is complete)
+- [x] A clean checkout produces a branded installer through the documented steps.
+  - On the reference machine, in an empty directory with the Defender exclusion in place.
+  - The repository was cloned from GitHub at `41ec433`. The steps in [build/windows.md](build/windows.md) were then run as written: `check_env.py`, `bootstrap.py`, `patches.py apply`, `gn gen` with `dev.gn`, and `autoninja -j 10` of `chrome`, both test suites and `mini_installer`.
+  - `ghost_unittests` passed 11/11 and `ghost_browsertests` 12/12, with no retries. The installer smoke test passed in Windows Sandbox.
+  - **It found a bootstrap bug.** Fetching the tag into a new `--no-history` clone downloaded the 1.4 GB clone again, and on Windows git failed to rename it over the identical, read-only pack. Since `82b46ca` and `41ec433`, bootstrap checks the tag with `git ls-remote` and fetches only a commit it doesn't have.
+  - Bootstrap took about 26 minutes in total, split across the runs the bug interrupted: about 19 for the clone and dependencies, about 7 for the hooks. The build took 14 h 07 min over two sessions: it stopped cleanly overnight and resumed where it left off.
+  - The build is longer than the 11 h 17 min baseline, which built only `chrome`. Both test suites pull in Chromium's browser test support.
+  - `out\vanilla` is 31 GB, and `mini_installer.exe` is 614 MB, which is a component build's size.
 - [x] The browser browses and installs a Chrome Web Store extension.
   - The reference machine's dev build installed uBlock Origin Lite from its Web Store page, confirmed by hand.
   - The profile records the install as from the Web Store and enabled, and its service worker ran.
