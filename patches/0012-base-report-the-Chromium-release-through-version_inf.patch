@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 16:35:49 +0300
+Subject: [PATCH] base: report the Chromium release through version_info
+
+Ghost's release builds put the release version in chrome/VERSION for the
+installer, the updater and Windows (ADR 0007). version_info is what the
+User-Agent, Client Hints and the Chrome Web Store report, so it keeps the
+Chromium release: version.py's -e arguments from //ghost/build/version.gni
+override chrome/VERSION's values.
+
+Why: version_info is generated from //chrome/VERSION with no way for an
+embedder to supply another version file.
+Upstream: not upstreamable: product-specific versioning
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/base/version_info/BUILD.gn b/base/version_info/BUILD.gn
+index 96937eddc05602917e3e9988959f1feee46b831c..5847ef41f696fa67f6a72794eb9ea6955e35447f 100644
+--- a/base/version_info/BUILD.gn
++++ b/base/version_info/BUILD.gn
+@@ -6,6 +6,7 @@ import("//base/version_info/use_unofficial_version_number.gni")
+ import("//build/config/chrome_build.gni")
+ import("//build/util/lastchange.gni")
+ import("//build/util/process_version.gni")
++import("//ghost/build/version.gni")
+ 
+ static_library("version_info") {
+   sources = [
+@@ -45,4 +46,8 @@ process_version("generate_version_info") {
+     lastchange_file,
+   ]
+   output = "$target_gen_dir/version_info_values.h"
++
++  # Ghost: report the Chromium release, not chrome/VERSION's release version
++  # (ADR 0007), to everything that reads version_info.
++  extra_args = ghost_chromium_version_args
+ }
