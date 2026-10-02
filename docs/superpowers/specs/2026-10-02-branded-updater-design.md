@@ -81,22 +81,28 @@ Measured at 152.0.7977.149:
 - In the test identity the key is a test key. Its private half is committed in `test/updater/`, marked as test-only.
 - Sub-project D replaces it with the production key and decides where the private key lives.
 
-**The request scrubber**, a Ghost hook in `components/update_client`. It builds the request that is sent from an **allow-list**:
+**The request scrubber**, a Ghost hook in `components/update_client`. It applies an **allow-list** to the JSON that is actually sent, just before `ProtocolSerializerJSON::Serialize` writes it. The serializer always writes some objects, such as `hw` with zeros and `dedup`, whatever the request holds, so cleaning the C++ request would not be enough.
 
-| Level | Kept |
+| Object | Keys kept |
 |---|---|
-| Request | `protocol`, `ismachine`, `requestid` (random per request), `sessionid` (random per update session, never stored), updater name and version, `prodversion` (the Chromium release, through sub-project A), channels, `os` (platform, version, architecture), `arch`, `dlpref` |
-| Each app | `appid`, `version`, `ap`, `release_channel`, `brand`, `enabled`, `updatecheck`, `cached_hashes`, `data` |
+| `request` | `protocol`, `ismachine`, `acceptformat`, `sessionid` (random per update session, never stored), `requestid` (random per request), `@updater`, `updaterversion`, `prodversion` (the Chromium release, through sub-project A), `updaterchannel`, `prodchannel`, `@os`, `arch`, `wow64`, `dlpref`, `os`, `apps` |
+| `os` | `platform`, `arch`, `version` |
+| each `app` | `appid`, `version`, `ap`, `brand`, `release_channel`, `enabled`, `disabled`, `cached_items`, `updatecheck`, `data` |
+| `disabled` entries | `reason` |
+| `cached_items` entries | `sha256` |
+| `updatecheck` | `updatedisabled`, `rollback_allowed`, `sameversionupdate`, `targetversionprefix` |
+| `data` entries | `name`, `index` |
 
-- **Everything else is dropped**, including any field a later milestone adds upstream. Fields dropped today include:
-  - `install_id` and `install_date`;
-  - the `ping` counters (`rd`, `ad`, `ping_freshness`);
-  - `hw`, `lang` and `domain_joined`;
-  - the updater's `lastchecked` and `laststarted`;
-  - cohorts.
-- **Event requests (`events`) are not sent.**
-- **A dropped field never fails silently.** If one turns out to be needed, the tests show it. No new field can leave unnoticed: the same principle as sub-project A's cut at `version_info`.
-- **The hook sits where `update_client` assembles the request**, before serialization. It therefore covers:
+- **Everything else is dropped**, including any key a later milestone adds upstream. Dropped today:
+  - `iid` (the install ID) and `installdate`;
+  - `ping`, with its `rd`, `ad`, `a`, `r` and `ping_freshness` counters;
+  - `hw`, `lang`, `domainjoined`, `dedup` and `os.sp`;
+  - `updaters`, the updater's own state with `lastchecked` and `laststarted`;
+  - `installsource`, `installedby`, the cohorts, installer attributes, and the extra request attributes;
+  - the text of `data` entries.
+- **Event requests (`events`) are not sent.** `PingManager::SendPing` drops its events before anything else, so its existing "no events" branch returns without a request.
+- **A dropped key never fails silently.** If one turns out to be needed, the tests show it. No new key can leave unnoticed: the same principle as sub-project A's cut at `version_info`.
+- **The hook sits in `update_client`'s serializer**, so it covers:
   - the updater's checks for the browser;
   - the updater's own self-updates;
   - the browser's component updater when it returns in sub-project C.
@@ -133,7 +139,7 @@ Measured at 152.0.7977.149:
 | `components/update_client/request_sender.cc` | The CUP key from `//ghost/branding/cup_key.h`, always ECDSA |
 | `components/crx_file/crx_verifier.{h,cc}` | Adds `CRX3_WITH_GHOST_PUBLISHER_PROOF`, which accepts only the key in `//ghost/branding/crx_publisher_key.h` |
 | `chrome/updater/external_constants_default.cc` | The updater requires `CRX3_WITH_GHOST_PUBLISHER_PROOF` |
-| `components/update_client` (request assembly) | Calls the scrubber |
+| `components/update_client/protocol_serializer_json.cc`, `ping_manager.cc` | Call the scrubber; send no event requests |
 | `chrome/browser/updater/browser_updater_client_win.cc` | Registers `ghost::ReleaseVersion()`: the requirement sub-project A's [audit](2026-10-02-release-version-spike.md#audit-of-version_info-callers) left for B |
 
 `branding/install_modes.h` gets the browser's `app_guid`, empty since Phase 1 "until the updater exists", and the new `kCompanyPathName` and `kProductPathName`. `installer_smoke.py` follows: it currently refuses a non-empty company path, and learns the new install directory and Apps & features key.
