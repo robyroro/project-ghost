@@ -12,14 +12,16 @@
 to run outside Windows Sandbox unless --disposable says the machine may be
 thrown away.
 
-What is checked comes from branding/ and CHROMIUM_VERSION:
-- after install: the browser and setup.exe in place; the Apps & features
-  entry with the product name, publisher and version; registration as a
-  browser (StartMenuInternet and the HTML ProgID); Start menu and Desktop
-  shortcuts named for the product and opening it; the product name in
-  chrome.exe's file properties; and nothing named Chromium, so Ghost can be
-  installed next to Chromium;
-- launch: the installed browser starts and reports the pinned version;
+What is checked comes from branding/, CHROMIUM_VERSION and the installer's
+file version, which is the release version (ADR 0007):
+- after install: the browser, and setup.exe in the release version's
+  directory; the Apps & features entry with the product name, publisher and
+  release version; registration as a browser (StartMenuInternet and the HTML
+  ProgID); Start menu and Desktop shortcuts named for the product and opening
+  it; the product name in chrome.exe's file properties; and nothing named
+  Chromium, so Ghost can be installed next to Chromium;
+- launch: the installed browser starts and reports CHROMIUM_VERSION, the
+  version websites see;
 - after uninstall: none of the above is left.
 """
 
@@ -67,10 +69,11 @@ class Expectations:
     url_scheme: str       # direct_launch_url_scheme
     product_name: str     # BRANDING PRODUCT_FULLNAME: shortcuts, Apps & features
     company_name: str     # BRANDING COMPANY_FULLNAME: publisher
-    version: str          # CHROMIUM_VERSION
+    release_version: str  # the installer's file version: install directory, Apps & features
+    web_version: str      # CHROMIUM_VERSION: what the running browser reports
 
 
-def expectations(root: Path) -> Expectations:
+def expectations(root: Path, release_version: str) -> Expectations:
     modes = (root / "branding" / "install_modes.h").read_text(encoding="utf-8")
 
     def field(pattern: str) -> str:
@@ -95,7 +98,8 @@ def expectations(root: Path) -> Expectations:
         url_scheme=field(r'\.direct_launch_url_scheme\s*=\s*"([^"]*)"'),
         product_name=branding["PRODUCT_FULLNAME"],
         company_name=branding["COMPANY_FULLNAME"],
-        version=repo.read_chromium_version(root))
+        release_version=release_version,
+        web_version=repo.read_chromium_version(root))
 
 
 # --- Checks ---------------------------------------------------------------------
@@ -139,14 +143,14 @@ def evaluate_installed(snap: dict, exp: Expectations) -> list[str]:
     if not snap["files"]["chrome.exe"]:
         failures.append(f"chrome.exe is not at {snap['chrome_exe']}")
     if not snap["files"]["setup.exe"]:
-        failures.append(f"setup.exe is not in {exp.version}\\Installer")
+        failures.append(f"setup.exe is not in {exp.release_version}\\Installer")
 
     entry = snap["uninstall"]
     if entry is None:
         failures.append("no Apps & features entry")
     else:
         for name, want in (("DisplayName", exp.product_name), ("Publisher", exp.company_name),
-                           ("DisplayVersion", exp.version)):
+                           ("DisplayVersion", exp.release_version)):
             if entry.get(name) != want:
                 failures.append(f"Apps & features {name} is {entry.get(name)!r}, "
                                 f"expected {want!r}")
@@ -187,7 +191,7 @@ def evaluate_uninstalled(snap: dict, exp: Expectations) -> list[str]:
 
 def evaluate_launch(version: dict, exp: Expectations) -> list[str]:
     """`version` is DevTools' Browser.getVersion reply."""
-    want = f"Chrome/{exp.version}"
+    want = f"Chrome/{exp.web_version}"
     if version.get("product") != want:
         return [f"the browser reports {version.get('product')!r}, expected {want!r}"]
     return []
@@ -227,6 +231,12 @@ def _ps_quote(path: str) -> str:
     return "'" + path.replace("'", "''") + "'"
 
 
+def installer_version(installer: Path) -> str:
+    """The installer's file version: the chrome/VERSION of the build that made it."""
+    return _powershell_json(f"(Get-Item -LiteralPath {_ps_quote(str(installer))})"
+                            ".VersionInfo.FileVersion")
+
+
 def snapshot(exp: Expectations) -> dict:
     import winreg
 
@@ -263,7 +273,8 @@ def snapshot(exp: Expectations) -> dict:
     return {
         "chrome_exe": str(chrome), "start_menu": str(start_menu), "desktop": str(desktop),
         "files": {"chrome.exe": chrome.exists(),
-                  "setup.exe": (app_dir / exp.version / "Installer" / "setup.exe").exists()},
+                  "setup.exe": (app_dir / exp.release_version / "Installer"
+                                / "setup.exe").exists()},
         "uninstall": values(rf"Software\Microsoft\Windows\CurrentVersion\Uninstall"
                             rf"\{exp.product_path}"),
         "software": subkeys("Software"),
@@ -344,7 +355,8 @@ def run(installer: Path, results_dir: Path, exp: Expectations) -> dict:
                     snapshot=installed):
             return result
         step("launch", launch(Path(installed["chrome_exe"]), exp))
-        setup = Path(installed["chrome_exe"]).parent / exp.version / "Installer" / "setup.exe"
+        setup = (Path(installed["chrome_exe"]).parent / exp.release_version / "Installer"
+                 / "setup.exe")
         code = subprocess.run([str(setup), "--uninstall", "--force-uninstall",
                                "--verbose-logging"], timeout=900).returncode
         uninstalled = snapshot(exp)
@@ -405,7 +417,8 @@ def run_in_sandbox(installer: Path, timeout: int) -> int:
         return 2
     results = Path(tempfile.mkdtemp(prefix="installer-smoke-"))
     (results / EXPECTATIONS_FILE).write_text(
-        json.dumps(expectations(repo.REPO_ROOT).__dict__), encoding="utf-8")
+        json.dumps(expectations(repo.REPO_ROOT, installer_version(installer)).__dict__),
+        encoding="utf-8")
     config = results.with_suffix(".wsb")
     config.write_text(sandbox_config(installer.resolve().parent, TOOLS_DIR,
                                      Path(sys.base_prefix), results, installer.name),
@@ -444,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     saved = args.results / EXPECTATIONS_FILE
     exp = (Expectations(**json.loads(saved.read_text(encoding="utf-8"))) if saved.exists()
-           else expectations(repo.REPO_ROOT))
+           else expectations(repo.REPO_ROOT, installer_version(args.installer)))
     result = run(args.installer, args.results, exp)
     print(format_result(result))
     return 0 if passed(result) else 1

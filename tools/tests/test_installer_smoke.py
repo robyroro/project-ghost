@@ -15,7 +15,8 @@ import repo
 EXP = installer_smoke.Expectations(
     product_path="Project Ghost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
     pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost", product_name="Project Ghost",
-    company_name="Project Ghost", version="152.0.7977.140")
+    company_name="Project Ghost", release_version="152.0.7977.14001",
+    web_version="152.0.7977.140")
 LOCALAPPDATA = r"C:\Users\WDAGUtilityAccount\AppData\Local"
 CHROME = LOCALAPPDATA + r"\Project Ghost\Application\chrome.exe"
 PROGRAMS = r"C:\Users\WDAGUtilityAccount\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
@@ -27,7 +28,7 @@ INSTALLED = {
     "desktop": DESKTOP,
     "files": {"chrome.exe": True, "setup.exe": True},
     "uninstall": {"DisplayName": "Project Ghost", "Publisher": "Project Ghost",
-                  "DisplayVersion": "152.0.7977.140"},
+                  "DisplayVersion": "152.0.7977.14001"},
     "software": ["Clients", "Microsoft", "Project Ghost"],
     "start_menu_internet": ["Project Ghost.ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
     "classes": ["GhostHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ", "GhostPDF.ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -57,13 +58,13 @@ def changed(snapshot, **changes):
 
 
 class ExpectationsTest(unittest.TestCase):
-    def test_come_from_the_branding_directory_and_the_pin(self):
-        exp = installer_smoke.expectations(repo.REPO_ROOT)
+    def test_come_from_the_branding_directory_the_pin_and_the_installer(self):
+        exp = installer_smoke.expectations(repo.REPO_ROOT, release_version="152.0.7977.14901")
         self.assertEqual(exp, installer_smoke.Expectations(
             product_path="Project Ghost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
             pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost",
             product_name="Project Ghost", company_name="Project Ghost",
-            version=repo.read_chromium_version()))
+            release_version="152.0.7977.14901", web_version=repo.read_chromium_version()))
 
     def test_round_trip_through_json(self):
         # The build machine writes them; the sandbox reads them.
@@ -87,6 +88,10 @@ class InstalledTest(unittest.TestCase):
             entry = dict(INSTALLED["uninstall"], **{field: wrong})
             self.assertTrue(any(field in f for f in self.failures(uninstall=entry)), field)
         self.assertTrue(self.failures(uninstall=None))
+
+    def test_apps_and_features_shows_the_release_version_not_chromiums(self):
+        entry = dict(INSTALLED["uninstall"], DisplayVersion=EXP.web_version)
+        self.assertTrue(any("DisplayVersion" in f for f in self.failures(uninstall=entry)))
 
     def test_browser_registration(self):
         classes = INSTALLED["classes"]
@@ -149,10 +154,14 @@ class UninstalledTest(unittest.TestCase):
 
 
 class LaunchTest(unittest.TestCase):
-    def test_the_browser_reports_the_pinned_version(self):
+    def test_the_browser_reports_chromiums_version(self):
         self.assertEqual(installer_smoke.evaluate_launch(
             {"product": "Chrome/152.0.7977.140"}, EXP), [])
         self.assertTrue(installer_smoke.evaluate_launch({"product": "Chrome/151.0.1.2"}, EXP))
+
+    def test_the_browser_never_reports_the_release_version(self):
+        self.assertTrue(installer_smoke.evaluate_launch(
+            {"product": "Chrome/152.0.7977.14001"}, EXP))
 
 
 class DisposableTest(unittest.TestCase):
