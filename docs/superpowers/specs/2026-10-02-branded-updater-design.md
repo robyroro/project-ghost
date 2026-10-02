@@ -17,6 +17,21 @@ These were settled in discussion on 2026-10-02:
   - The **online** variant downloads the browser from the server. It comes with sub-project C.
 - **Per-user scope only.** Per-system installs (Program Files, a Windows service, elevation) become their own sub-project, before the public alpha.
 - **B ends with an applied update.** A test server signs its responses with CUP using a test key. It proves the whole client side: CUP with our key, the request contents, installation of the update. C replaces the test server with the real one.
+- **A company level above the browser, as Google and Brave have.**
+  - Uninstalling the browser deletes the contents of its registry key (`RemoveDistributionRegistryState` in `chrome/installer/setup/uninstall.cc`). With Phase 1's layout, the browser's key is `Software\Project Ghost`, so an updater key beneath it would be wiped while the updater is still installed.
+  - The browser therefore moves under a company directory, and the updater sits beside it:
+
+| | Phase 1 | Sub-project B |
+|---|---|---|
+| `kCompanyPathName`, `kProductPathName` | `""`, `Project Ghost` | `Project Ghost`, `Browser` |
+| Browser files | `%LOCALAPPDATA%\Project Ghost\Application` | `%LOCALAPPDATA%\Project Ghost\Browser\Application` |
+| User data | `%LOCALAPPDATA%\Project Ghost\User Data` | `%LOCALAPPDATA%\Project Ghost\Browser\User Data` |
+| Browser registry | `Software\Project Ghost` | `Software\Project Ghost\Browser` |
+| Apps & features key | `Project Ghost` | `Project Ghost Browser` |
+| Updater files | — | `%LOCALAPPDATA%\Project Ghost\<updater name>\<version>` |
+| Updater registry, and the browser's registration | — | `Software\Project Ghost\Update`, `…\Update\Clients\{appid}` |
+
+  Only test installs exist, so this is the cheapest moment for the move. The final name will need the same structure. Shortcuts and the product name people see stay `Project Ghost`.
 
 ## What upstream provides, and what it assumes
 
@@ -39,7 +54,7 @@ Measured at 152.0.7977.149:
 ### New in `//ghost`
 
 **`branding/updater.gni`: Ghost's updater identity**, the values `branding.gni` otherwise takes from the Chromium branch.
-- The names are `Project Ghost Updater` and company `Project Ghost`, so the updater installs to `%LOCALAPPDATA%\Project Ghost\Project Ghost Updater\<version>\`.
+- The company is `Project Ghost`, the same as the browser's `kCompanyPathName`, and the updater is `Project Ghost Updater`. The updater's files and registry therefore sit beside the browser's, as in the layout table above.
 - **The GUIDs are newly generated:**
   - the browser's app ID and the updater's app ID;
   - the mutexes;
@@ -106,7 +121,7 @@ Measured at 152.0.7977.149:
 | `components/update_client` (request assembly) | Calls the scrubber |
 | `chrome/browser/updater/browser_updater_client_win.cc` | Registers `ghost::ReleaseVersion()`: the requirement sub-project A's [audit](2026-10-02-release-version-spike.md#audit-of-version_info-callers) left for B |
 
-`branding/install_modes.h` gets the browser's `app_guid`, empty since Phase 1 "until the updater exists".
+`branding/install_modes.h` gets the browser's `app_guid`, empty since Phase 1 "until the updater exists", and the new `kCompanyPathName` and `kProductPathName`. `installer_smoke.py` follows: it currently refuses a non-empty company path, and learns the new install directory and Apps & features key.
 
 **No patch is needed to build the updater.** `enable_updater` and `enable_update_notifications` are GN arguments (`chrome/browser/buildflags.gni`), so `build/args/dev.gn` sets both to `true`. The second turns on the browser's "relaunch to update" prompt, which the audit below also covers.
 
