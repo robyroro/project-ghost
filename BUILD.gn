@@ -19,6 +19,7 @@ test("ghost_unittests") {
     "browser/prefs/pref_defaults_unittest.cc",
     "browser/startup/browser_main_extra_parts_unittest.cc",
     "components/signin/gaia_cookie_manager_service_unittest.cc",
+    "updater/crx_verifier_unittest.cc",
     "version/installed_version_poller_unittest.cc",
     "version/version_unittest.cc",
   ]
@@ -34,6 +35,7 @@ test("ghost_unittests") {
     "//components/autofill/core/common",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
+    "//components/crx_file",
     "//components/password_manager/core/browser/leak_detection",
     "//components/password_manager/core/common",
     "//components/prefs",
@@ -54,6 +56,9 @@ test("ghost_unittests") {
 
   # ChromeUnitTestSuite loads chrome's resource paks at startup.
   data_deps = [ "//chrome:packed_resources" ]
+
+  # CRX3 fixtures, the CUP vector and the golden update requests.
+  data = [ "//ghost/test/updater/" ]
 }
 
 # Tests that need chrome's real startup sequence (feature list creation,

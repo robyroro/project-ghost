@@ -79,6 +79,13 @@ class IdentityTest(unittest.TestCase):
         self.assertIn(f'kCompanyPathName[] = L"{company}"', modes)
 
 
+class FixtureTest(unittest.TestCase):
+    def test_ghost_fixture_is_signed_by_the_test_publisher_key(self):
+        data = (DATA / "data" / "ghost_publisher.crx3").read_bytes()
+        key = ec.spki(ec.public_key(us.load_key(us.CRX_KEY_FILE)))
+        self.assertEqual(crx3.verified_keys(data), [key])
+
+
 class ResponseTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
