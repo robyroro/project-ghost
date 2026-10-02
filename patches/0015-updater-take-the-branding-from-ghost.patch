@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 18:43:41 +0300
+Subject: [PATCH] updater: take the branding from //ghost
+
+Ghost's updater has its own names, GUIDs and endpoints. The Chromium
+branch would point the updater at Google's QA server and send crash
+reports and event logs to Google.
+
+Why: branding.gni knows only Google Chrome and Chromium.
+Upstream: not upstreamable: product-specific branding
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/updater/branding.gni b/chrome/updater/branding.gni
+index 2b6f9e23b21e320440b34e9d7d31f14b625cccb6..1919f02fd10370c0d880ca7dfe515df67e244217 100644
+--- a/chrome/updater/branding.gni
++++ b/chrome/updater/branding.gni
+@@ -6,7 +6,7 @@ import("//build/config/chrome_build.gni")
+ 
+ if (is_chrome_branded) {
+   import("//chrome/updater/internal/branding_google.gni")
+-} else {
++} else if (false) {  # Ghost: replaced by //ghost/branding/updater.gni below.
+   browser_name = "Chromium"
+   browser_product_name = "Chromium"
+   crash_product_name = "ChromiumUpdater"
+@@ -108,3 +108,8 @@ if (is_chrome_branded) {
+     legacy_google_update_appid = "{8B2B92A3-1BA2-4154-A89C-DA74C9C505E4}"
+   }
+ }
++
++# Ghost: the updater's identity (test identity until the final name).
++if (!is_chrome_branded) {
++  import("//ghost/branding/updater.gni")
++}
