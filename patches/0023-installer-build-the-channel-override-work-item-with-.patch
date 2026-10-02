@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 19:09:19 +0300
+Subject: [PATCH] installer: build the channel override work item with updater
+ integration
+
+setup.exe uses it whenever it registers with an updater; upstream
+compiles it only for Google Chrome, which was the only build that did.
+
+Why: the source is gated on is_chrome_branded rather than on the
+integration flag that uses it.
+Upstream: not upstreamable: follows patches/0016
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/installer/setup/BUILD.gn b/chrome/installer/setup/BUILD.gn
+index 2b1d7cb7ae257669d56bcfefb2b4a31e4aa035f7..518510328927056375cdfe44fbf7263a27c444b3 100644
+--- a/chrome/installer/setup/BUILD.gn
++++ b/chrome/installer/setup/BUILD.gn
+@@ -130,12 +130,12 @@ if (is_win) {
+       deps += [ "//services/webnn/public/cpp:win" ]
+     }
+ 
+-    if (is_chrome_branded) {
+-      sources += [
+-        "channel_override_work_item.cc",
+-        "channel_override_work_item.h",
+-      ]
+-    }
++    # Ghost: setup registers with Ghost's updater (USE_GOOGLE_UPDATE_INTEGRATION,
++    # patches/0016), which uses this work item.
++    sources += [
++      "channel_override_work_item.cc",
++      "channel_override_work_item.h",
++    ]
+   }
+ 
+   process_version_rc_template("setup_exe_version") {
