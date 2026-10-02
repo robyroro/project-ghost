@@ -152,6 +152,17 @@ def _registration_kinds(exp: Expectations) -> list[tuple[str, str, Callable[[str
 # Software\Google.
 _COMPANY_KEYS_ALLOWED_AFTER_UNINSTALL = ("Update",)
 
+# A normal uninstall keeps the profile, and upstream clears the product key
+# only with it (RemoveDistributionRegistryState runs when the profile is
+# deleted). What it leaves is the installer's taskbar pin state.
+_PRODUCT_VALUES_KEPT_WITH_THE_PROFILE = ("InstallerPinned",)
+
+
+def _kept_with_the_profile(snap: dict) -> bool:
+    key = snap.get("product_key")
+    return bool(key) and not key["subkeys"] and set(key["values"]) <= set(
+        _PRODUCT_VALUES_KEPT_WITH_THE_PROFILE)
+
 
 def _outside_company(snap: dict, exp: Expectations) -> list[str]:
     """A product key at the top of Software, beside the company's: a generic
@@ -211,7 +222,11 @@ def evaluate_uninstalled(snap: dict, exp: Expectations) -> list[str]:
                 if present]
     if snap["uninstall"] is not None:
         failures.append("the Apps & features entry is left behind")
-    failures += [f"{r} is left behind" for r in _registrations(snap, exp)]
+    leftovers = _registrations(snap, exp)
+    product_key = f"product_parent_keys\\{exp.product_path}"
+    if exp.company_path and product_key in leftovers and _kept_with_the_profile(snap):
+        leftovers.remove(product_key)
+    failures += [f"{r} is left behind" for r in leftovers]
     failures += [f"shortcut {p} is left behind" for p, t in snap["shortcuts"].items()
                  if ntpath.basename(p).lower() == exp.product_name.lower() + ".lnk"
                  or _same_path(t, snap["chrome_exe"])]
@@ -290,6 +305,10 @@ def snapshot(exp: Expectations) -> dict:
             return None
 
     app_dir = Path(os.environ["LOCALAPPDATA"]).joinpath(*exp.install_dir_parts) / "Application"
+    product_key_path = "Software\\" + "\\".join(exp.install_dir_parts)
+    product_values = values(product_key_path)
+    product_key = (None if product_values is None else
+                   {"values": sorted(product_values), "subkeys": subkeys(product_key_path)})
     start_menu = Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs"
     desktop = Path(os.environ["USERPROFILE"]) / "Desktop"
     links = sorted(str(p) for p in list(start_menu.rglob("*.lnk")) + list(desktop.glob("*.lnk")))
@@ -316,6 +335,7 @@ def snapshot(exp: Expectations) -> dict:
         # the top of Software without a company.
         "product_parent_keys": subkeys("Software\\" + exp.company_path
                                        if exp.company_path else "Software"),
+        "product_key": product_key,
         "start_menu_internet": subkeys(r"Software\Clients\StartMenuInternet"),
         "classes": subkeys(r"Software\Classes"),
         "shortcuts": dict(zip(links, targets)),

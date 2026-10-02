@@ -31,6 +31,7 @@ INSTALLED = {
                   "DisplayVersion": "152.0.7977.14001"},
     "software": ["Clients", "Microsoft", "Project Ghost"],
     "product_parent_keys": ["Browser"],
+    "product_key": {"values": ["InstallerPinned"], "subkeys": []},
     "start_menu_internet": ["Project Ghost.ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
     "classes": ["GhostHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ", "GhostPDF.ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                 "projectghost"],
@@ -46,6 +47,7 @@ UNINSTALLED = {
     "uninstall": None,
     "software": ["Clients", "Microsoft", "Project Ghost"],
     "product_parent_keys": [],
+    "product_key": None,
     "start_menu_internet": [],
     "classes": [],
     "shortcuts": {},
@@ -149,6 +151,17 @@ class UninstalledTest(unittest.TestCase):
         for leftover in INSTALLED["classes"]:
             self.assertTrue(self.failures(classes=[leftover]), leftover)
         self.assertTrue(self.failures(product_parent_keys=["Browser"]))
+
+    def test_a_kept_profile_keeps_only_the_taskbar_pin_state(self):
+        # A normal uninstall keeps the profile; upstream then leaves the
+        # product key with the installer's taskbar pin state.
+        kept = {"values": ["InstallerPinned"], "subkeys": []}
+        self.assertEqual(self.failures(product_parent_keys=["Browser"], product_key=kept), [])
+        self.assertTrue(self.failures(product_parent_keys=["Browser"],
+                                      product_key={"values": ["InstallerPinned", "Other"],
+                                                   "subkeys": []}))
+        self.assertTrue(self.failures(product_parent_keys=["Browser"],
+                                      product_key={"values": [], "subkeys": ["Sub"]}))
 
     def test_the_company_key_may_hold_only_the_updater(self):
         self.assertEqual(self.failures(product_parent_keys=["Update"]), [])
