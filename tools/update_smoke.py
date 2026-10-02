@@ -38,6 +38,9 @@ import update_server
 TOOLS_DIR = Path(__file__).resolve().parent
 RESULT_FILE = smoke.RESULT_FILE
 EXPECTATIONS_FILE = smoke.EXPECTATIONS_FILE
+# URIs that name XML namespaces rather than hosts the updater contacts; its
+# log holds its scheduled task's XML definition.
+_XML_NAMESPACE_PREFIXES = ("http://schemas.microsoft.com/",)
 _URL_RE = re.compile(r"https?://[^\s\"'<>]+")
 
 
@@ -50,7 +53,8 @@ def evaluate_requests(lines: list[str]) -> list[str]:
 
 
 def foreign_urls(log: str) -> list[str]:
-    return [url for url in _URL_RE.findall(log) if not url.startswith("http://127.0.0.1")]
+    return [url for url in _URL_RE.findall(log)
+            if not url.startswith(("http://127.0.0.1",) + _XML_NAMESPACE_PREFIXES)]
 
 
 def _company_dir(exp: smoke.Expectations) -> Path:
@@ -157,13 +161,16 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
                                "--verbose-logging"], timeout=900).returncode
         failures = ([] if code == smoke.UNINSTALL_SUCCESSFUL else
                     [f"setup.exe --uninstall exited with {code}"])
-        subprocess.run([str(updater), "--uninstall-if-unused", "--enable-logging"], timeout=900)
+        # --wake notices the app is gone, then starts --uninstall-if-unused
+        # itself; run alone, --uninstall-if-unused still counts the app.
+        subprocess.run([str(updater), "--wake", "--enable-logging"], timeout=900)
         gone = _wait(lambda: _updater_exe(exp) is None, 300)
         uninstalled = smoke.snapshot(exp)
         failures += smoke.evaluate_uninstalled(uninstalled, exp)
         failures += [] if gone else ["the updater did not remove itself"]
         failures += ["the updater's scheduled task is left"] if _updater_tasks(exp) else []
-        failures += ["Software\\…\\Update is left"] if _updater_key_exists(exp) else []
+        failures += ([f"Software\\{exp.company_path}\\Update is left"]
+                     if _updater_key_exists(exp) else [])
         step("uninstall", failures, snapshot=uninstalled)
     except Exception as e:  # reported, so the build machine learns why
         step("error", [f"{type(e).__name__}: {e}"])

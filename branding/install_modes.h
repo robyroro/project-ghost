@@ -27,8 +27,10 @@ namespace install_static {
 // The company directory holds the browser and, beside it, the updater
 // (branding/updater.gni uses the same company name). Uninstalling the browser
 // clears Software\<company>\<product>, so the updater's
-// Software\<company>\Update survives it.
-inline constexpr wchar_t kCompanyPathName[] = L"Project Ghost";
+// Software\<company>\Update survives it. No spaces: the updater's own
+// uninstall.cmd validates its path with an unquoted FindStr, which splits on
+// them (Google and BraveSoftware have none either).
+inline constexpr wchar_t kCompanyPathName[] = L"ProjectGhost";
 
 inline constexpr wchar_t kProductPathName[] = L"Browser";
 

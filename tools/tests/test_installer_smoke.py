@@ -13,12 +13,12 @@ import installer_smoke
 import repo
 
 EXP = installer_smoke.Expectations(
-    product_path="Browser", company_path="Project Ghost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
+    product_path="Browser", company_path="ProjectGhost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
     pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost", product_name="Project Ghost",
     company_name="Project Ghost", release_version="152.0.7977.14001",
     web_version="152.0.7977.140")
 LOCALAPPDATA = r"C:\Users\WDAGUtilityAccount\AppData\Local"
-CHROME = LOCALAPPDATA + r"\Project Ghost\Browser\Application\chrome.exe"
+CHROME = LOCALAPPDATA + r"\ProjectGhost\Browser\Application\chrome.exe"
 PROGRAMS = r"C:\Users\WDAGUtilityAccount\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
 DESKTOP = r"C:\Users\WDAGUtilityAccount\Desktop"
 
@@ -29,7 +29,7 @@ INSTALLED = {
     "files": {"chrome.exe": True, "setup.exe": True},
     "uninstall": {"DisplayName": "Project Ghost", "Publisher": "Project Ghost",
                   "DisplayVersion": "152.0.7977.14001"},
-    "software": ["Clients", "Microsoft", "Project Ghost"],
+    "software": ["Clients", "Microsoft", "ProjectGhost"],
     "product_parent_keys": ["Browser"],
     "product_key": {"values": ["InstallerPinned"], "subkeys": []},
     "start_menu_internet": ["Project Ghost.ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
@@ -45,7 +45,7 @@ UNINSTALLED = {
     "desktop": DESKTOP,
     "files": {"chrome.exe": False, "setup.exe": False},
     "uninstall": None,
-    "software": ["Clients", "Microsoft", "Project Ghost"],
+    "software": ["Clients", "Microsoft", "ProjectGhost"],
     "product_parent_keys": [],
     "product_key": None,
     "start_menu_internet": [],
@@ -65,7 +65,7 @@ class ExpectationsTest(unittest.TestCase):
     def test_come_from_the_branding_directory_the_pin_and_the_installer(self):
         exp = installer_smoke.expectations(repo.REPO_ROOT, release_version="152.0.7977.14901")
         self.assertEqual(exp, installer_smoke.Expectations(
-            product_path="Browser", company_path="Project Ghost", app_name="Project Ghost",
+            product_path="Browser", company_path="ProjectGhost", app_name="Project Ghost",
             prog_id_prefix="GhostHTM",
             pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost",
             product_name="Project Ghost", company_name="Project Ghost",
@@ -185,9 +185,9 @@ class UninstalledTest(unittest.TestCase):
 
 class LayoutTest(unittest.TestCase):
     def test_company_and_product_paths(self):
-        self.assertEqual(EXP.install_dir_parts, ("Project Ghost", "Browser"))
-        self.assertEqual(EXP.registry_root, "Project Ghost")
-        self.assertEqual(EXP.uninstall_key, "Project Ghost Browser")
+        self.assertEqual(EXP.install_dir_parts, ("ProjectGhost", "Browser"))
+        self.assertEqual(EXP.registry_root, "ProjectGhost")
+        self.assertEqual(EXP.uninstall_key, "ProjectGhost Browser")
 
     def test_without_a_company(self):
         exp = installer_smoke.Expectations(**{**EXP.__dict__, "company_path": ""})

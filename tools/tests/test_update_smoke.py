@@ -27,6 +27,11 @@ class UpdaterLogTest(unittest.TestCase):
         log = "x http://127.0.0.1:8484/update y\nz https://example.com/a\n"
         self.assertEqual(update_smoke.foreign_urls(log), ["https://example.com/a"])
 
+    def test_xml_namespaces_are_not_requests(self):
+        # The updater logs its scheduled task's XML, whose namespace is a URI.
+        log = '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
+        self.assertEqual(update_smoke.foreign_urls(log), [])
+
 
 if __name__ == "__main__":
     unittest.main()
