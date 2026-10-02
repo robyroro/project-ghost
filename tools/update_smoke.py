@@ -85,6 +85,27 @@ def _updater_key_exists(exp: smoke.Expectations) -> bool:
         return False
 
 
+def _updater_key_tree(exp: smoke.Expectations) -> dict[str, list[str]]:
+    """Every subkey of Software\\<company>\\Update, relative, with its value names."""
+    import winreg
+    tree: dict[str, list[str]] = {}
+
+    def walk(relative: str) -> None:
+        path = rf"Software\{exp.company_path}\Update" + (f"\\{relative}" if relative else "")
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+                subkeys, values, _ = winreg.QueryInfoKey(key)
+                tree[relative] = sorted(winreg.EnumValue(key, i)[0] for i in range(values))
+                names = [winreg.EnumKey(key, i) for i in range(subkeys)]
+        except OSError:
+            return
+        for name in names:
+            walk(f"{relative}\\{name}" if relative else name)
+
+    walk("")
+    return tree
+
+
 def _updater_tasks(exp: smoke.Expectations) -> list[str]:
     out = subprocess.run(["schtasks", "/query", "/v", "/fo", "csv"], capture_output=True,
                          text=True).stdout
@@ -171,7 +192,7 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         failures += ["the updater's scheduled task is left"] if _updater_tasks(exp) else []
         failures += ([f"Software\\{exp.company_path}\\Update is left"]
                      if _updater_key_exists(exp) else [])
-        step("uninstall", failures, snapshot=uninstalled)
+        step("uninstall", failures, snapshot=uninstalled, updater_key=_updater_key_tree(exp))
     except Exception as e:  # reported, so the build machine learns why
         step("error", [f"{type(e).__name__}: {e}"])
     finally:

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 21:20:40 +0300
+Subject: [PATCH] updater: delete its key when it uninstalls for lack of apps
+
+Uninstalling with --uninstall-if-unused deleted ClientState but left the
+updater's own Clients entries and install values, including an
+UninstallCmdLine naming the deleted updater.exe. Once no app remains, the
+whole key goes. Found by Ghost's end-to-end test.
+
+Why: upstream leaves the updater's own registration behind.
+Upstream: not yet filed; a candidate for upstreaming
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/updater/win/setup/uninstall.cc b/chrome/updater/win/setup/uninstall.cc
+index 891b050b9eae6ef9f1c9bd75beb23238d451fb68..0ebccca2e2c929919014e46b75c707810fea8889 100644
+--- a/chrome/updater/win/setup/uninstall.cc
++++ b/chrome/updater/win/setup/uninstall.cc
+@@ -121,8 +121,27 @@ void DeleteClientStateKey(UpdaterScope scope) {
+   }
+ }
+ 
++// Ghost: once no app remains (`--uninstall-if-unused`), the updater's whole
++// key goes, with its own `Clients` entries and its install values, so that
++// uninstalling leaves no registration behind.
++void DeleteUpdaterKeyIfUnused(UpdaterScope scope) {
++  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
++          kUninstallIfUnusedSwitch)) {
++    return;
++  }
++  const HKEY root = UpdaterScopeToHKeyRoot(scope);
++  for (const auto& access_mask : {KEY_WOW64_32KEY, KEY_WOW64_64KEY}) {
++    base::win::RegKey company;
++    if (company.Open(root, COMPANY_KEY, KEY_QUERY_VALUE | access_mask) ==
++        ERROR_SUCCESS) {
++      company.DeleteKey(L"Update");
++    }
++  }
++}
++
+ void DeleteGoogleUpdateFilesAndKeys(UpdaterScope scope) {
+   DeleteClientStateKey(scope);
++  DeleteUpdaterKeyIfUnused(scope);
+ 
+   const std::optional<base::FilePath> target_path =
+       GetGoogleUpdateExePath(scope);
