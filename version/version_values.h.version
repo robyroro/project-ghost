@@ -1,0 +1,14 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+// Generated from //chrome/VERSION and //ghost/CHROMIUM_VERSION by
+// //ghost/version:generate_version_values.
+
+#ifndef GHOST_VERSION_VERSION_VALUES_H_
+#define GHOST_VERSION_VERSION_VALUES_H_
+
+#define GHOST_RELEASE_VERSION "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
+#define GHOST_CHROMIUM_VERSION "@CHROMIUM_VERSION@"
+
+#endif  // GHOST_VERSION_VERSION_VALUES_H_

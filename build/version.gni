@@ -1,0 +1,68 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# The two versions a build carries (ADR 0007):
+# - chrome/VERSION is the release version. Release builds set its PATCH to
+#   CHROMIUM_VERSION's PATCH * 100 + respin (tools/release_version.py).
+#   Development builds keep upstream's.
+# - CHROMIUM_VERSION is the Chromium release. version_info reports it, and so
+#   does everything that tells a website or Google the browser's version
+#   (patches/0012 passes ghost_chromium_version_args to version.py).
+#
+# Imported by //base/version_info, so the checks below run on every gn gen.
+
+_chromium_parts =
+    string_split(read_file("//ghost/CHROMIUM_VERSION", "trim string"), ".")
+_release = read_file("//chrome/VERSION", "scope")
+
+ghost_chromium_version = string_join(".", _chromium_parts)
+
+# version.py applies -e values after reading its files, so these replace
+# chrome/VERSION's.
+ghost_chromium_version_args = [
+  "-e",
+  "MAJOR=" + _chromium_parts[0],
+  "-e",
+  "MINOR=" + _chromium_parts[1],
+  "-e",
+  "BUILD=" + _chromium_parts[2],
+  "-e",
+  "PATCH=" + _chromium_parts[3],
+]
+
+_release_version =
+    "${_release.MAJOR}.${_release.MINOR}.${_release.BUILD}.${_release.PATCH}"
+assert(
+    "${_release.MAJOR}.${_release.MINOR}.${_release.BUILD}" ==
+        "${_chromium_parts[0]}.${_chromium_parts[1]}.${_chromium_parts[2]}",
+    "chrome/VERSION is $_release_version, but CHROMIUM_VERSION is " +
+        "$ghost_chromium_version: the checkout is not at the pin")
+
+_chromium_patch = _chromium_parts[3]
+_release_patch = "${_release.PATCH}"
+_patch_ok = _release_patch == _chromium_patch
+_digits = [
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+]
+foreach(_tens, _digits) {
+  foreach(_ones, _digits) {
+    if (_release_patch == "$_chromium_patch$_tens$_ones") {
+      _patch_ok = true
+    }
+  }
+}
+assert(_patch_ok,
+       "chrome/VERSION's PATCH is $_release_patch. For CHROMIUM_VERSION " +
+           "$ghost_chromium_version it must be $_chromium_patch (a " +
+           "development build) or ${_chromium_patch}00 to " +
+           "${_chromium_patch}99 (a release; tools/release_version.py)")

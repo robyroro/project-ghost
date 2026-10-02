@@ -1,0 +1,30 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import("//build/util/process_version.gni")
+import("//ghost/build/version.gni")
+
+# MAJOR..PATCH come from chrome/VERSION: the release version.
+process_version("generate_version_values") {
+  template_file = "version_values.h.version"
+  sources = [ "//chrome/VERSION" ]
+  extra_args = [
+    "-e",
+    "CHROMIUM_VERSION='$ghost_chromium_version'",
+  ]
+  output = "$target_gen_dir/version_values.h"
+}
+
+# Linked into //chrome/browser targets (patches/0013, 0014), so it must not
+# depend on //chrome/browser.
+source_set("version") {
+  sources = [
+    "version.cc",
+    "version.h",
+  ]
+  deps = [
+    ":generate_version_values",
+    "//base",
+  ]
+}
