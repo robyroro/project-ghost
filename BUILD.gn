@@ -98,6 +98,7 @@ test("ghost_browsertests") {
     "//components/search_engines",
     "//content/test:test_support",
     "//ghost/version",
+    "//net:test_support",
     "//testing/gmock",
     "//testing/gtest",
     "//url",
