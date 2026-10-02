@@ -49,8 +49,9 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
         .install_switch = "",
         .install_suffix = L"",
         .logo_suffix = L"",
-        // Empty until the updater exists (Phase 2).
-        .app_guid = L"",
+        // Must equal browser_appid in branding/updater.gni: the key the
+        // updater finds this browser under.
+        .app_guid = L"{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}",
         .base_app_name = L"Project Ghost",
         .base_app_id = L"ProjectGhost",
         // ProgIDs are limited to 39 characters and user-level installs append

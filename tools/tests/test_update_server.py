@@ -5,6 +5,7 @@
 import datetime
 import hashlib
 import json
+import re
 import tempfile
 import threading
 import unittest
@@ -66,6 +67,16 @@ class KeyHeaderTest(unittest.TestCase):
                          us.render_cup_header(us.CUP_KEY_VERSION, ec.spki(ec.public_key(cup))))
         self.assertEqual(us.CRX_HEADER.read_text(encoding="utf-8"),
                          us.render_crx_header(ec.spki(ec.public_key(crx))))
+
+
+class IdentityTest(unittest.TestCase):
+    def test_browser_appid_matches_the_install_mode(self):
+        gni = (repo.REPO_ROOT / "branding" / "updater.gni").read_text(encoding="utf-8")
+        modes = (repo.REPO_ROOT / "branding" / "install_modes.h").read_text(encoding="utf-8")
+        appid = re.search(r'browser_appid = "([^"]+)"', gni).group(1)
+        self.assertIn(f'.app_guid = L"{appid}"', modes)
+        company = re.search(r'updater_company_short_name = "([^"]+)"', gni).group(1)
+        self.assertIn(f'kCompanyPathName[] = L"{company}"', modes)
 
 
 class ResponseTest(unittest.TestCase):

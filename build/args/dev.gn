@@ -21,3 +21,8 @@ branding_file_path = "//ghost/branding/BRANDING"
 # like releases, or tests and the egress audit measure experiments that ship
 # to nobody: HttpsFirstBalancedModeAutoEnable, for one, is switched on there.
 disable_fieldtrial_testing_config = true
+
+# Ghost's updater (Phase 2, sub-project B). Off by default outside Chrome
+# builds; the second turns on the browser's "relaunch to update" prompt.
+enable_updater = true
+enable_update_notifications = true

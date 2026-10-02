@@ -1,0 +1,111 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Ghost's updater identity, imported by chrome/updater/branding.gni
+# (patches/0015) in place of its Chromium values. Generated from those values
+# on 2026-10-02; every GUID is new.
+#
+# TEST IDENTITY (Phase 2): the names, GUIDs and the loopback update URL are
+# replaced when the final product name is chosen. updater_company_short_name
+# must equal kCompanyPathName in branding/install_modes.h.
+
+browser_name = "Project Ghost"
+browser_product_name = "Project Ghost"
+crash_product_name = "ProjectGhostUpdater"
+crash_upload_url = ""
+help_center_url = ""
+app_logo_url = ""
+keystone_app_name = "ProjectGhostSoftwareUpdate"
+keystone_bundle_identifier = "org.projectghost.Keystone"
+mac_browser_bundle_identifier = "org.projectghost.Browser"
+mac_updater_bundle_identifier = "org.projectghost.ProjectGhostUpdater"
+privileged_helper_bundle_name = "ProjectGhostUpdaterPrivilegedHelper"
+privileged_helper_name = "org.projectghost.Browser.UpdaterPrivilegedHelper"
+updater_app_icon_path = "//chrome/app/theme/chromium/mac/app.icns"
+updater_company_full_name = "Project Ghost"
+updater_company_short_name = "Project Ghost"
+updater_company_short_name_lowercase = "projectghost"
+updater_company_short_name_uppercase = "PROJECTGHOST"
+updater_copyright = "Copyright 2026 The Project Ghost Authors."
+updater_product_full_name = "ProjectGhostUpdater"
+updater_product_full_name_dashed_lowercase = "projectghost-updater"
+updater_product_full_display_name = "Project Ghost Updater"
+updater_metainstaller_name = "Project Ghost Installer"
+mac_team_identifier = "PLACEHOLDER"
+updater_appid = "{4b5a3a08-578b-4b1f-8b2b-26cb99b30c4f}"
+browser_appid = "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}"
+qualification_appid = "{9e14df17-725e-435c-a7ce-1f6fa1c25565}"
+platform_experience_helper_appid = "{332518f3-bdf5-4f82-bba1-fab46b73c7ff}"
+crx_pkhash = ""
+legacy_service_name_prefix = "pgupdate"
+prefs_access_mutex = "{666A346D-39D2-47DA-8023-B9B971799F36}"
+setup_mutex_prefix = "{1DC941D7-F3A1-465C-93E6-060316B57BDF}"
+grdfile_name = "chromium_strings"
+extra_args_is_chrome_branded = "IS_CHROME_BRANDED=False"
+update_check_url = "http://127.0.0.1:8484/update"
+updater_event_logging_url = ""
+
+UpdaterLegacyLibGUID = "D46A672F-AC6E-497E-B2E1-834BB2BC691B"
+GoogleUpdate3WebUserClassGUID = "F7B756A1-E21F-4381-AF21-8E385DFBCDAF"
+GoogleUpdate3WebSystemClassGUID = "8F80C950-35C0-4DEC-96E1-ED5E48328C68"
+GoogleUpdate3WebServiceClassGUID = "2B86E22F-267E-4268-9F94-F1C657B6A8AC"
+PolicyStatusUserClassGUID = "F233F5BE-7FAF-45C6-AF35-7A708BF84CF7"
+PolicyStatusSystemClassGUID = "3B6E8568-4BE6-4DBB-827D-B00261BC64E5"
+ProcessLauncherClassGUID = "8A16C507-DF7E-4522-9296-B44BB17B68D2"
+
+IAppVersionWebGUID = "6AA2D163-EE33-41E4-9917-9E71A096D377"
+IAppVersionWebUserGUID = "F77D88AF-7735-41E1-974C-DDBC6769B567"
+IAppVersionWebSystemGUID = "C0904A66-5A68-4049-90AF-E342161441D6"
+
+ICurrentStateGUID = "CE4C9A74-EE6E-412E-9A46-E6168D6978FB"
+ICurrentStateUserGUID = "2C880BFA-C858-405C-ADC2-A3C37BF16C6D"
+ICurrentStateSystemGUID = "C17DD00A-F6F7-4408-B015-CB4375A42C34"
+
+IGoogleUpdate3WebGUID = "55E395C3-6E03-40CC-A083-7759D3BA9C07"
+IGoogleUpdate3WebUserGUID = "D1DDA092-97A1-4A7E-A9A3-91CD271AFDBF"
+IGoogleUpdate3WebSystemGUID = "AF7F4B21-C4B0-48E2-9E8E-52FECC9255B7"
+
+IAppBundleWebGUID = "AD07D29C-5C27-4E11-AD26-81367C6DB5A7"
+IAppBundleWebUserGUID = "CC2490BE-C197-4219-A88F-E41BB9DBCF2C"
+IAppBundleWebSystemGUID = "C84CC099-EA5D-42EA-A438-5CE11113D24E"
+
+IAppWebGUID = "F30DE17B-E2BD-4CBA-B230-950F40091DDE"
+IAppWebUserGUID = "755A3812-F0C8-47E2-9928-6005B1EE3074"
+IAppWebSystemGUID = "5C25E407-CA38-4E03-845F-39543532E417"
+
+IAppCommandWebGUID = "4E4F112C-4CD9-4CDC-A13B-B79A7D77CF2A"
+IAppCommandWebUserGUID = "917226B3-B940-405F-B03E-8F75011455AE"
+IAppCommandWebSystemGUID = "AA40FA0E-7966-46DC-851B-811E23A97871"
+
+IPolicyStatusGUID = "AC8C986A-12E2-454C-8244-3F31726BF2F8"
+IPolicyStatusUserGUID = "45C368F2-6775-4DFF-B7A6-841DC275B840"
+IPolicyStatusSystemGUID = "60E2C4FD-352B-4CD2-A752-14D1FD14FC78"
+
+IPolicyStatus2GUID = "3BC42E77-E4F8-4B15-B9A0-A62C5F760789"
+IPolicyStatus2UserGUID = "23E787E5-44DF-4C33-B24A-2161FB222805"
+IPolicyStatus2SystemGUID = "F162A525-F5F4-4351-8D6A-A85104752ED0"
+
+IPolicyStatus3GUID = "72C17A5F-53AE-46D5-868A-A28B7808F87E"
+IPolicyStatus3UserGUID = "CE624676-E612-451F-8DF2-B848B4C20D63"
+IPolicyStatus3SystemGUID = "3CEA2E14-6F27-46FC-B0DD-18ACD4F7B01D"
+
+IPolicyStatus4GUID = "F8F8C61D-54AF-4951-8E6A-9B1A8C8A6196"
+IPolicyStatus4UserGUID = "9AF1A1DF-57F1-445B-A0DD-FC99DD13526A"
+IPolicyStatus4SystemGUID = "5EA66FB7-1206-4FAB-B6A2-265DC0C7439D"
+
+IPolicyStatusValueGUID = "F58CF692-3C43-4389-A9BC-E74DC36C2B60"
+IPolicyStatusValueUserGUID = "D8E2EABD-FCC4-4CD4-B865-401421A637CB"
+IPolicyStatusValueSystemGUID = "692D0E9D-751B-42A1-9A9B-7C615ED30E37"
+
+IProcessLauncherGUID = "F1A8372A-7C37-47F2-B66E-D9DD1EB9B0A6"
+IProcessLauncherSystemGUID = "0839918C-F5B2-431B-B8E1-E0D0021DB1A3"
+
+IProcessLauncher2GUID = "2D5996CC-FAED-41F2-BACE-82D10F0482B1"
+IProcessLauncher2SystemGUID = "2F315506-885D-4965-B61B-76C081F8B5EB"
+
+if (is_mac) {
+  legacy_google_update_appid = keystone_bundle_identifier
+} else {
+  legacy_google_update_appid = "{6DCC2F57-5CF5-4ECD-A040-56B861DD96FF}"
+}
