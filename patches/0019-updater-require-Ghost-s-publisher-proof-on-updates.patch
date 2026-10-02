@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 18:51:09 +0300
+Subject: [PATCH] updater: require Ghost's publisher proof on updates
+
+Why: the updater's CRX format is a constant.
+Upstream: not upstreamable: product-specific signing key
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/updater/external_constants_default.cc b/chrome/updater/external_constants_default.cc
+index 4f4f80c4a3f2ff216f9738f6cfe1fa4027c17871..8f3230d431daa4d88ee5147d0d92ec3d7229f43a 100644
+--- a/chrome/updater/external_constants_default.cc
++++ b/chrome/updater/external_constants_default.cc
+@@ -57,7 +57,9 @@ class DefaultExternalConstants : public ExternalConstants {
+   }
+ 
+   crx_file::VerifierFormat CrxVerifierFormat() const override {
+-    return crx_file::VerifierFormat::CRX3_WITH_PUBLISHER_PROOF;
++    // Ghost: updates must carry Ghost's publisher proof, made with a key kept
++    // off the update server (docs/threat-model.md).
++    return crx_file::VerifierFormat::CRX3_WITH_GHOST_PUBLISHER_PROOF;
+   }
+ 
+   std::optional<std::vector<uint8_t>> CrxPublicKeyHash() const override {
