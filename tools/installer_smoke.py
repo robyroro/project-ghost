@@ -121,6 +121,8 @@ def expectations(root: Path, release_version: str) -> Expectations:
 # uninstall: the Apps & features entry's values, or None
 # software, start_menu_internet, classes: subkey names under HKCU\Software,
 #   ...\Clients\StartMenuInternet and ...\Classes
+# product_parent_keys: subkey names under HKCU\Software\<company>, or under
+#   HKCU\Software without a company
 # shortcuts: {path of each .lnk in the Start menu and on the Desktop: target}
 # version_info: chrome.exe's ProductName and CompanyName, or None
 
@@ -140,8 +142,23 @@ def _registration_kinds(exp: Expectations) -> list[tuple[str, str, Callable[[str
         (f"{exp.pdf_prog_id_prefix}.* ProgID", "classes",
          lambda k: k.startswith(exp.pdf_prog_id_prefix + ".")),
         (f"{exp.url_scheme}: URL scheme", "classes", lambda k: k == exp.url_scheme),
-        (f"Software\\{exp.registry_root}", "software", lambda k: k == exp.registry_root),
+        ("Software\\" + "\\".join(exp.install_dir_parts), "product_parent_keys",
+         lambda k: k == exp.product_path),
     ]
+
+
+# Software\<company> may outlive the browser: the updater keeps its Update key
+# there, and upstream leaves the company key itself, as Chrome leaves
+# Software\Google.
+_COMPANY_KEYS_ALLOWED_AFTER_UNINSTALL = ("Update",)
+
+
+def _outside_company(snap: dict, exp: Expectations) -> list[str]:
+    """A product key at the top of Software, beside the company's: a generic
+    name such as Software\\Browser that another program could own."""
+    if exp.company_path and exp.product_path in snap["software"]:
+        return [f"Software\\{exp.product_path} is written outside Software\\{exp.company_path}"]
+    return []
 
 
 def _registrations(snap: dict, exp: Expectations) -> list[str]:
@@ -185,6 +202,7 @@ def evaluate_installed(snap: dict, exp: Expectations) -> list[str]:
     names = (snap["software"] + snap["start_menu_internet"] + snap["classes"]
              + [ntpath.basename(p) for p in snap["shortcuts"]])
     failures += [f"{n} is named Chromium" for n in names if "chromium" in n.lower()]
+    failures += _outside_company(snap, exp)
     return failures
 
 
@@ -197,6 +215,11 @@ def evaluate_uninstalled(snap: dict, exp: Expectations) -> list[str]:
     failures += [f"shortcut {p} is left behind" for p, t in snap["shortcuts"].items()
                  if ntpath.basename(p).lower() == exp.product_name.lower() + ".lnk"
                  or _same_path(t, snap["chrome_exe"])]
+    if exp.company_path:
+        failures += [f"Software\\{exp.company_path}\\{k} is left behind"
+                     for k in snap["product_parent_keys"]
+                     if k != exp.product_path and k not in _COMPANY_KEYS_ALLOWED_AFTER_UNINSTALL]
+    failures += _outside_company(snap, exp)
     return failures
 
 
@@ -289,6 +312,10 @@ def snapshot(exp: Expectations) -> dict:
         "uninstall": values(rf"Software\Microsoft\Windows\CurrentVersion\Uninstall"
                             rf"\{exp.uninstall_key}"),
         "software": subkeys("Software"),
+        # The keys beside the product's own: under Software\<company>, or at
+        # the top of Software without a company.
+        "product_parent_keys": subkeys("Software\\" + exp.company_path
+                                       if exp.company_path else "Software"),
         "start_menu_internet": subkeys(r"Software\Clients\StartMenuInternet"),
         "classes": subkeys(r"Software\Classes"),
         "shortcuts": dict(zip(links, targets)),

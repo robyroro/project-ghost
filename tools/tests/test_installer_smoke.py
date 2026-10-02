@@ -30,6 +30,7 @@ INSTALLED = {
     "uninstall": {"DisplayName": "Project Ghost", "Publisher": "Project Ghost",
                   "DisplayVersion": "152.0.7977.14001"},
     "software": ["Clients", "Microsoft", "Project Ghost"],
+    "product_parent_keys": ["Browser"],
     "start_menu_internet": ["Project Ghost.ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
     "classes": ["GhostHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ", "GhostPDF.ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                 "projectghost"],
@@ -43,7 +44,8 @@ UNINSTALLED = {
     "desktop": DESKTOP,
     "files": {"chrome.exe": False, "setup.exe": False},
     "uninstall": None,
-    "software": ["Clients", "Microsoft"],
+    "software": ["Clients", "Microsoft", "Project Ghost"],
+    "product_parent_keys": [],
     "start_menu_internet": [],
     "classes": [],
     "shortcuts": {},
@@ -101,7 +103,12 @@ class InstalledTest(unittest.TestCase):
             self.assertTrue(self.failures(classes=[c for c in classes if c != missing]), missing)
 
     def test_registry_directory(self):
-        self.assertTrue(self.failures(software=["Clients", "Microsoft"]))
+        self.assertTrue(self.failures(product_parent_keys=[]))
+
+    def test_nothing_is_written_outside_the_company_key(self):
+        # Software\Browser would be a generic name another program could own.
+        self.assertTrue(any("outside" in f for f in self.failures(
+            software=INSTALLED["software"] + ["Browser"])))
 
     def test_shortcuts_are_named_for_the_product_and_open_it(self):
         self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Project Ghost.lnk": CHROME}))
@@ -141,7 +148,12 @@ class UninstalledTest(unittest.TestCase):
         # (crbug.com/40384442).
         for leftover in INSTALLED["classes"]:
             self.assertTrue(self.failures(classes=[leftover]), leftover)
-        self.assertTrue(self.failures(software=["Microsoft", "Project Ghost"]))
+        self.assertTrue(self.failures(product_parent_keys=["Browser"]))
+
+    def test_the_company_key_may_hold_only_the_updater(self):
+        self.assertEqual(self.failures(product_parent_keys=["Update"]), [])
+        self.assertTrue(self.failures(product_parent_keys=["Update", "Other"]))
+        self.assertTrue(self.failures(software=UNINSTALLED["software"] + ["Browser"]))
 
     def test_a_shortcut_to_the_browser_under_another_name_is_a_leftover(self):
         # The browser creates profile shortcuts such as "Person 1 - Project Ghost".
