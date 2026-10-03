@@ -38,16 +38,18 @@ class CommandTest(unittest.TestCase):
     def test_browser_installer_may_come_from_another_output_dir(self):
         # The metainstaller must be a static build (out/updater); the browser
         # installer may come from the component build.
+        # Paths are built from parts, so the test means the same on every OS.
+        src, out = Path("src"), Path("out", "updater")
+        installer = Path("src", "out", "vanilla", "mini_installer.exe")
         with mock.patch.object(oi.subprocess, "run") as run:
             run.return_value.returncode = 0
-            oi.main(["--src", r"C:\src", "--out", r"out\updater", "--version", "1.2.3.4",
-                     "--appid", "{A}", "--output", r"C:\x\Setup.exe",
-                     "--installer", r"C:\src\out\vanilla\mini_installer.exe"])
+            oi.main(["--src", str(src), "--out", str(out), "--version", "1.2.3.4",
+                     "--appid", "{A}", "--output", str(Path("x", "Setup.exe")),
+                     "--installer", str(installer)])
         argv = run.call_args.args[0]
-        self.assertEqual(argv[argv.index("--installer_path") + 1],
-                         str(Path(r"C:\src\out\vanilla\mini_installer.exe").resolve()))
+        self.assertEqual(argv[argv.index("--installer_path") + 1], str(installer.resolve()))
         self.assertEqual(argv[argv.index("--in_file") + 1],
-                         str(Path(r"C:\src\out\updater").resolve() / "UpdaterSetup.exe"))
+                         str((src / out).resolve() / "UpdaterSetup.exe"))
 
     def test_install_arguments(self):
         self.assertEqual(oi.install_arguments("{APPID}"),
