@@ -61,7 +61,7 @@ Run 2026-10-03. Each change was made, the affected input rebuilt, the end-to-end
 | Patch 0022 reverted (`ping_manager.cc`) | the static updater (27 s), the offline installer | **privacy**, after a fix to the test: 3 of 8 requests were event requests (below) |
 | Patch 0016's key path reverted (Google's path in `install_modes.cc`) | `mini_installer` at respin `-1` (8 min 35 s), the offline installer | **install:** `Clients\{appid} pv` missing; setup registered under `Software\Google\Update` |
 
-**The test missed patch 0022 at first.** With the patch reverted the updater sent five event requests, and the test passed: the scrubber removes each app's `event` list, so they reached the server as apps without `updatecheck`, and the check looked only for an `events` key. `update_smoke.py` now requires every request to be an update check: an app without `updatecheck` fails it. Re-run, the mutation failed in **privacy**, and the unmutated test passed again (see below). A tooling test covers the case.
+**The test missed patch 0022 at first.** With the patch reverted the updater sent five event requests, and the test passed: the scrubber removes each app's `event` list, so they reached the server as apps without `updatecheck`, and the check looked only for an `events` key. `update_smoke.py` now requires every request to be an update check: an app without `updatecheck` fails it. Re-run, the mutation failed in **privacy**. The unmutated installers then passed every step again on 2026-10-03, with 3 requests, all update checks. A tooling test covers the case.
 
 The scrubbed event requests carried nothing beyond an update check's allowed keys, but their existence reports that an install or update happened; the patch stays.
 
