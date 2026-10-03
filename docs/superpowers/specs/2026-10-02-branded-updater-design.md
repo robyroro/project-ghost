@@ -1,6 +1,6 @@
 # Branded updater: design
 
-- Status: approved in discussion 2026-10-02, waiting for review of this document
+- Status: implemented 2026-10-03 ([spike results](2026-10-02-branded-updater-spike.md))
 - Phase 2, sub-project B ([roadmap](../../roadmap.md#phase-2-release-engineering))
 - Depends on sub-project A ([release version](2026-10-02-release-version-design.md))
 
@@ -23,15 +23,15 @@ These were settled in discussion on 2026-10-02:
 
 | | Phase 1 | Sub-project B |
 |---|---|---|
-| `kCompanyPathName`, `kProductPathName` | `""`, `Project Ghost` | `Project Ghost`, `Browser` |
-| Browser files | `%LOCALAPPDATA%\Project Ghost\Application` | `%LOCALAPPDATA%\Project Ghost\Browser\Application` |
-| User data | `%LOCALAPPDATA%\Project Ghost\User Data` | `%LOCALAPPDATA%\Project Ghost\Browser\User Data` |
-| Browser registry | `Software\Project Ghost` | `Software\Project Ghost\Browser` |
+| `kCompanyPathName`, `kProductPathName` | `""`, `Project Ghost` | `ProjectGhost`, `Browser` |
+| Browser files | `%LOCALAPPDATA%\Project Ghost\Application` | `%LOCALAPPDATA%\ProjectGhost\Browser\Application` |
+| User data | `%LOCALAPPDATA%\Project Ghost\User Data` | `%LOCALAPPDATA%\ProjectGhost\Browser\User Data` |
+| Browser registry | `Software\Project Ghost` | `Software\ProjectGhost\Browser` |
 | Apps & features key | `Project Ghost` | `Project Ghost Browser` |
-| Updater files | — | `%LOCALAPPDATA%\Project Ghost\<updater name>\<version>` |
-| Updater registry, and the browser's registration | — | `Software\Project Ghost\Update`, `…\Update\Clients\{appid}` |
+| Updater files | — | `%LOCALAPPDATA%\ProjectGhost\<updater name>\<version>` |
+| Updater registry, and the browser's registration | — | `Software\ProjectGhost\Update`, `…\Update\Clients\{appid}` |
 
-  Only test installs exist, so this is the cheapest moment for the move. The final name will need the same structure. Shortcuts and the product name people see stay `Project Ghost`.
+  Only test installs exist, so this is the cheapest moment for the move. The final name will need the same structure. Shortcuts and the product name people see stay `Project Ghost`. The company directory has no space: upstream's `uninstall.cmd`, which removes the updater, can't handle one (found by the end-to-end test; see the [spike results](2026-10-02-branded-updater-spike.md)).
 - **Updates carry Ghost's publisher proof.**
   - On Windows an update is a CRX3 that wraps the browser installer (Omaha 4's `download` then `crx3` operations).
   - The production updater requires a publisher proof (`CRX3_WITH_PUBLISHER_PROOF`), a second signature by a key whose hash the client pins. Upstream pins Google's key. The same constant verifies Chrome Web Store extensions, so it stays as it is.
@@ -135,7 +135,7 @@ Measured at 152.0.7977.149:
 |---|---|
 | `chrome/updater/branding.gni` | Imports `//ghost/branding/updater.gni` instead of the Chromium values |
 | `chrome/install_static/BUILD.gn` | Turns the installer's registration (`USE_GOOGLE_UPDATE_INTEGRATION`) on for Ghost builds |
-| `chrome/install_static/install_modes.cc` | Registration under `Software\Project Ghost\Update\…`, the updater's company path, instead of `Software\Google\Update\…` |
+| `chrome/install_static/install_modes.cc` | Registration under `Software\ProjectGhost\Update\…`, the updater's company path, instead of `Software\Google\Update\…` |
 | `components/update_client/request_sender.cc` | The CUP key from `//ghost/branding/cup_key.h`, always ECDSA |
 | `components/crx_file/crx_verifier.{h,cc}` | Adds `CRX3_WITH_GHOST_PUBLISHER_PROOF`, which accepts only the key in `//ghost/branding/crx_publisher_key.h` |
 | `chrome/updater/external_constants_default.cc` | The updater requires `CRX3_WITH_GHOST_PUBLISHER_PROOF` |
@@ -151,7 +151,7 @@ Measured at 152.0.7977.149:
 **Install.**
 1. `ProjectGhostOfflineSetup.exe` installs the updater per-user and registers its scheduled task.
 2. The updater runs the browser installer from the offline payload.
-3. `setup.exe` installs Ghost as today, and writes `Software\Project Ghost\Update\Clients\{appid}` with `pv` set to the **release version** (sub-project A). It reports its result in `ClientState`.
+3. `setup.exe` installs Ghost as today, and writes `Software\ProjectGhost\Update\Clients\{appid}` with `pv` set to the **release version** (sub-project A). It reports its result in `ClientState`.
 
 **Update.**
 1. The updater wakes from its scheduled task, or `updater.exe --wake` in the test.

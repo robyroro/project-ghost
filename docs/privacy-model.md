@@ -194,13 +194,68 @@ Routing through Tor is not planned before the public alpha. If added, it will be
 
 By default the browser sends the project only the requests needed for updates:
 
-- **Browser update checks.** Product, version, channel, OS version and architecture, and a random per-request identifier.
+- **Browser update checks.** Product, version, channel, OS version and architecture, and random request and session identifiers. The exact request is [below](#the-update-request).
   - No install ID, user ID or activity counters.
-  - The "days since last check" style counters used by the Omaha protocol are disabled.
+  - The "days since last check" style counters used by the Omaha protocol are not sent.
 - **Component update checks** (filter lists, parameter lists, security data). Same properties.
 - **Crash reports.** Never sent unless the user opts in. Before public alpha, uploads are disabled entirely.
 
-The update server doesn't retain IP addresses. The exact request format will be published with the updater in Phase 2.
+The update server doesn't retain IP addresses.
+
+### The update request
+
+Ghost's updater speaks Omaha 4 (JSON). Before a request is sent, an allow-list is applied to the serialized JSON: a key that isn't listed is removed, including any key a later Chromium release adds.
+
+| Object | Keys sent |
+|---|---|
+| `request` | `protocol`, `ismachine`, `acceptformat`, `sessionid`, `requestid`, `@updater`, `updaterversion`, `prodversion`, `updaterchannel`, `prodchannel`, `@os`, `arch`, `wow64`, `dlpref`, `os`, `apps` |
+| `os` | `platform`, `arch`, `version` |
+| each `app` | `appid`, `version`, `ap`, `brand`, `release_channel`, `enabled`, `disabled`, `cached_items`, `updatecheck`, `data` |
+| `disabled` entries | `reason` |
+| `cached_items` entries | `sha256` |
+| `updatecheck` | `updatedisabled`, `rollback_allowed`, `sameversionupdate`, `targetversionprefix` |
+| `data` entries | `name`, `index` |
+
+**Removed:** the install ID (`iid`) and install date; the `ping` object with its activity and "days since" counters; hardware details (`hw`), language, domain membership and the OS service pack; the updater's own state (`updaters`); install sources, cohorts and installer attributes; and the text of `data` entries.
+
+A real request, captured by the test update server when an installed browser checked for an update:
+
+```json
+{
+  "request": {
+    "@os": "win",
+    "@updater": "ProjectGhostUpdater",
+    "acceptformat": "crx3,download,puff,run,xz,zucc",
+    "apps": [
+      {
+        "appid": "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}",
+        "enabled": true,
+        "updatecheck": {},
+        "version": "152.0.7977.14901"
+      }
+    ],
+    "arch": "x64",
+    "ismachine": false,
+    "os": {
+      "arch": "x86_64",
+      "platform": "Windows",
+      "version": "10.0.26100.6690"
+    },
+    "prodversion": "152.0.7977.149",
+    "protocol": "4.0",
+    "requestid": "{51b17675-aa0e-430c-b6c8-22b84fa542a4}",
+    "sessionid": "{a9bc7b01-6a3a-4186-9eee-fea79aed3f5b}",
+    "updaterversion": "152.0.7977.149"
+  }
+}
+```
+
+The names and the app ID are the development identity; the release identity replaces them.
+
+- **`requestid` and `sessionid` are random.** A new `requestid` is made for each request and a new `sessionid` for each update session (one check and the downloads it leads to). Neither is stored.
+- **`version` is Ghost's release version; `prodversion` is the Chromium release** ([ADR 0007](adr/0007-version-numbers.md)).
+- **No event requests are sent.** The Omaha protocol reports install and update results in separate "event" pings; Ghost's updater sends none.
+- **Headers.** The request URL carries the response signing key's version and a hash of the request (CUP). The headers name the updater and the apps it checks: `User-Agent: ProjectGhostUpdater <version>`, `X-Goog-Update-Updater`, `X-Goog-Update-AppId` and `X-Goog-Update-Interactivity` (`fg` when a person asked for the check, `bg` otherwise). The `X-Goog-` names are the protocol's; the values are Ghost's.
 
 **Third parties the browser may contact on its own:**
 - the Chrome Web Store, when you install or update an extension from it (Google receives those requests);

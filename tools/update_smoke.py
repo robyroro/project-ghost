@@ -49,6 +49,13 @@ def evaluate_requests(lines: list[str]) -> list[str]:
     for i, line in enumerate(lines, 1):
         body = json.loads(line)["body"] or {}
         failures += [f"request {i} carries {key}" for key in update_server.disallowed_keys(body)]
+        # Every request must be an update check. The scrubber drops an event
+        # request's `event` lists, so what shows one is an app without
+        # `updatecheck`.
+        apps = (body.get("request") or {}).get("apps") or []
+        failures += [f"request {i} is not an update check: app {app.get('appid')} has no"
+                     " updatecheck (an event request)"
+                     for app in apps if "updatecheck" not in app]
     return failures or ([] if lines else ["the updater sent no request"])
 
 

@@ -134,6 +134,41 @@ python ghost\tools\installer_smoke.py sandbox --installer out\vanilla\mini_insta
   Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM
   ```
 
+## Offline installer
+
+The offline installer is Ghost's metainstaller, `UpdaterSetup.exe`, with the browser installer packed inside. It installs the updater, and the updater installs the browser. The metainstaller and the updater run alone on a machine, so they come from a **static** output directory, `out\updater`. The browser installer is self-contained and comes from `out\vanilla`.
+
+Once, create the static directory. Its first build takes about 45 minutes on the reference machine:
+
+```
+gn gen out\updater --args="import(\"//ghost/build/args/dev.gn\") is_component_build=false"
+autoninja -C out\updater chrome/updater/win/installer:installer chrome/updater/win:signing chrome/updater/win:updater
+```
+
+Then build the installer for a release. `tools\release_version.py` writes the release version into `chrome\VERSION` ([ADR 0007](../adr/0007-version-numbers.md)); restore the file afterwards. The app ID is `browser_appid` in `branding\updater.gni`.
+
+```
+python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-1
+autoninja -C out\vanilla mini_installer
+python ghost\tools\offline_installer.py --src . --out out\updater --installer out\vanilla\mini_installer.exe --version 152.0.7977.14901 --appid {c0ff4371-d9ab-461e-bffd-6b0dc2430b02} --output D:\scratch\ProjectGhostOfflineSetup.exe
+git checkout -- chrome\VERSION
+```
+
+`offline_installer.py` runs upstream's `sign.py` without signing or tagging. Until installers are signed and tagged (Phase 2, sub-project D), the install arguments go on the command line.
+
+**The end-to-end test** needs a second release as the update. Build respin `-2` the same way, pack it as a CRX3 signed with the test key, then run the test in Windows Sandbox:
+
+```
+python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-2
+autoninja -C out\vanilla mini_installer
+python ghost\tools\update_server.py crx --installer out\vanilla\mini_installer.exe --out D:\scratch\update.crx3
+git checkout -- chrome\VERSION
+python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\ProjectGhostOfflineSetup.exe --release-version 152.0.7977.14901 --update-crx D:\scratch\update.crx3 --update-version 152.0.7977.14902 --appid {c0ff4371-d9ab-461e-bffd-6b0dc2430b02}
+```
+
+- A respin of `mini_installer` takes about 7 minutes on the reference machine (about 400 actions).
+- The test runs in about 4 minutes. It installs, updates from `-1` to `-2`, launches, checks every update request against the allow-list, and uninstalls. What it checks is in [testing.md](../testing.md).
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |

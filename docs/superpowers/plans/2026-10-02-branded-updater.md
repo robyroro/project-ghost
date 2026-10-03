@@ -6,7 +6,7 @@
 
 **Architecture:**
 - **Branding.** `//ghost/branding/updater.gni` replaces the updater's Chromium branding through a one-line hook in `chrome/updater/branding.gni`.
-- **Layout.** The browser moves under a company directory (`Project Ghost\Browser`) and registers with the updater under `Software\Project Ghost\Update`.
+- **Layout.** The browser moves under a company directory (`ProjectGhost\Browser`) and registers with the updater under `Software\ProjectGhost\Update`. The company directory was first written with a space; the end-to-end test showed upstream's updater uninstall can't handle one.
 - **Trust.**
   - CUP is pinned to ECDSA with Ghost's key.
   - The updater requires a new `CRX3_WITH_GHOST_PUBLISHER_PROOF` format.
@@ -1380,7 +1380,7 @@ pywin32 dependency."
 
 - [ ] **Step 1: Update the smoke test's tests first.** In `tools/tests/test_installer_smoke.py`:
 - `EXP` gains `company_path="Project Ghost"`, and its `product_path` becomes `"Browser"`.
-- `CHROME` becomes `LOCALAPPDATA + r"\Project Ghost\Browser\Application\chrome.exe"`.
+- `CHROME` becomes `LOCALAPPDATA + r"\ProjectGhost\Browser\Application\chrome.exe"`.
 - `ExpectationsTest` expects `product_path="Browser", company_path="Project Ghost"`.
 
 Add:
@@ -1463,7 +1463,7 @@ cd $WEBOPS && python tools/installer_smoke.py sandbox --installer chromium/src/o
 ```
 
 Expected: `PASSED`. If `uninstall` fails because `Software\Project Ghost` survives empty, read `chrome_installer.log` in the results directory. Two options:
-- if upstream leaves an empty company key by design (Chrome leaves `Software\Google`), change the uninstalled check to look for `Software\Project Ghost\Browser`;
+- if upstream leaves an empty company key by design (Chrome leaves `Software\Google`), change the uninstalled check to look for `Software\ProjectGhost\Browser`;
 - otherwise, find what is left in it.
 
 Record the outcome in the spike notes.

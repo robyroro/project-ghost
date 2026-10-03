@@ -21,6 +21,19 @@ class RequestLogTest(unittest.TestCase):
                          ["request 1 carries request.hw"])
         self.assertEqual(update_smoke.evaluate_requests([]), ["the updater sent no request"])
 
+    def test_event_requests_fail_even_when_scrubbed(self):
+        # The scrubber removes an app's `event` list, so an event request
+        # reaches the server as an app without `updatecheck`.
+        check = {"appid": "{a}", "version": "1", "updatecheck": {}}
+        event = {"appid": "{b}", "version": "1", "enabled": True}
+        lines = [json.dumps({"path": "/update?cup2key=1:2",
+                             "body": {"request": {"protocol": "4.0", "apps": [check]}}}),
+                 json.dumps({"path": "/update",
+                             "body": {"request": {"protocol": "4.0", "apps": [event]}}})]
+        self.assertEqual(update_smoke.evaluate_requests(lines),
+                         ["request 2 is not an update check: app {b} has no updatecheck"
+                          " (an event request)"])
+
 
 class UpdaterLogTest(unittest.TestCase):
     def test_only_loopback_urls(self):

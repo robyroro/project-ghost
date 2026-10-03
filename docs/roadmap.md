@@ -212,6 +212,13 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - A respin rebuilds 380 actions, about 12 minutes on the reference machine.
    - `ghost_unittests` (17) and `ghost_browsertests` (15) pass with the two versions different. Each hook patch is mutation-checked.
 2. **B. Branded `//chrome/updater`.** Our app IDs and server, installed with the browser. It also patches the updater client to register the release version (see the spike's audit).
+
+   **Done 2026-10-03.** Patches 0015–0024, `tools/update_server.py`, `crx3.py`, `ecdsa_p256.py`, `offline_installer.py`, `update_smoke.py`; [design](superpowers/specs/2026-10-02-branded-updater-design.md), [spike results](superpowers/specs/2026-10-02-branded-updater-spike.md).
+   - In Windows Sandbox, the offline installer installs the updater and respin `-1`; the updater takes respin `-2` from a CUP-signed response, as a CRX3 with Ghost's publisher proof; uninstalling the browser removes the updater too.
+   - Every update request carries only the allow-listed keys, published in [privacy-model.md](privacy-model.md#the-update-request), and no event request is sent.
+   - The browser now lives under a company directory: `%LOCALAPPDATA%\ProjectGhost\Browser`.
+   - Five mutation checks fail the end-to-end test as required. One showed a gap in the test, fixed before the result was recorded.
+   - Per-user only. For later sub-projects: C switches the component updater to Ghost's publisher proof; D replaces the test keys and signs and tags installers; system-level installs are their own sub-project before the public alpha.
 3. **C. Update server.** Omaha 4, CUP-signed responses, no IP retention; components later.
 4. **D. Signing.** Authenticode, the CUP key, the CRX3 key, and where the keys live.
 5. **E. Release pipeline.** Official build from a tag, SBOM and provenance, staged rollout with a halt switch. It calls `release_version.py write` after `patches.py apply`.

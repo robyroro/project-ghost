@@ -258,7 +258,34 @@ The browser trusts two kinds of downloaded input:
 - Clients reject anything else.
 
 **Request contents**
-- Update requests carry no stable identifiers. Details are in [privacy-model.md](privacy-model.md#data-the-browser-sends).
+- Update requests carry no stable identifiers. Details are in [privacy-model.md](privacy-model.md#the-update-request).
+
+### The updater as built (Phase 2)
+
+Ghost uses Chrome's install model: a small metainstaller installs the updater, and the updater installs and updates the browser. Installs are per-user. The identity is a test identity until the final name; every value is in `branding/updater.gni` and `branding/install_modes.h`.
+
+**Layout.** The browser and the updater share a company directory, so neither one's uninstall removes the other's state:
+
+| What | Where |
+|---|---|
+| Browser | `%LOCALAPPDATA%\ProjectGhost\Browser\Application` |
+| Updater | `%LOCALAPPDATA%\ProjectGhost\ProjectGhostUpdater\<version>\updater.exe`, with a scheduled task |
+| Browser settings | `HKCU\Software\ProjectGhost\Browser` |
+| Registration | `HKCU\Software\ProjectGhost\Update\Clients\{appid}` (`pv`, the installed release version) and `ClientState\{appid}` |
+
+The company directory has no space: the updater's uninstall script, which is upstream's, can't handle one.
+
+- **Registration.** Setup registers the browser under the updater's key when it installs or updates (`USE_GOOGLE_UPDATE_INTEGRATION`, with Ghost's key path). The browser registers its release version with the updater at runtime.
+- **Uninstall.** Removing the browser removes its registration. At its next run the updater finds no app, uninstalls itself and deletes its key.
+
+**Trust chain.**
+- **Responses: CUP with Ghost's key.** Each update response is signed with ECDSA P-256 over the request hash and the response body. The client holds only Ghost's public key (`branding/cup_key.h`); upstream's keys stay compiled in but unused, so a key rotation stays a one-line change.
+- **Packages: Ghost's publisher proof.** Updates are CRX3 files. The updater accepts only `CRX3_WITH_GHOST_PUBLISHER_PROOF`, a format Ghost adds: the package must carry a signature by the key in `branding/crx_publisher_key.h`. The Chrome Web Store's format is unchanged for extensions.
+- **The package's hash** comes from the signed response and is checked before the package is opened.
+
+**The request scrubber** (`components/update_client/request_scrubber.cc`) applies the allow-list to the serialized JSON just before it's sent, so a key that upstream adds later is dropped too. `update_client` sends no event requests. Both sit in `update_client`, which the browser's component updater also uses.
+
+**Testing.** `tools/update_server.py` is a test Omaha server that signs with the test CUP key and serves a CRX3 signed with the test publisher key; both private keys are committed in `test/updater/` and marked test-only. `tools/update_smoke.py` installs from the offline installer in Windows Sandbox, applies an update, checks every request against the allow-list, and uninstalls. The production keys and signed installers are sub-project D.
 
 The release process and SLA are in [roadmap.md](roadmap.md#security-release-sla).
 

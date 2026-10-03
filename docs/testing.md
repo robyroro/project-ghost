@@ -13,6 +13,7 @@
 | Fingerprinting | Browser tests evaluating script in frames, workers and media queries | Every PR | Consistency, determinism per site, unlinkability across sites, per-mode tiers |
 | Egress audit | Harness driving the packaged browser; NetLog analysis | Nightly and release | No contact with hosts outside the allowlist |
 | Installer smoke | `tools/installer_smoke.py` in Windows Sandbox | Nightly and release | Per-user install, registration, shortcuts, launch, uninstall, cleanup |
+| Updater end to end | `tools/update_smoke.py` in Windows Sandbox, against `tools/update_server.py` | Release; run by hand until the builder runs it | Install through the updater, an applied update, the update request's allow-list, uninstall of the browser and the updater |
 | Upstream suites | Filtered `unit_tests`, `browser_tests`, `content_browsertests` | Nightly | Upstream behavior our patches touch |
 | Fuzzing | libFuzzer | Nightly, later continuous | List parsing, parameter stripping, manifest parsing, every mojom handler we add |
 | Performance | crossbench (Speedometer 3, JetStream, MotionMark) and a page-load corpus | Nightly | Regression against vanilla Chromium at the same tag; blocking overhead budget |
@@ -49,6 +50,14 @@
   - **Launch:** the installed browser starts and reports the pinned version over DevTools.
   - **After uninstall:** none of it is left.
   - `run` is the test itself. It installs into the current user's profile, so outside Windows Sandbox it runs only with `--disposable`.
+
+- **The updater's end-to-end test** is `tools/update_smoke.py`. `sandbox` takes an offline installer for one release and a CRX3 of the next ([build/windows.md](build/windows.md#offline-installer)), and runs these steps in a fresh Windows Sandbox, with `tools/update_server.py` serving on loopback:
+  - **install:** the offline installer installs the updater and its scheduled task, then the browser, which passes the installer smoke test's checks and is registered with the updater at its release version;
+  - **update:** the updater, woken, takes the CRX3 from the server's CUP-signed response, and the next release is installed beside the first;
+  - **launch:** the updated browser starts and reports the Chromium release over DevTools;
+  - **privacy:** every request the server logged is an update check (an event request reaches the server scrubbed, as an app without `updatecheck`) and carries only allow-listed keys, and the updater's log names no host but the server;
+  - **uninstall:** setup removes the browser, then the updater, woken, finds no app and removes itself, its scheduled task and its registry key.
+  - Mutation checks showed each check fails when the hook it covers is undone; the results are in the [spike notes](superpowers/specs/2026-10-02-branded-updater-spike.md#mutation-checks).
 
 ## Running the tooling tests
 
