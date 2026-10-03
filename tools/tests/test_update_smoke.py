@@ -46,5 +46,45 @@ class UpdaterLogTest(unittest.TestCase):
         self.assertEqual(update_smoke.foreign_urls(log), [])
 
 
+class RemoteModeTest(unittest.TestCase):
+    def test_the_server_is_an_allowed_host(self):
+        log = ("a https://203.0.113.5/update b https://203.0.113.5/releases/x.crx3\n"
+               "c http://127.0.0.1:8484/update d https://example.com/a\n")
+        self.assertEqual(update_smoke.foreign_urls(log, ("https://203.0.113.5",)),
+                         ["http://127.0.0.1:8484/update", "https://example.com/a"])
+
+    def test_client_address(self):
+        self.assertEqual(update_smoke.client_address("198.51.100.7 51234 203.0.113.5 22\n"),
+                         "198.51.100.7")
+        with self.assertRaises(ValueError):
+            update_smoke.client_address("")
+
+    def test_the_sandbox_gets_network_only_when_asked(self):
+        import installer_smoke
+        from pathlib import Path
+        args = (Path("i"), Path("t"), Path("p"), Path("r"))
+        self.assertIn("<Networking>Disable</Networking>", installer_smoke.sandbox_config(*args))
+        self.assertIn("<Networking>Enable</Networking>",
+                      installer_smoke.sandbox_config(*args, networking=True))
+
+    def test_argument_combinations(self):
+        def problem(*argv):
+            return update_smoke.argument_problem(update_smoke.parser().parse_args(
+                ["sandbox", "--release-version", "1.0.0.1", "--appid", "{a}", *argv]))
+        self.assertIsNone(problem("--offline-installer", "o.exe", "--update-crx", "u.crx3",
+                                  "--update-version", "1.0.0.2"))
+        self.assertIsNone(problem("--offline-installer", "o.exe", "--update-version", "1.0.0.2",
+                                  "--server", "https://203.0.113.5"))
+        self.assertIsNone(problem("--online-installer", "u.exe", "--server",
+                                  "https://203.0.113.5"))
+        for argv in ((), ("--offline-installer", "o.exe", "--online-installer", "u.exe"),
+                     ("--offline-installer", "o.exe", "--update-version", "1.0.0.2"),
+                     ("--online-installer", "u.exe"),
+                     ("--online-installer", "u.exe", "--server", "https://h",
+                      "--update-version", "1.0.0.2")):
+            with self.subTest(argv):
+                self.assertIsNotNone(problem(*argv))
+
+
 if __name__ == "__main__":
     unittest.main()

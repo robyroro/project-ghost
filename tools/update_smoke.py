@@ -4,9 +4,14 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Updater end to end in Windows Sandbox (Phase 2, sub-project B).
 
-  sandbox --offline-installer O --release-version V1 --update-crx C
-          --update-version V2 --appid A
-      on the build machine: run the test in a fresh Windows Sandbox
+  sandbox (--offline-installer O | --online-installer U) --release-version V1
+          [--update-crx C] [--update-version V2] --appid A
+          [--server URL [--server-ssh USER@HOST]]
+      on the build machine: run the test in a fresh Windows Sandbox. Without
+      --server it runs tools/update_server.py in the sandbox; with it, the
+      sandbox gets network access and uses that server, whose root
+      certificate --server-ssh fetches, and which it then checks for the
+      test machine's address.
   run     the test itself, in the sandbox
 
 The test installs Ghost from the offline installer (V1), lets the updater
@@ -42,6 +47,12 @@ EXPECTATIONS_FILE = smoke.EXPECTATIONS_FILE
 # log holds its scheduled task's XML definition.
 _XML_NAMESPACE_PREFIXES = ("http://schemas.microsoft.com/",)
 _URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+OFFLINE_INSTALLER = "ProjectGhostOfflineSetup.exe"
+ONLINE_INSTALLER = "UpdaterSetup.exe"
+SERVER_ROOT_CERT = "server_root.crt"
+LOCAL_SERVER = "http://127.0.0.1"
+# Caddy's internal CA on the update server (sub-project C), until it has a domain.
+CADDY_ROOT_CERT = "/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt"
 
 
 def evaluate_requests(lines: list[str]) -> list[str]:
@@ -59,9 +70,30 @@ def evaluate_requests(lines: list[str]) -> list[str]:
     return failures or ([] if lines else ["the updater sent no request"])
 
 
-def foreign_urls(log: str) -> list[str]:
+def foreign_urls(log: str, allowed: tuple[str, ...] = (LOCAL_SERVER,)) -> list[str]:
     return [url for url in _URL_RE.findall(log)
-            if not url.startswith(("http://127.0.0.1",) + _XML_NAMESPACE_PREFIXES)]
+            if not url.startswith(allowed + _XML_NAMESPACE_PREFIXES)]
+
+
+def client_address(ssh_connection: str) -> str:
+    """This machine's address as a server sees it: SSH_CONNECTION's first field."""
+    fields = ssh_connection.split()
+    if len(fields) != 4:
+        raise ValueError("unexpected SSH_CONNECTION")
+    return fields[0]
+
+
+def _ssh(host: str, command: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["ssh", host, command], capture_output=True, timeout=120)
+
+
+def server_records(host: str) -> list[str]:
+    """Where the server holds this machine's address, outside admin records."""
+    address = client_address(_ssh(host, "echo $SSH_CONNECTION").stdout.decode())
+    out = _ssh(host, f"sudo ghost-update-admin find-address {address}")
+    if out.returncode == 0:
+        return []
+    return out.stdout.decode().splitlines() or [f"find-address exited with {out.returncode}"]
 
 
 def _company_dir(exp: smoke.Expectations) -> Path:
@@ -129,32 +161,45 @@ def _wait(condition, seconds: int) -> bool:
 
 
 def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
-        update_version: str) -> dict:
+        update_version: str | None, server: str | None = None,
+        installer: str = OFFLINE_INSTALLER) -> dict:
+    """Without `server`, serves update_version from payload/update.crx3 on loopback.
+    Without `update_version` (the online installer), installs and checks only."""
     result = {"expectations": exp.__dict__, "steps": []}
     log = results / "requests.jsonl"
-    updated = replace(exp, release_version=update_version)
+    final = replace(exp, release_version=update_version) if update_version else exp
 
     def step(name: str, failures: list[str], **details) -> bool:
         result["steps"].append({"name": name, "failures": failures, **details})
         return not failures
 
-    server = update_server.UpdateServer(
-        ("127.0.0.1", 8484),
-        update_server.Offer(appid, update_version, payload / "update.crx3", "mini_installer.exe",
-                            "--verbose-logging --do-not-launch-chrome"),
-        update_server.load_key(payload / "cup_test_key.json"), log)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    local = None
+    if server is None:
+        local = update_server.UpdateServer(
+            ("127.0.0.1", 8484),
+            update_server.Offer(appid, update_version, payload / "update.crx3",
+                                "mini_installer.exe", "--verbose-logging --do-not-launch-chrome"),
+            update_server.load_key(payload / "cup_test_key.json"), log)
+        threading.Thread(target=local.serve_forever, daemon=True).start()
     try:
         if not step("clean machine", smoke.evaluate_uninstalled(smoke.snapshot(exp), exp)
                     + (["an updater is already installed"] if _updater_exe(exp) else [])):
             return result
 
-        work = Path(tempfile.mkdtemp(prefix="offline-"))
-        setup = Path(shutil.copy(payload / "ProjectGhostOfflineSetup.exe", work))
+        root_cert = payload / SERVER_ROOT_CERT
+        if root_cert.exists():
+            out = subprocess.run(["certutil", "-addstore", "-f", "Root", str(root_cert)],
+                                 capture_output=True, text=True)
+            if not step("trust the server", [] if out.returncode == 0 else [
+                    f"certutil exited with {out.returncode}: {out.stdout.strip()[-300:]}"]):
+                return result
+
+        work = Path(tempfile.mkdtemp(prefix="installer-"))
+        setup = Path(shutil.copy(payload / installer, work))
         code = subprocess.run([str(setup), *offline_installer.install_arguments(appid),
-                               "--enable-logging"], timeout=900).returncode
+                               "--enable-logging"], timeout=1800).returncode
         installed = smoke.snapshot(exp)
-        failures = [] if code == 0 else [f"the offline installer exited with {code}"]
+        failures = [] if code == 0 else [f"{installer} exited with {code}"]
         failures += smoke.evaluate_installed(installed, exp)
         updater = _updater_exe(exp)
         failures += [] if updater else ["no updater.exe under the company directory"]
@@ -164,27 +209,31 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
             f"Clients\\{appid} pv is {pv!r}, expected {exp.release_version!r}"]
         if not step("install", failures, snapshot=installed):
             return result
-
-        code = subprocess.run([str(updater), "--update-apps", "--enable-logging"],
-                              timeout=900).returncode
-        reached = _wait(lambda: _registered_version(exp, appid) == update_version, 600)
-        failures = [] if reached else [
-            f"pv stayed {_registered_version(exp, appid)!r}, expected {update_version!r}"
-            f" (updater exited with {code})"]
         app_dir = Path(installed["chrome_exe"]).parent
-        failures += [] if (app_dir / update_version).is_dir() else [
-            f"no {update_version} directory beside chrome.exe"]
-        if not step("update", failures):
-            return result
-        step("launch", smoke.launch(Path(installed["chrome_exe"]), updated))
 
-        lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+        if update_version:
+            code = subprocess.run([str(updater), "--update-apps", "--enable-logging"],
+                                  timeout=1800).returncode
+            reached = _wait(lambda: _registered_version(exp, appid) == update_version, 1200)
+            failures = [] if reached else [
+                f"pv stayed {_registered_version(exp, appid)!r}, expected {update_version!r}"
+                f" (updater exited with {code})"]
+            failures += [] if (app_dir / update_version).is_dir() else [
+                f"no {update_version} directory beside chrome.exe"]
+            if not step("update", failures):
+                return result
+        step("launch", smoke.launch(Path(installed["chrome_exe"]), final))
+
         updater_log = "".join(p.read_text(encoding="utf-8", errors="replace")
                               for p in _company_dir(exp).rglob("updater*.log"))
-        step("privacy", evaluate_requests(lines)
-             + [f"the updater's log names {url}" for url in foreign_urls(updater_log)])
+        failures = [f"the updater's log names {url}" for url in foreign_urls(
+            updater_log, (LOCAL_SERVER,) if server is None else (server,))]
+        if server is None:
+            lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+            failures = evaluate_requests(lines) + failures
+        step("privacy", failures)
 
-        setup_exe = app_dir / update_version / "Installer" / "setup.exe"
+        setup_exe = app_dir / final.release_version / "Installer" / "setup.exe"
         code = subprocess.run([str(setup_exe), "--uninstall", "--force-uninstall",
                                "--verbose-logging"], timeout=900).returncode
         failures = ([] if code == smoke.UNINSTALL_SUCCESSFUL else
@@ -203,7 +252,8 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
     except Exception as e:  # reported, so the build machine learns why
         step("error", [f"{type(e).__name__}: {e}"])
     finally:
-        server.shutdown()
+        if local:
+            local.shutdown()
         for name in ("chrome_installer.log",):
             path = Path(tempfile.gettempdir()) / name
             if path.exists():
@@ -216,22 +266,33 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
     return result
 
 
-def run_in_sandbox(offline: Path, crx: Path, release_version: str, update_version: str,
-                   appid: str, timeout: int) -> int:
+def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
+                   update_version: str | None, appid: str, timeout: int,
+                   server: str | None = None, server_ssh: str | None = None) -> int:
     payload = Path(tempfile.mkdtemp(prefix="update-payload-"))
-    shutil.copy(offline, payload / "ProjectGhostOfflineSetup.exe")
-    shutil.copy(crx, payload / "update.crx3")
+    shutil.copy(installer, payload / installer.name)
+    if crx:
+        shutil.copy(crx, payload / "update.crx3")
     # Only tools/ is mapped into the sandbox; the server's key travels with the payload.
     shutil.copy(update_server.CUP_KEY_FILE, payload / "cup_test_key.json")
+    if server_ssh:
+        cert = _ssh(server_ssh, f"sudo cat {CADDY_ROOT_CERT}")
+        if cert.returncode or not cert.stdout:
+            print("could not fetch the server's root certificate over SSH", file=sys.stderr)
+            return 1
+        (payload / SERVER_ROOT_CERT).write_bytes(cert.stdout)
     results = Path(tempfile.mkdtemp(prefix="update-smoke-"))
     exp = smoke.expectations(repo.REPO_ROOT, release_version)
     (results / EXPECTATIONS_FILE).write_text(json.dumps(exp.__dict__), encoding="utf-8")
     script = (f"update_smoke.py run --payload {smoke._IN_SANDBOX['installer']} "
               f"--results {smoke._IN_SANDBOX['results']} --appid {appid} "
-              f"--update-version {update_version}")
+              f"--installer {installer.name}"
+              + (f" --update-version {update_version}" if update_version else "")
+              + (f" --server {server}" if server else ""))
     config = results.with_suffix(".wsb")
     config.write_text(smoke.sandbox_config(payload, TOOLS_DIR, Path(sys.base_prefix), results,
-                                           script_args=script), encoding="utf-8")
+                                           script_args=script, networking=server is not None),
+                      encoding="utf-8")
     print(f"starting Windows Sandbox; results in {results}", flush=True)
     subprocess.Popen([str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
                           / "WindowsSandbox.exe"), str(config)])
@@ -243,34 +304,74 @@ def run_in_sandbox(offline: Path, crx: Path, release_version: str, update_versio
         time.sleep(5)
     result = smoke.read_result(results)
     print(smoke.format_result(result))
-    return 0 if smoke.passed(result) else 1
+    passed = smoke.passed(result)
+    if server_ssh:
+        found = server_records(server_ssh)
+        print("ok      the server holds no record of this machine's address" if not found else
+              "FAILED  the server holds this machine's address\n"
+              + "\n".join(f"          - {place}" for place in found))
+        passed = passed and not found
+    return 0 if passed else 1
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    sub = parser.add_subparsers(dest="command", required=True)
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = p.add_subparsers(dest="command", required=True)
     s = sub.add_parser("sandbox")
-    s.add_argument("--offline-installer", type=Path, required=True)
-    s.add_argument("--release-version", required=True)
-    s.add_argument("--update-crx", type=Path, required=True)
-    s.add_argument("--update-version", required=True)
+    s.add_argument("--offline-installer", type=Path)
+    s.add_argument("--online-installer", type=Path)
+    s.add_argument("--release-version", required=True,
+                   help="the version the installer installs")
+    s.add_argument("--update-crx", type=Path)
+    s.add_argument("--update-version")
     s.add_argument("--appid", required=True)
-    s.add_argument("--timeout", type=int, default=2700)
+    s.add_argument("--server", help="an update server's base URL, such as https://203.0.113.5")
+    s.add_argument("--server-ssh", help="USER@HOST of that server")
+    s.add_argument("--timeout", type=int, default=3600)
     r = sub.add_parser("run")
     r.add_argument("--payload", type=Path, required=True)
     r.add_argument("--results", type=Path, required=True)
     r.add_argument("--appid", required=True)
-    r.add_argument("--update-version", required=True)
-    args = parser.parse_args(argv)
+    r.add_argument("--installer", default=OFFLINE_INSTALLER)
+    r.add_argument("--update-version")
+    r.add_argument("--server")
+    return p
+
+
+def argument_problem(args: argparse.Namespace) -> str | None:
+    if (args.offline_installer is None) == (args.online_installer is None):
+        return "pass one of --offline-installer and --online-installer"
+    if args.online_installer:
+        if not args.server:
+            return "the online installer needs --server"
+        if args.update_version:
+            return "the online installer installs the server's release; no --update-version"
+        return None
+    if not args.update_version:
+        return "the offline installer's test needs --update-version"
+    if not args.server and not args.update_crx:
+        return "without --server, the test serves --update-crx itself"
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parser().parse_args(argv)
     if args.command == "sandbox":
-        return run_in_sandbox(args.offline_installer, args.update_crx, args.release_version,
-                              args.update_version, args.appid, args.timeout)
+        problem = argument_problem(args)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
+        installer = args.offline_installer or args.online_installer
+        return run_in_sandbox(installer, None if args.server else args.update_crx,
+                              args.release_version, args.update_version, args.appid,
+                              args.timeout, args.server, args.server_ssh)
     if not smoke.is_disposable(os.environ.get("USERNAME", ""), False):
         print("run installs into this user's profile; use `sandbox`", file=sys.stderr)
         return 2
     exp = smoke.Expectations(**json.loads(
         (args.results / EXPECTATIONS_FILE).read_text(encoding="utf-8")))
-    result = run(args.payload, args.results, exp, args.appid, args.update_version)
+    result = run(args.payload, args.results, exp, args.appid, args.update_version,
+                 args.server, args.installer)
     print(smoke.format_result(result))
     return 0 if smoke.passed(result) else 1
 

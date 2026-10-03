@@ -444,9 +444,10 @@ def run(installer: Path, results_dir: Path, exp: Expectations) -> dict:
 
 def sandbox_config(installer_dir: Path, tools_dir: Path, python_dir: Path, results_dir: Path,
                    installer_name: str = "mini_installer.exe",
-                   script_args: str | None = None) -> str:
+                   script_args: str | None = None, networking: bool = False) -> str:
     """A Windows Sandbox configuration that runs `script_args` (a script in
-    tools/ and its arguments), or this smoke test, then shuts down."""
+    tools/ and its arguments), or this smoke test, then shuts down. The
+    sandbox has no network unless `networking` is set."""
     def folder(host: Path, key: str, read_only: bool) -> str:
         return ("    <MappedFolder>\n"
                 f"      <HostFolder>{xml.sax.saxutils.escape(str(host))}</HostFolder>\n"
@@ -464,7 +465,7 @@ def sandbox_config(installer_dir: Path, tools_dir: Path, python_dir: Path, resul
                f'{_IN_SANDBOX["tools"]}\\{script_args} '
                f'> {_IN_SANDBOX["results"]}\\run.log 2>&1 & shutdown /s /t 0"')
     return ("<Configuration>\n"
-            "  <Networking>Disable</Networking>\n"
+            f"  <Networking>{'Enable' if networking else 'Disable'}</Networking>\n"
             "  <vGPU>Disable</vGPU>\n"
             "  <MappedFolders>\n"
             + folder(installer_dir, "installer", True) + folder(tools_dir, "tools", True)
