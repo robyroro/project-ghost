@@ -38,12 +38,15 @@ These were settled in discussion on 2026-10-03:
 
 | Path | What it is |
 |---|---|
-| `server/protocol.py` | Parses an Omaha 4 request, decides each app's answer, builds the response. No I/O. |
-| `server/cup.py` | Signs a response for a request (ECDSA P-256 via `cryptography`), in the format of [cup.md](https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.149/docs/updater/cup.md). |
-| `server/manifest.py` | Loads and validates `releases.json`; keeps the last good manifest when a new one is invalid. |
-| `server/main.py` | The HTTP service: `POST /update` on `127.0.0.1:8484`, stdlib `http.server`. |
-| `publish/release.py` | The release CLI, run on the build machine. |
-| `deploy/` | `provision.sh`, the systemd unit, the Caddyfile, the nftables rules, `ghost-update-admin`. |
+| `ghost_update/protocol.py` | Parses an Omaha 4 request, decides each app's answer, builds the response. No I/O. |
+| `ghost_update/cup.py` | Signs a response for a request (ECDSA P-256 via `cryptography`), in the format of [cup.md](https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.149/docs/updater/cup.md). |
+| `ghost_update/manifest.py` | Loads and validates `releases.json`; keeps the last good manifest when a new one is invalid. |
+| `ghost_update/service.py` | The HTTP service: `POST /update` on `127.0.0.1:8484`, stdlib `http.server`. |
+| `ghost_update/admin.py` | `ghost-update-admin` on the server: `init`, `activate`, `list`, `find-address`. |
+| `ghost_update/release.py` | The release CLI, run on the build machine. |
+| `ghost_update/reference/` | `//ghost`'s pure-Python ECDSA and CRX3 code, copied: the release CLI's package check and the tests' reference verifier. |
+| `deploy/` | `provision.sh`, the systemd unit, the Caddyfile, the nftables rules, the SSH and sudo settings. |
+| `tools/deploy.py`, `tools/lint.py` | Deploys to the VPS from the build machine; repository lint, as in `//ghost`. |
 | `tests/` | `unittest`, with fixtures copied from `//ghost`. |
 | `.github/workflows/` | Tests and lint on every push, as in `//ghost`. |
 
@@ -86,13 +89,13 @@ Versions are compared as four dotted integers. A version that isn't one is an in
 | The service | Never sees an address. It never logs request bodies, `sessionid` or `requestid`; it logs only errors that carry no client data, such as "request without apps". |
 | Rate limiting | nftables meters per source address, in kernel memory, expiring after 60 seconds. Nothing is written to disk. |
 | journald | Receives only the service's and Caddy's messages above. |
-| SSH | Records the administrators' own logins, which are not users of the browser. |
+| SSH, sudo, logind, `wtmp` | Record the administrators' own logins and commands, which are not users of the browser. The address search skips them. |
 
-**Tested end to end:** after the remote end-to-end run, the test searches the whole VPS (journald, `/var/log`, Caddy's data directory) for the test machine's public address and fails if it appears.
+**Tested end to end:** after the remote end-to-end run, the test runs `ghost-update-admin find-address` on the VPS, which searches journald, `/var/log`, Caddy's data directory and `/srv` for the test machine's public address, and fails if it appears.
 
 ## Publishing a release
 
-`publish/release.py --crx <file> --appid <id> --version <v> --host <ssh host>`:
+`python -m ghost_update.release --crx <file> --appid <id> --version <v> --host <ssh host>`:
 1. **Checks locally** that the CRX3 carries Ghost's publisher proof, that it contains the installer it names, and that the version follows [ADR 0007](../../adr/0007-version-numbers.md).
 2. **Uploads** the package over SSH to `/srv/releases/staging/`.
 3. **Activates** it with `ghost-update-admin activate` on the server, which:
@@ -129,7 +132,7 @@ The service reloads `releases.json` when its modification time changes. The last
 
 **In the new repository:**
 - **Protocol:** the decision table above, including the request B captured (`test/updater/captured_request.json`).
-- **CUP:** every response the service produces verifies with `tools/ecdsa_p256.py`'s pure-Python verifier, copied in as the reference, and the signer reproduces `test/updater/cup_vector.json`.
+- **CUP:** every response the service produces verifies with `tools/ecdsa_p256.py`'s pure-Python verifier, copied in as the reference, and the loaded test key verifies `test/updater/cup_vector.json`'s proof. OpenSSL's signatures use random nonces, so a proof can't be reproduced byte for byte.
 - **Shared fixtures** are copied from `//ghost`, and a test pins their SHA-256 values, so that they can't drift silently.
 - **No client data in output:** requests carrying marker values in `sessionid` and `requestid` are sent to the running service; neither marker may appear in anything it writes.
 - **Configuration:** the Caddyfile has no `log` directive and removes `X-Forwarded-For`; the unit file has the hardening options above.
