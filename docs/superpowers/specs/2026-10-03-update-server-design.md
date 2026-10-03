@@ -1,6 +1,6 @@
 # Update server: design
 
-- Status: approved in discussion 2026-10-03, waiting for review of this document
+- Status: code done 2026-10-03; deployment and the remote end-to-end test deferred ([progress notes](2026-10-03-update-server-spike.md))
 - Phase 2, sub-project C ([roadmap](../../roadmap.md#phase-2-release-engineering))
 - Depends on sub-project B ([branded updater](2026-10-02-branded-updater-design.md))
 

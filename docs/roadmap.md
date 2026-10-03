@@ -220,6 +220,11 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - Five mutation checks fail the end-to-end test as required. One showed a gap in the test, fixed before the result was recorded.
    - Per-user only. For later sub-projects: C switches the component updater to Ghost's publisher proof; D replaces the test keys and signs and tags installers; system-level installs are their own sub-project before the public alpha.
 3. **C. Update server.** Omaha 4, CUP-signed responses, no IP retention; components later.
+
+   **Code done 2026-10-03; deployment deferred.** [design](superpowers/specs/2026-10-03-update-server-design.md), [plan](superpowers/plans/2026-10-03-update-server.md), [progress notes](superpowers/specs/2026-10-03-update-server-spike.md), repository [project-ghost-update-server](https://github.com/robyroro/project-ghost-update-server).
+   - The service, `ghost-update-admin`, the release CLI and the deployment files (Caddy, nftables, systemd, `provision.sh`) are written test-first; CI passes on Ubuntu with Debian 12's `cryptography` and on Windows. Four mutation checks fail as required.
+   - `//ghost`: the update URL is a build argument (`ghost_update_url`); `tools/update_smoke.py` has a remote mode and an online-installer mode. The local end-to-end test still passes.
+   - **Not yet verified:** nothing has run on a Linux server. `provision.sh`, the Caddy and nftables configuration, the systemd hardening and the "no addresses kept" check run for the first time on a VPS, with plan Tasks 13, 14 (Step 4) and 16. Deferred by decision on 2026-10-03; a temporary VPS is enough, and the domain can come later.
 4. **D. Signing.** Authenticode, the CUP key, the CRX3 key, and where the keys live.
 5. **E. Release pipeline.** Official build from a tag, SBOM and provenance, staged rollout with a halt switch. It calls `release_version.py write` after `patches.py apply`.
 6. **F. Security release runbook,** and one measured milestone move (to 154).
