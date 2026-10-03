@@ -6,8 +6,8 @@
 # (patches/0015) in place of its Chromium values. Generated from those values
 # on 2026-10-02; every GUID is new.
 #
-# TEST IDENTITY (Phase 2): the names, GUIDs and the loopback update URL are
-# replaced when the final product name is chosen. updater_company_short_name
+# TEST IDENTITY (Phase 2): the names and GUIDs are replaced when the final
+# product name is chosen. updater_company_short_name
 # must equal kCompanyPathName in branding/install_modes.h.
 
 browser_name = "Project Ghost"
@@ -43,7 +43,13 @@ prefs_access_mutex = "{666A346D-39D2-47DA-8023-B9B971799F36}"
 setup_mutex_prefix = "{1DC941D7-F3A1-465C-93E6-060316B57BDF}"
 grdfile_name = "chromium_strings"
 extra_args_is_chrome_branded = "IS_CHROME_BRANDED=False"
-update_check_url = "http://127.0.0.1:8484/update"
+declare_args() {
+  # The update server. The default is tools/update_server.py on loopback,
+  # which the local end-to-end test runs; the remote test builds
+  # out/updater_remote with the server's address (docs/build/windows.md).
+  ghost_update_url = "http://127.0.0.1:8484/update"
+}
+update_check_url = ghost_update_url
 updater_event_logging_url = ""
 
 UpdaterLegacyLibGUID = "D46A672F-AC6E-497E-B2E1-834BB2BC691B"
