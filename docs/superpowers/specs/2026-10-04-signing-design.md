@@ -32,7 +32,7 @@ These were settled in discussion on 2026-10-04:
 | Key | Algorithm | Where it lives | Used for |
 |---|---|---|---|
 | Publisher primary, `ProjectGhost-test-publisher-1` | ECDSA P-256 | This PC's TPM, not exportable; a PIN on each use if the spike confirms it | The publisher proof of every update package, once per release |
-| Publisher backup | ECDSA P-256 | A USB stick kept offline, as a password-encrypted PKCS#8 file; a paper copy is the user's choice | The publisher proof only when the primary is lost or compromised |
+| Publisher backup | ECDSA P-256 | Off this PC: for the test identity, the user's cloud storage (no USB stick on hand, decided 2026-10-04). A PKCS#8 file encrypted with the user's password, stretched by PBKDF2-HMAC-SHA256 600,000 times, so a stolen copy makes each guess expensive | The publisher proof only when the primary is lost or compromised |
 | Authenticode | RSA 2048, in a self-signed code-signing certificate (CertEnroll can't put an ECDSA key in the TPM: [spike](2026-10-04-signing-spike.md)) | This PC's TPM, the certificate in the user's `My` store; no PIN, since a release signs hundreds of files | Every PE file and installer |
 | CUP, version 2 | ECDSA P-256 | A file outside the repository, deployed to the server through `LoadCredential=` (C) | Signing update responses live |
 
@@ -71,11 +71,11 @@ These were settled in discussion on 2026-10-04:
 
 ## The ceremony
 
-`ceremony.py init --identity test`, run once on the reference machine with the USB stick inserted:
+`ceremony.py init --identity test`, run once on the reference machine by the user:
 
 1. **The publisher primary** is created in the TPM as `ProjectGhost-test-publisher-1`, not exportable, with a PIN if the spike confirms it works.
 2. **The Authenticode key and certificate** are created in the TPM with `New-SelfSignedCertificate -Type CodeSigningCert -Provider "Microsoft Platform Crypto Provider"`, RSA 2048. The certificate's public half is exported to `branding/signing/test_codesign.cer` for the Sandbox.
-3. **The publisher backup** is generated in memory and written to the stick as PKCS#8 encrypted with the user's password: a standard format OpenSSL also reads, so recovering it doesn't depend on our tools. The ceremony reads the file back from the stick, decrypts it, compares the public key, then drops the key from memory.
+3. **The publisher backup** is generated in memory and written as PKCS#8 encrypted with the user's password (PBES2: PBKDF2-HMAC-SHA256, 600,000 rounds, then AES-256-CBC): a standard format OpenSSL also reads, so recovering it doesn't depend on our tools. The `cryptography` package's own PKCS#8 encryption stretches a password only 2048 times, so `tools/signing.py` writes the structure itself. The ceremony reads the file back, decrypts it, compares the public key, then drops the key from memory. The user moves the file off this PC.
 4. **The CUP key, version 2,** is written to a file outside the repository, for `tools/deploy.py`.
 5. **The public halves** go to `branding/`, and the record to `docs/signing/ceremonies/<date>-test-identity.md`, named by the day the ceremony runs: each key's fingerprint, where it lives, the date, and the tool's commit.
 
@@ -103,7 +103,7 @@ Everything is written to a temporary directory and moved to the output only when
 
 The runbook in `docs/signing/` covers:
 
-- **The publisher primary is lost** (TPM cleared, PC dead): the next release is signed with the backup from the stick, which the clients already accept. That release pins a new pair, a new primary and a new backup, and drops the lost key.
+- **The publisher primary is lost** (TPM cleared, PC dead): the next release is signed with the backup, which the clients already accept. That release pins a new pair, a new primary and a new backup, and drops the lost key.
 - **The publisher primary is compromised:** the same, urgently. Serving an update also takes control of the server, for CUP. Updated clients no longer accept the old key.
 - **CUP rotation:** the server gains version N+1; a release ships its public key; the server signs with the version each client asks for. The old version stays on the server until the support window E sets.
 - **The Authenticode certificate:** expiry is covered by the timestamps, and rotation is a new certificate. The spike checks that nothing in the client pins it.
@@ -131,7 +131,7 @@ The runbook in `docs/signing/` covers:
   - The offline installer for respin `-1` runs **with no arguments**: the tag supplies them.
   - Every installed PE file has a `Valid` Authenticode signature.
   - The update `-1 → -2`, its publisher proof made in the TPM.
-  - **The recovery drill:** the update `-2 → -3`, its publisher proof made with the backup key from the stick. The client must accept it.
+  - **The recovery drill:** the update `-2 → -3`, its publisher proof made with the backup key. The client must accept it.
   - Uninstall, and the updater's removal, as in B.
 - **Mutation checks**, each of which must fail the test:
   - a CRX3 whose publisher proof is made by a third key;
@@ -152,7 +152,7 @@ Questions the implementation answers first, recorded in the progress notes:
 
 ## Done when
 
-1. The ceremony has run; its record is committed, and the backup is verified on the stick.
+1. The ceremony has run; its record is committed, and the backup is verified and stored off this PC.
 2. The end-to-end test passes, recovery drill included, and the mutation checks fail as required.
 3. The update server's repository signs with versioned CUP keys, with its tests passing in CI. Its deployment stays deferred, as decided for C.
 4. The documentation is updated:

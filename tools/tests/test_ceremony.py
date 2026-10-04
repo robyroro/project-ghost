@@ -44,7 +44,7 @@ class CeremonyTest(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root)
         self.custody = FakeCustody()
-        self.backup = self.root / "stick" / "backup.p8"
+        self.backup = self.root / "elsewhere" / "backup.p8"
         self.backup.parent.mkdir()
         self.cup = self.root / "keys" / "cup_key_2.json"
 

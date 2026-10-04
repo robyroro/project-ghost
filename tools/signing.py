@@ -69,16 +69,58 @@ def file_signer(path: Path) -> Signer:
 
 
 # --- The offline backup ------------------------------------------------------------
-# PKCS#8 encrypted with a password: a standard format OpenSSL also reads, so
-# recovering the key doesn't depend on these tools.
+# PKCS#8 encrypted with a password (RFC 8018's PBES2: PBKDF2-HMAC-SHA256, then
+# AES-256-CBC): a standard format OpenSSL also reads, so recovering the key
+# doesn't depend on these tools. The structure is written here because the
+# cryptography package's PKCS#8 encryption stretches the password only 2048
+# times; the copy may live in the user's cloud storage, so a stolen one must
+# make each guess expensive.
+
+BACKUP_KDF_ROUNDS = 600_000
+_PEM_LABEL = "ENCRYPTED PRIVATE KEY"
+_OID_PBES2 = bytes.fromhex("06092a864886f70d01050d")
+_OID_PBKDF2 = bytes.fromhex("06092a864886f70d01050c")
+_OID_HMAC_SHA256 = bytes.fromhex("06082a864886f70d0209")
+_OID_AES256_CBC = bytes.fromhex("060960864801650304012a")
+
+
+def _der(tag: int, content: bytes) -> bytes:
+    n = len(content)
+    length = bytes([n]) if n < 0x80 else (
+        bytes([0x80 | ((n.bit_length() + 7) // 8)]) + n.to_bytes((n.bit_length() + 7) // 8, "big"))
+    return bytes([tag]) + length + content
+
+
+def _pem_body(text: str) -> bytes:
+    import base64
+    lines = [line for line in text.strip().splitlines() if not line.startswith("-----")]
+    return base64.b64decode("".join(lines))
+
 
 def write_backup(path: Path, d: int, password: bytes) -> None:
-    from cryptography.hazmat.primitives import serialization
+    import base64
+    import os
+    from cryptography.hazmat.primitives import padding, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
-    key = ec.derive_private_key(d, ec.SECP256R1())
-    Path(path).write_bytes(key.private_bytes(
-        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
-        serialization.BestAvailableEncryption(password)))
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    plain = ec.derive_private_key(d, ec.SECP256R1()).private_bytes(
+        serialization.Encoding.DER, serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption())
+    salt, iv = os.urandom(16), os.urandom(16)
+    key = hashlib.pbkdf2_hmac("sha256", password, salt, BACKUP_KDF_ROUNDS, 32)
+    padder = padding.PKCS7(128).padder()
+    encryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
+    encrypted = encryptor.update(padder.update(plain) + padder.finalize()) + encryptor.finalize()
+    pbkdf2 = _der(0x30, _OID_PBKDF2 + _der(0x30, _der(0x04, salt)
+                                             + _der(0x02, BACKUP_KDF_ROUNDS.to_bytes(3, "big"))
+                                             + _der(0x30, _OID_HMAC_SHA256 + b"\x05\x00")))
+    scheme = _der(0x30, _OID_AES256_CBC + _der(0x04, iv))
+    der = _der(0x30, _der(0x30, _OID_PBES2 + _der(0x30, pbkdf2 + scheme))
+               + _der(0x04, encrypted))
+    body = base64.b64encode(der).decode("ascii")
+    lines = [body[i:i + 64] for i in range(0, len(body), 64)]
+    Path(path).write_text(f"-----BEGIN {_PEM_LABEL}-----\n" + "\n".join(lines)
+                          + f"\n-----END {_PEM_LABEL}-----\n", encoding="ascii", newline="\n")
 
 
 def read_backup(path: Path, password: bytes) -> int:
@@ -107,7 +149,7 @@ _PROVENANCE = {
             "// so anyone can sign with them. Builds pin these keys unless\n"
             "// ghost_signing_identity (branding/signing.gni) says otherwise."),
     "test": ("Test identity (Phase 2): the publisher primary is in the reference\n"
-             "// machine's TPM, the backup on an offline USB stick, the CUP key on the\n"
+             "// machine's TPM, the backup off that machine, the CUP key on the\n"
              "// update server (docs/signing/ceremonies/)."),
 }
 

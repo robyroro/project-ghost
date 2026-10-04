@@ -9,7 +9,8 @@
 
 In order: the publisher primary, in this PC's TPM; the Authenticode key, in
 the TPM, with its self-signed certificate in the My store; the publisher
-backup, written to the USB stick as password-encrypted PKCS#8 and read back;
+backup, written as password-encrypted PKCS#8 and read back, for the user to
+keep off this PC (their cloud storage, for the test identity);
 the CUP key, as a file outside the repository for the update server. Then
 the identity's header in branding/keys/, the certificate, the test fixtures
 the new keys sign, and the ceremony record. It refuses to run if any of
@@ -113,7 +114,7 @@ _RECORD = """# Key ceremony: {name} identity, {date}
 | Key | Where it lives | SHA-256 of the public key (DER SubjectPublicKeyInfo) |
 |---|---|---|
 | Publisher primary, `{publisher_key}` | This PC's TPM, not exportable. PIN on each use: {pin} | `{primary}` |
-| Publisher backup | `{backup_file}` on an offline USB stick, PKCS#8 encrypted with a password | `{backup}` |
+| Publisher backup | `{backup_file}`, kept off this PC; PKCS#8 encrypted with a password stretched by PBKDF2 600,000 times | `{backup}` |
 | CUP, version {cup_version} | `{cup_file}`, outside the repository, for the update server | `{cup}` |
 
 **Authenticode certificate:** `{subject}`, SHA-1 thumbprint `{thumbprint}`, valid three years from the ceremony. Its key is in this PC's TPM; its public half is `branding/signing/{name}_codesign.cer`.
@@ -142,7 +143,7 @@ def run(identity: Identity, custody: Custody, backup: Path, password: bytes, cup
     expected = signing.scalar_signer("backup", backup_key).public_der
     signing.write_backup(backup, backup_key, password)
     del backup_key
-    backup_signer = signing.backup_signer(backup, password)  # read back from the stick
+    backup_signer = signing.backup_signer(backup, password)  # read back from the file
     if backup_signer.public_der != expected:
         raise CeremonyError(f"{backup} doesn't read back as the key just written")
 
@@ -187,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     init = sub.add_parser("init")
     init.add_argument("--identity", choices=sorted(IDENTITIES), required=True)
     init.add_argument("--backup", type=Path, required=True,
-                      help="the backup key's file, on the USB stick")
+                      help="where to write the backup key's file")
     init.add_argument("--cup-out", type=Path, help="the CUP key's file, outside the repository")
     init.add_argument("--pin", action="store_true", help="a PIN on each use of the TPM key")
     args = parser.parse_args(argv)
@@ -211,7 +212,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ceremony: {e}", file=sys.stderr)
         return 1
     print(f"done; the record is {record.relative_to(repo.REPO_ROOT)}")
-    print(f"the CUP key is {cup_out}; keep the stick offline, away from this PC")
+    print(f"the CUP key is {cup_out}")
+    print(f"now move {args.backup} off this PC: a copy left here falls with the PC")
     return 0
 
 

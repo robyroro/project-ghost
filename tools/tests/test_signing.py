@@ -58,6 +58,15 @@ class BackupTest(TempDir):
         self.assertEqual(signing.backup_signer(path, b"correct horse battery").public_der,
                          spki(KEY))
 
+    def test_the_password_is_stretched_600000_times(self):
+        # PBKDF2's iteration count, DER INTEGER 600000, in PBES2's parameters: a
+        # stolen copy costs 600000 HMACs per guessed password, not OpenSSL's 2048.
+        path = self.dir / "backup.p8"
+        signing.write_backup(path, KEY, b"correct horse battery")
+        der = signing._pem_body(path.read_text(encoding="ascii"))
+        self.assertIn(b"\x02\x03\x09\x27\xc0", der)
+        self.assertEqual(signing.BACKUP_KDF_ROUNDS, 600_000)
+
     def test_a_wrong_password_is_refused_without_the_key(self):
         path = self.dir / "backup.p8"
         signing.write_backup(path, KEY, b"correct horse battery")
