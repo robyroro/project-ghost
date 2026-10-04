@@ -1,0 +1,3 @@
+# Python packages the tools need beyond the standard library. Only
+# tools/signing.py's offline backup uses one. CI installs this file.
+cryptography==50.0.0

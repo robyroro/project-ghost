@@ -32,6 +32,8 @@ jobs:
         with:
           # depot_tools' vpython3 ships 3.11; test against the oldest version we support.
           python-version: "3.11"
+      - name: Tool requirements
+        run: python -m pip install -r tools/requirements.txt
       - name: Tooling tests
         run: python -m unittest discover -s tools/tests -t tools -v
       - name: Lint
