@@ -2,7 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import("//build/buildflag_header.gni")
 import("//build/config/chrome_build.gni")
+import("//ghost/branding/signing.gni")
 
 # The installer's strings, with the product named from the branding file
 # (installer_strings.py). //chrome/installer/util:strings compiles this file in
@@ -29,11 +31,19 @@ action("installer_strings") {
   deps = [ "//chrome/installer/util:generate_strings" ]
 }
 
+buildflag_header("signing_buildflags") {
+  header = "signing_buildflags.h"
+  _test_identity = ghost_signing_identity == "test"
+  flags = [ "GHOST_SIGNING_IDENTITY_TEST=$_test_identity" ]
+}
+
 # The updater's keys, compiled into update_client and crx_file
-# (patches/0018, 0020). Test identity until sub-project D.
+# (patches/0018, 0020): those of the identity ghost_signing_identity names.
 source_set("keys") {
   sources = [
     "crx_publisher_key.h",
     "cup_key.h",
+    "keys/dev.h",
   ]
+  public_deps = [ ":signing_buildflags" ]
 }

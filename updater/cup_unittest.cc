@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Chromium's CUP verifier accepts what tools/update_server.py signs with the
-// test key, and nothing else (test/updater/cup_vector.json).
+// Chromium's CUP verifier accepts what the build identity's CUP key signs,
+// and nothing else (test/updater/cup_vector*.json).
 
 #include "components/client_update_protocol/cup.h"
 
@@ -15,16 +15,23 @@
 #include "base/path_service.h"
 #include "base/values.h"
 #include "ghost/branding/cup_key.h"
+#include "ghost/branding/signing_buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace ghost {
 namespace {
 
+#if BUILDFLAG(GHOST_SIGNING_IDENTITY_TEST)
+constexpr char kVector[] = "ghost/test/updater/cup_vector_test_identity.json";
+#else
+constexpr char kVector[] = "ghost/test/updater/cup_vector.json";
+#endif
+
 base::DictValue Vector() {
   std::string text;
   CHECK(base::ReadFileToString(
       base::PathService::CheckedGet(base::DIR_SRC_TEST_DATA_ROOT)
-          .AppendASCII("ghost/test/updater/cup_vector.json"),
+          .AppendASCII(kVector),
       &text));
   return std::move(*base::JSONReader::ReadDict(text, base::JSON_PARSE_RFC));
 }

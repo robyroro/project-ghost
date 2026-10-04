@@ -1,0 +1,13 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+declare_args() {
+  # The keys the build pins (branding/keys/<identity>.h): "dev", the
+  # committed development keys, or "test", the test identity's keys from
+  # its key ceremony (docs/signing/).
+  ghost_signing_identity = "dev"
+}
+
+assert(ghost_signing_identity == "dev" || ghost_signing_identity == "test",
+       "ghost_signing_identity is \"dev\" or \"test\"")
