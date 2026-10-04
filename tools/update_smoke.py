@@ -7,6 +7,8 @@
   sandbox (--offline-installer O | --online-installer U) --release-version V1
           [--update-crx C] [--update-version V2] --appid A
           [--server URL [--server-ssh USER@HOST]]
+          [--tagged] [--codesign-cert CERT] [--cup-key K]
+          [--recovery-crx R --recovery-version V3]
       on the build machine: run the test in a fresh Windows Sandbox. Without
       --server it runs tools/update_server.py in the sandbox; with it, the
       sandbox gets network access and uses that server, whose root
@@ -18,6 +20,12 @@ The test installs Ghost from the offline installer (V1), lets the updater
 take the update from tools/update_server.py (V2, a CRX3), checks every
 request against the allow-list and the updater's log for other hosts, then
 uninstalls the browser and checks the updater removes itself.
+
+With --codesign-cert, the sandbox trusts that certificate and every installed
+PE file must be signed by it (sub-project D). With --tagged, the installer
+runs with only --silent, so its tag must name the app. --recovery-crx is a
+second update, signed with the backup publisher key, which the updater must
+also take.
 """
 
 from __future__ import annotations
@@ -35,6 +43,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
+import authenticode
 import installer_smoke as smoke
 import offline_installer
 import repo
@@ -47,7 +56,10 @@ EXPECTATIONS_FILE = smoke.EXPECTATIONS_FILE
 # log holds its scheduled task's XML definition.
 _XML_NAMESPACE_PREFIXES = ("http://schemas.microsoft.com/",)
 _URL_RE = re.compile(r"https?://[^\s\"'<>]+")
-OFFLINE_INSTALLER = "ProjectGhostOfflineSetup.exe"
+OFFLINE_INSTALLER = offline_installer.OUTPUT_NAME
+CUP_KEY = "cup_key.json"
+CODESIGN_CERT = "codesign.cer"
+RECOVERY_CRX = "recovery.crx3"
 ONLINE_INSTALLER = "UpdaterSetup.exe"
 SERVER_ROOT_CERT = "server_root.crt"
 LOCAL_SERVER = "http://127.0.0.1"
@@ -160,14 +172,22 @@ def _wait(condition, seconds: int) -> bool:
     return condition()
 
 
+def signature_failures(dirs: list[Path], thumb: str) -> list[str]:
+    files = [p for d in dirs for p in authenticode.pe_files(d)]
+    return authenticode.verify(files, thumb, require_trusted=True) if files else [
+        "no PE file to check"]
+
+
 def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         update_version: str | None, server: str | None = None,
-        installer: str = OFFLINE_INSTALLER) -> dict:
+        installer: str = OFFLINE_INSTALLER, tagged: bool = False,
+        recovery_version: str | None = None) -> dict:
     """Without `server`, serves update_version from payload/update.crx3 on loopback.
     Without `update_version` (the online installer), installs and checks only."""
     result = {"expectations": exp.__dict__, "steps": []}
     log = results / "requests.jsonl"
-    final = replace(exp, release_version=update_version) if update_version else exp
+    final = (replace(exp, release_version=recovery_version or update_version)
+             if update_version else exp)
 
     def step(name: str, failures: list[str], **details) -> bool:
         result["steps"].append({"name": name, "failures": failures, **details})
@@ -179,7 +199,7 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
             ("127.0.0.1", 8484),
             update_server.Offer(appid, update_version, payload / "update.crx3",
                                 "mini_installer.exe", "--verbose-logging --do-not-launch-chrome"),
-            update_server.load_key(payload / "cup_test_key.json"), log)
+            update_server.load_key(payload / CUP_KEY), log)
         threading.Thread(target=local.serve_forever, daemon=True).start()
     try:
         if not step("clean machine", smoke.evaluate_uninstalled(smoke.snapshot(exp), exp)
@@ -194,10 +214,24 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
                     f"certutil exited with {out.returncode}: {out.stdout.strip()[-300:]}"]):
                 return result
 
+        thumb = None
+        codesign = payload / CODESIGN_CERT
+        if codesign.exists():
+            failures = []
+            for store in ("Root", "TrustedPublisher"):
+                out = subprocess.run(["certutil", "-addstore", "-f", store, str(codesign)],
+                                     capture_output=True, text=True)
+                failures += [] if out.returncode == 0 else [
+                    f"certutil -addstore {store} exited with {out.returncode}"]
+            if not step("trust the signing certificate", failures):
+                return result
+            thumb = authenticode.thumbprint(codesign.read_bytes())
+
         work = Path(tempfile.mkdtemp(prefix="installer-"))
         setup = Path(shutil.copy(payload / installer, work))
-        code = subprocess.run([str(setup), *offline_installer.install_arguments(appid),
-                               "--enable-logging"], timeout=1800).returncode
+        arguments = ["--silent"] if tagged else offline_installer.install_arguments(appid)
+        code = subprocess.run([str(setup), *arguments, "--enable-logging"],
+                              timeout=1800).returncode
         installed = smoke.snapshot(exp)
         failures = [] if code == 0 else [f"{installer} exited with {code}"]
         failures += smoke.evaluate_installed(installed, exp)
@@ -210,17 +244,32 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         if not step("install", failures, snapshot=installed):
             return result
         app_dir = Path(installed["chrome_exe"]).parent
+        if thumb and not step("signatures", signature_failures([app_dir, updater.parent],
+                                                               thumb)):
+            return result
 
-        if update_version:
+        def update_to(version: str, name: str) -> bool:
             code = subprocess.run([str(updater), "--update-apps", "--enable-logging"],
                                   timeout=1800).returncode
-            reached = _wait(lambda: _registered_version(exp, appid) == update_version, 1200)
+            reached = _wait(lambda: _registered_version(exp, appid) == version, 1200)
             failures = [] if reached else [
-                f"pv stayed {_registered_version(exp, appid)!r}, expected {update_version!r}"
+                f"pv stayed {_registered_version(exp, appid)!r}, expected {version!r}"
                 f" (updater exited with {code})"]
-            failures += [] if (app_dir / update_version).is_dir() else [
-                f"no {update_version} directory beside chrome.exe"]
-            if not step("update", failures):
+            failures += [] if (app_dir / version).is_dir() else [
+                f"no {version} directory beside chrome.exe"]
+            return step(name, failures)
+
+        if update_version:
+            if not update_to(update_version, "update"):
+                return result
+            if recovery_version:
+                local.offer = update_server.Offer(
+                    appid, recovery_version, payload / RECOVERY_CRX, "mini_installer.exe",
+                    "--verbose-logging --do-not-launch-chrome")
+                if not update_to(recovery_version, "recovery update (backup publisher key)"):
+                    return result
+            if thumb and not step("signatures after the update",
+                                  signature_failures([app_dir], thumb)):
                 return result
         step("launch", smoke.launch(Path(installed["chrome_exe"]), final))
 
@@ -268,13 +317,21 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
 
 def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
                    update_version: str | None, appid: str, timeout: int,
-                   server: str | None = None, server_ssh: str | None = None) -> int:
+                   server: str | None = None, server_ssh: str | None = None,
+                   cup_key: Path = update_server.CUP_KEY_FILE,
+                   codesign_cert: Path | None = None, tagged: bool = False,
+                   recovery_crx: Path | None = None,
+                   recovery_version: str | None = None) -> int:
     payload = Path(tempfile.mkdtemp(prefix="update-payload-"))
     shutil.copy(installer, payload / installer.name)
     if crx:
         shutil.copy(crx, payload / "update.crx3")
     # Only tools/ is mapped into the sandbox; the server's key travels with the payload.
-    shutil.copy(update_server.CUP_KEY_FILE, payload / "cup_test_key.json")
+    shutil.copy(cup_key, payload / CUP_KEY)
+    if codesign_cert:
+        shutil.copy(codesign_cert, payload / CODESIGN_CERT)
+    if recovery_crx:
+        shutil.copy(recovery_crx, payload / RECOVERY_CRX)
     if server_ssh:
         cert = _ssh(server_ssh, f"sudo cat {CADDY_ROOT_CERT}")
         if cert.returncode or not cert.stdout:
@@ -288,7 +345,9 @@ def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
               f"--results {smoke._IN_SANDBOX['results']} --appid {appid} "
               f"--installer {installer.name}"
               + (f" --update-version {update_version}" if update_version else "")
-              + (f" --server {server}" if server else ""))
+              + (f" --server {server}" if server else "")
+              + (" --tagged" if tagged else "")
+              + (f" --recovery-version {recovery_version}" if recovery_version else ""))
     config = results.with_suffix(".wsb")
     config.write_text(smoke.sandbox_config(payload, TOOLS_DIR, Path(sys.base_prefix), results,
                                            script_args=script, networking=server is not None),
@@ -328,6 +387,15 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--server", help="an update server's base URL, such as https://203.0.113.5")
     s.add_argument("--server-ssh", help="USER@HOST of that server")
     s.add_argument("--timeout", type=int, default=3600)
+    s.add_argument("--tagged", action="store_true",
+                   help="the installer carries its tag; run it with only --silent")
+    s.add_argument("--codesign-cert", type=Path,
+                   help="trust this certificate and require it on every installed PE file")
+    s.add_argument("--cup-key", type=Path, default=update_server.CUP_KEY_FILE,
+                   help="the CUP key the local server signs with")
+    s.add_argument("--recovery-crx", type=Path,
+                   help="a second update, signed with the backup publisher key")
+    s.add_argument("--recovery-version")
     r = sub.add_parser("run")
     r.add_argument("--payload", type=Path, required=True)
     r.add_argument("--results", type=Path, required=True)
@@ -335,10 +403,16 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--installer", default=OFFLINE_INSTALLER)
     r.add_argument("--update-version")
     r.add_argument("--server")
+    r.add_argument("--tagged", action="store_true")
+    r.add_argument("--recovery-version")
     return p
 
 
 def argument_problem(args: argparse.Namespace) -> str | None:
+    if (args.recovery_crx is None) != (args.recovery_version is None):
+        return "pass --recovery-crx and --recovery-version together"
+    if args.recovery_crx and args.server:
+        return "the recovery drill serves its package itself; no --server"
     if (args.offline_installer is None) == (args.online_installer is None):
         return "pass one of --offline-installer and --online-installer"
     if args.online_installer:
@@ -364,14 +438,16 @@ def main(argv: list[str] | None = None) -> int:
         installer = args.offline_installer or args.online_installer
         return run_in_sandbox(installer, None if args.server else args.update_crx,
                               args.release_version, args.update_version, args.appid,
-                              args.timeout, args.server, args.server_ssh)
+                              args.timeout, args.server, args.server_ssh, args.cup_key,
+                              args.codesign_cert, args.tagged, args.recovery_crx,
+                              args.recovery_version)
     if not smoke.is_disposable(os.environ.get("USERNAME", ""), False):
         print("run installs into this user's profile; use `sandbox`", file=sys.stderr)
         return 2
     exp = smoke.Expectations(**json.loads(
         (args.results / EXPECTATIONS_FILE).read_text(encoding="utf-8")))
     result = run(args.payload, args.results, exp, args.appid, args.update_version,
-                 args.server, args.installer)
+                 args.server, args.installer, args.tagged, args.recovery_version)
     print(smoke.format_result(result))
     return 0 if smoke.passed(result) else 1
 

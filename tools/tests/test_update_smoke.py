@@ -86,5 +86,31 @@ class RemoteModeTest(unittest.TestCase):
                 self.assertIsNotNone(problem(*argv))
 
 
+class RecoveryArgumentsTest(unittest.TestCase):
+    def problem(self, *extra):
+        args = update_smoke.parser().parse_args(
+            ["sandbox", "--offline-installer", "s.exe", "--release-version", "1",
+             "--update-crx", "u.crx3", "--update-version", "2", "--appid", "{A}", *extra])
+        return update_smoke.argument_problem(args)
+
+    def test_recovery_needs_both(self):
+        self.assertIsNotNone(self.problem("--recovery-crx", "r.crx3"))
+        self.assertIsNotNone(self.problem("--recovery-version", "3"))
+        self.assertIsNone(self.problem("--recovery-crx", "r.crx3", "--recovery-version", "3"))
+
+    def test_recovery_serves_its_own_package(self):
+        self.assertIsNotNone(self.problem("--recovery-crx", "r.crx3", "--recovery-version", "3",
+                                          "--server", "https://203.0.113.5"))
+
+    def test_signing_flags_parse(self):
+        args = update_smoke.parser().parse_args(
+            ["sandbox", "--offline-installer", "s.exe", "--release-version", "1",
+             "--update-crx", "u.crx3", "--update-version", "2", "--appid", "{A}", "--tagged",
+             "--codesign-cert", "c.cer", "--cup-key", "k.json"])
+        self.assertTrue(args.tagged)
+        self.assertEqual(args.codesign_cert.name, "c.cer")
+        self.assertEqual(args.cup_key.name, "k.json")
+
+
 if __name__ == "__main__":
     unittest.main()
