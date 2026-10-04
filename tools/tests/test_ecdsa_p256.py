@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import hashlib
 import unittest
 
 import ecdsa_p256 as ec
@@ -64,6 +65,25 @@ class EcdsaTest(unittest.TestCase):
         public = ec.public_key(key)
         self.assertTrue(ec.on_curve(public))
         self.assertTrue(ec.verify(public, b"m", *ec.sign(key, b"m")))
+
+
+class DigestTest(unittest.TestCase):
+    def test_signing_a_digest_equals_signing_the_message(self):
+        d = ec.generate_private_key()
+        self.assertEqual(ec.sign_digest(d, hashlib.sha256(b"sample").digest()),
+                         ec.sign(d, b"sample"))
+
+    def test_a_digest_is_32_bytes(self):
+        with self.assertRaises(ValueError):
+            ec.sign_digest(1, b"short")
+
+    def test_raw_signatures_convert_to_der(self):
+        d = ec.generate_private_key()
+        r, s = ec.sign(d, b"sample")
+        raw = r.to_bytes(32, "big") + s.to_bytes(32, "big")
+        self.assertEqual(ec.der_from_raw(raw), ec.der_signature(r, s))
+        with self.assertRaises(ValueError):
+            ec.der_from_raw(raw[:63])
 
 
 if __name__ == "__main__":

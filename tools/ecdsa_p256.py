@@ -7,7 +7,8 @@
 For the updater's test identity only: the test server signs CUP responses
 and CRX3 packages with it (Phase 2, sub-project B). Nonces follow RFC 6979,
 so signatures are deterministic and testable. It is not constant-time, and
-no production key ever goes through it.
+it never holds a key that isn't committed or the offline backup's
+(tools/signing.py).
 """
 
 from __future__ import annotations
@@ -85,9 +86,10 @@ def _rfc6979_nonce(d: int, digest: bytes) -> int:
         v = hmac.new(k, v, hashlib.sha256).digest()
 
 
-def sign(d: int, message: bytes) -> tuple[int, int]:
-    """ECDSA-SHA256 of `message`, as (r, s)."""
-    digest = hashlib.sha256(message).digest()
+def sign_digest(d: int, digest: bytes) -> tuple[int, int]:
+    """ECDSA of a SHA-256 digest, as (r, s): the form a TPM or a token signs."""
+    if len(digest) != 32:
+        raise ValueError("a SHA-256 digest is 32 bytes")
     e = int.from_bytes(digest, "big") % N
     k = _rfc6979_nonce(d, digest)
     r = _mul(k, G)[0] % N
@@ -95,6 +97,11 @@ def sign(d: int, message: bytes) -> tuple[int, int]:
     if not r or not s:
         raise ValueError("degenerate signature; RFC 6979 makes this unreachable")
     return r, s
+
+
+def sign(d: int, message: bytes) -> tuple[int, int]:
+    """ECDSA-SHA256 of `message`, as (r, s)."""
+    return sign_digest(d, hashlib.sha256(message).digest())
 
 
 def verify(q: Point, message: bytes, r: int, s: int) -> bool:
@@ -131,6 +138,13 @@ def parse_der_signature(der: bytes) -> tuple[int, int]:
         values.append(int.from_bytes(der[i + 2:i + 2 + length], "big"))
         i += 2 + length
     return values[0], values[1]
+
+
+def der_from_raw(raw: bytes) -> bytes:
+    """A DER signature from r | s, 32 bytes each: how NCrypt returns ECDSA."""
+    if len(raw) != 64:
+        raise ValueError("a raw P-256 signature is 64 bytes")
+    return der_signature(int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:], "big"))
 
 
 def spki(q: Point) -> bytes:
