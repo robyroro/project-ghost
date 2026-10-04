@@ -70,18 +70,17 @@ def _kernel32():
     return k
 
 
-_NAME_PROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMODULE, ctypes.c_void_p,
-                                ctypes.c_void_p, ctypes.c_void_p)
-_LANG_PROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMODULE, ctypes.c_void_p,
-                                ctypes.c_void_p, wintypes.WORD, ctypes.c_void_p)
-
-
 def read_resources(exe: Path) -> list[Resource]:
+    # WINFUNCTYPE exists only on Windows, so the module still imports elsewhere.
+    name_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMODULE, ctypes.c_void_p,
+                                   ctypes.c_void_p, ctypes.c_void_p)
+    lang_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMODULE, ctypes.c_void_p,
+                                   ctypes.c_void_p, wintypes.WORD, ctypes.c_void_p)
     k = _kernel32()
-    k.EnumResourceNamesW.argtypes = [wintypes.HMODULE, wintypes.LPCWSTR, _NAME_PROC,
+    k.EnumResourceNamesW.argtypes = [wintypes.HMODULE, wintypes.LPCWSTR, name_proc,
                                      ctypes.c_void_p]
     k.EnumResourceLanguagesW.argtypes = [wintypes.HMODULE, wintypes.LPCWSTR, wintypes.LPCWSTR,
-                                         _LANG_PROC, ctypes.c_void_p]
+                                         lang_proc, ctypes.c_void_p]
     module = k.LoadLibraryExW(str(exe), None, _LOAD_AS_RESOURCES)
     if not module:
         raise ctypes.WinError(ctypes.get_last_error())
@@ -99,14 +98,14 @@ def read_resources(exe: Path) -> list[Resource]:
                     names.append(ctypes.wstring_at(name))
                 return True
 
-            if not k.EnumResourceNamesW(module, rtype, _NAME_PROC(on_name), None):
+            if not k.EnumResourceNamesW(module, rtype, name_proc(on_name), None):
                 if ctypes.get_last_error() != _ERROR_RESOURCE_TYPE_NOT_FOUND:
                     raise ctypes.WinError(ctypes.get_last_error())
             if integer_names:
                 raise SigningError(f"{exe.name}: integer resource names in {rtype}")
             for name in names:
                 languages: list[int] = []
-                k.EnumResourceLanguagesW(module, rtype, name, _LANG_PROC(
+                k.EnumResourceLanguagesW(module, rtype, name, lang_proc(
                     lambda _m, _t, _n, language, _p: languages.append(language) or True), None)
                 for language in languages:
                     found = k.FindResourceExW(module, rtype, name, language)
