@@ -46,10 +46,13 @@ These were settled in discussion on 2026-10-04:
 
 | Unit | What it does |
 |---|---|
-| `tools/signing/backend.py` | The interface `sign_digest(key_name, sha256) -> DER ECDSA signature`, and `public_key(key_name)`. `FileBackend` signs with a key file through `tools/ecdsa_p256.py` (the committed development keys, or the backup key after it is decrypted). `TpmBackend` calls NCrypt through `ctypes` on the Microsoft Platform Crypto Provider. A `YubiKeyBackend` can be added later without changing callers. Standard library only. |
-| `tools/signing/ceremony.py` | Creates an identity's keys (below), writes their public halves to `branding/` and a ceremony record to `docs/signing/ceremonies/`. Uses the `cryptography` package for the backup key's encrypted PKCS#8, and only there; the package is pinned in the tools' requirements and installed in CI. |
-| `tools/signing/authenticode.py` | Stages the shipped files, signs them with `signtool`, repacks the browser installer from the signed files and signs it. Never writes to `out/`. Verifies every signature at the end. |
-| `tools/crx3.py` | The publisher proof is made through a backend instead of a key file. The developer proof, which only derives the CRX ID and confers no trust, uses a fixed key: the committed development publisher key. The package's CRX ID therefore stays the same when the publisher key changes, as in the recovery drill. |
+| `tools/signing.py` | A `Signer` per key: a public key and `sign_digest(sha256) -> DER ECDSA signature`. Signers from a key file (the committed development keys, through `tools/ecdsa_p256.py`) and from the offline backup; renders and reads the identity headers. Uses the `cryptography` package for the backup's encrypted PKCS#8, and only there; the package is pinned in `tools/requirements.txt` and installed in CI. A YubiKey signer can be added later without changing callers. |
+| `tools/tpm.py` | Keys in the TPM: NCrypt through `ctypes` on the Microsoft Platform Crypto Provider. Creates, opens as a `Signer`, deletes. Standard library only. |
+| `tools/ceremony.py` | Creates an identity's keys (below), writes their public halves to `branding/` and a ceremony record to `docs/signing/ceremonies/`. |
+| `tools/authenticode.py` | Signs with `signtool`, the timestamp fallback; verifies with `WinVerifyTrust` and the signer's thumbprint. |
+| `tools/mini_installer.py` | Unpacks the browser installer's resources, signs every PE file in them, packs them again with upstream's formats and `UpdateResource`, signs the installer. Never writes to `out/`. Lists the PE files inside any installer, for verification. |
+| `tools/sign_release.py` | The steps of [Signing a release](#signing-a-release), in order. |
+| `tools/crx3.py` | `build` takes a developer `Signer` and publisher `Signer`s instead of a key. The developer proof, which only derives the CRX ID and confers no trust, uses a fixed key: the committed development publisher key. The package's CRX ID therefore stays the same when the publisher key changes, as in the recovery drill. |
 | `tools/offline_installer.py` | Runs upstream's `sign.py` with `--identity` instead of `--disable_tag_and_sign`, then writes the tag with `tag.exe --set-tag=…`. The installer no longer needs B's install arguments on its command line. |
 | `tools/update_server.py` | Takes the CUP key file and its version as arguments, so the local end-to-end test can run with either identity. `keygen` also creates the development backup publisher key. |
 | `tools/lint.py` | Fails on private-key material outside `test/updater/`: a PEM `PRIVATE KEY` block, or a JSON `private_key` field. |
@@ -63,7 +66,7 @@ These were settled in discussion on 2026-10-04:
 ### In `project-ghost-update-server`
 
 - The service loads several CUP keys, each with its version, and signs with the version the client names in `cup2key`. A request naming an unknown version is refused (400) and logged without client data.
-- `LoadCredential=` carries one file per key version; the service refuses to start without at least one.
+- `LoadCredential=cup_keys:/etc/ghost-update/cup_keys` loads one file per key version, as the credentials `cup_keys_<version>.json`; the service refuses to start without at least one.
 - Tests cover two versions side by side and the unknown version.
 
 ## The ceremony
@@ -84,10 +87,10 @@ What E will call. In D it is run by hand.
 
 1. **The build**, unchanged: `out/vanilla` and `out/updater` with `ghost_signing_identity = "test"`.
 2. **Before signing anything,** the tool reads the identity from `args.gn` and checks that every signing key's public half equals the one pinned for it in `branding/`. A mismatch stops the run. This prevents signing a development build with custody keys, or the reverse.
-3. **`authenticode.py`:**
-   - copies to a staging directory the files `chrome.release` lists, and `setup.exe`;
+3. **`mini_installer.py`, through `authenticode.py`:**
+   - unpacks `mini_installer.exe`'s resources to a work directory: `chrome.packed.7z` and the `chrome.7z` inside it, `setup.ex_`, and a component build's DLLs;
    - signs each PE file with `signtool`, the certificate selected from the `My` store, SHA-256, with an RFC 3161 timestamp from a free public timestamp service; a second service is tried if the first fails;
-   - rebuilds `chrome.7z` from the signed files and replaces the resources of a copy of `mini_installer.exe` with upstream's `chrome/tools/build/win/resedit.py`, as `sign.py` does for the metainstaller;
+   - packs them again with `create_installer_archive.py`'s formats and writes them into a copy of `mini_installer.exe` with `UpdateResource`, as `sign.py` does for the metainstaller;
    - signs that `mini_installer.exe`.
 4. **`crx3.py`** packs the signed `mini_installer.exe` into a CRX3 with the publisher proof from the TPM. The order matters: the update package carries signed binaries.
 5. **`offline_installer.py`** builds the metainstaller around the same signed `mini_installer.exe`; `sign.py` signs `updater.exe` and the metainstaller, then the tag is written.
@@ -111,7 +114,7 @@ The runbook in `docs/signing/` covers:
 | Case | Behavior |
 |---|---|
 | A signing key's public half differs from the pinned one | Nothing is signed; the run stops naming the key. |
-| TPM missing, locked out, or the key absent | The run stops with the TPM's error. It never falls back to another backend. |
+| TPM missing, locked out, or the key absent | The run stops with the TPM's error. It never falls back to another key. |
 | Wrong PIN, or wrong backup password | Refused; nothing about the key is printed. |
 | Both timestamp services fail | The run stops; nothing reaches the output. |
 | `signtool verify` or the CRX3 check fails | The release stops. |
@@ -119,8 +122,8 @@ The runbook in `docs/signing/` covers:
 
 ## Testing
 
-- **Unit tests, in CI on Ubuntu and Windows:** `FileBackend`; `crx3.py` through a backend; the ceremony with an in-memory fake TPM backend (headers and record written correctly, overwrite refused); the backup's PKCS#8 written and read back; the identity check before signing; the staging list from `chrome.release` and the resource replacement on a small PE fixture; the lint's private-key check.
-- **On the real TPM, locally only:** `TpmBackend` creates a temporary key, signs, verifies with `tools/ecdsa_p256.py`, and deletes the key. Skipped in CI.
+- **Unit tests, in CI on Ubuntu and Windows:** the signers; `crx3.py` with signers; the ceremony with an in-memory fake custody (headers and record written correctly, overwrite refused); the backup's PKCS#8 written and read back; the identity check before signing; the resource round trip and the signing order on a small PE fixture (Windows); the lint's private-key check.
+- **On the real TPM, locally only:** `tpm.py` creates a temporary key, signs, verifies with `tools/ecdsa_p256.py`, and deletes the key. Skipped in CI.
 - **C++:** `crx_verifier_unittest` accepts the primary and the backup and rejects a third key, in both identities.
 - **The end-to-end test in Windows Sandbox,** with the test identity:
   - **Inputs:** `ghost_signing_identity = "test"` set in `out/vanilla` and `out/updater`, an incremental rebuild of the targets that include the keys. No new output directory, and none renamed.
