@@ -44,6 +44,7 @@ source_set("keys") {
     "crx_publisher_key.h",
     "cup_key.h",
     "keys/dev.h",
+    "keys/test.h",
   ]
   public_deps = [ ":signing_buildflags" ]
 }
