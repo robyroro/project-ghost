@@ -33,7 +33,7 @@ These were settled in discussion on 2026-10-04:
 |---|---|---|---|
 | Publisher primary, `ProjectGhost-test-publisher-1` | ECDSA P-256 | This PC's TPM, not exportable; a PIN on each use if the spike confirms it | The publisher proof of every update package, once per release |
 | Publisher backup | ECDSA P-256 | A USB stick kept offline, as a password-encrypted PKCS#8 file; a paper copy is the user's choice | The publisher proof only when the primary is lost or compromised |
-| Authenticode | ECDSA P-256, in a self-signed code-signing certificate | This PC's TPM, the certificate in the user's `My` store; no PIN, since a release signs hundreds of files | Every PE file and installer |
+| Authenticode | RSA 2048, in a self-signed code-signing certificate (CertEnroll can't put an ECDSA key in the TPM: [spike](2026-10-04-signing-spike.md)) | This PC's TPM, the certificate in the user's `My` store; no PIN, since a release signs hundreds of files | Every PE file and installer |
 | CUP, version 2 | ECDSA P-256 | A file outside the repository, deployed to the server through `LoadCredential=` (C) | Signing update responses live |
 
 **The development keys stay committed** in `test/updater/`, marked test-only, so contributors, CI and the local end-to-end test need no TPM. D adds a committed development backup publisher key, so the backup path is tested everywhere.
@@ -74,7 +74,7 @@ These were settled in discussion on 2026-10-04:
 `ceremony.py init --identity test`, run once on the reference machine with the USB stick inserted:
 
 1. **The publisher primary** is created in the TPM as `ProjectGhost-test-publisher-1`, not exportable, with a PIN if the spike confirms it works.
-2. **The Authenticode key and certificate** are created in the TPM with `New-SelfSignedCertificate -Type CodeSigningCert -Provider "Microsoft Platform Crypto Provider"`, ECDSA P-256. The certificate's public half is exported to `branding/signing/test_codesign.cer` for the Sandbox.
+2. **The Authenticode key and certificate** are created in the TPM with `New-SelfSignedCertificate -Type CodeSigningCert -Provider "Microsoft Platform Crypto Provider"`, RSA 2048. The certificate's public half is exported to `branding/signing/test_codesign.cer` for the Sandbox.
 3. **The publisher backup** is generated in memory and written to the stick as PKCS#8 encrypted with the user's password: a standard format OpenSSL also reads, so recovering it doesn't depend on our tools. The ceremony reads the file back from the stick, decrypts it, compares the public key, then drops the key from memory.
 4. **The CUP key, version 2,** is written to a file outside the repository, for `tools/deploy.py`.
 5. **The public halves** go to `branding/`, and the record to `docs/signing/ceremonies/<date>-test-identity.md`, named by the day the ceremony runs: each key's fingerprint, where it lives, the date, and the tool's commit.
@@ -144,7 +144,7 @@ The runbook in `docs/signing/` covers:
 Questions the implementation answers first, recorded in the progress notes:
 
 - Does the Microsoft Platform Crypto Provider enforce a PIN on each use of an ECDSA key, through NCrypt's UI policy? If not, the publisher key goes without, and the record says so.
-- Do `signtool` and `WinVerifyTrust` in the Sandbox accept an ECDSA P-256 certificate whose key is in the TPM?
+- Do `signtool` and `WinVerifyTrust` in the Sandbox accept a certificate whose key is in the TPM? (RSA 2048: yes; ECDSA can't be made there by `New-SelfSignedCertificate`.)
 - Does anything in the browser, the installer or the updater pin the Authenticode certificate?
 - `sign.py` signs every signable file inside the metainstaller's archive, including the already-signed `mini_installer.exe`. Re-signing with the same certificate must leave a valid single signature.
 - How long does signing a component build's files take? `out/vanilla` is a component build, so it has far more DLLs than a release build will.
