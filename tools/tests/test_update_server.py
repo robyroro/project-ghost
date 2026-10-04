@@ -15,6 +15,7 @@ from pathlib import Path
 import crx3
 import ecdsa_p256 as ec
 import repo
+import signing
 import update_server as us
 
 DATA = repo.REPO_ROOT / "test" / "updater"
@@ -91,7 +92,7 @@ class ResponseTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.crx = Path(tmp.name) / "update.crx3"
-        self.crx.write_bytes(crx3.build({"mini_installer.exe": b"MZ"}, 1234))
+        self.crx.write_bytes(crx3.build({"mini_installer.exe": b"MZ"}, signing.scalar_signer("t", 1234)))
         self.offer = us.Offer(APPID, "152.0.7977.14902", self.crx, "mini_installer.exe",
                               "--verbose-logging --do-not-launch-chrome")
 
@@ -131,7 +132,7 @@ class ServerTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         crx = Path(tmp.name) / "update.crx3"
-        crx.write_bytes(crx3.build({"mini_installer.exe": b"MZ"}, 1234))
+        crx.write_bytes(crx3.build({"mini_installer.exe": b"MZ"}, signing.scalar_signer("t", 1234)))
         log = Path(tmp.name) / "requests.jsonl"
         key = us.load_key(us.CUP_KEY_FILE)
         server = us.UpdateServer(("127.0.0.1", 0), us.Offer(

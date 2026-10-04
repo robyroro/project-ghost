@@ -7,8 +7,9 @@
     "Cr24" | version 3 (LE32) | header size (LE32) | CrxFileHeader | zip
 
 Each proof signs "CRX3 SignedData\\x00" | LE32 size | signed header data | zip.
-Packages built here carry one ECDSA proof, whose key is both the developer
-key (it names the CRX) and the publisher key Ghost's updater requires.
+A package is named by its developer key (the CRX ID) and carries a proof by
+it and by each publisher key. Ghost's updater requires a proof by a pinned
+publisher key (patches/0018); the developer key confers no trust.
 """
 
 from __future__ import annotations
@@ -17,8 +18,10 @@ import hashlib
 import io
 import zipfile
 from dataclasses import dataclass
+from typing import Sequence
 
 import ecdsa_p256
+import signing
 
 MAGIC = b"Cr24"
 _SIGNATURE_CONTEXT = b"CRX3 SignedData\x00"
@@ -79,14 +82,19 @@ def _signed_message(signed_data: bytes, archive: bytes) -> bytes:
     return _SIGNATURE_CONTEXT + len(signed_data).to_bytes(4, "little") + signed_data + archive
 
 
-def build(files: dict[str, bytes], private_key: int) -> bytes:
-    public_der = ecdsa_p256.spki(ecdsa_p256.public_key(private_key))
-    signed_data = _field(1, crx_id(public_der))
+def build(files: dict[str, bytes], developer: signing.Signer,
+          publishers: Sequence[signing.Signer] = ()) -> bytes:
+    signed_data = _field(1, crx_id(developer.public_der))
     archive = _zip(files)
-    signature = ecdsa_p256.der_signature(
-        *ecdsa_p256.sign(private_key, _signed_message(signed_data, archive)))
-    header = (_field(_SHA256_WITH_ECDSA, _field(1, public_der) + _field(2, signature))
-              + _field(_SIGNED_HEADER_DATA, signed_data))
+    message = _signed_message(signed_data, archive)
+    proofs, seen = b"", set()
+    for signer in (developer, *publishers):
+        if signer.public_der in seen:
+            continue
+        seen.add(signer.public_der)
+        proofs += _field(_SHA256_WITH_ECDSA,
+                         _field(1, signer.public_der) + _field(2, signer.sign(message)))
+    header = proofs + _field(_SIGNED_HEADER_DATA, signed_data)
     return (MAGIC + (3).to_bytes(4, "little") + len(header).to_bytes(4, "little")
             + header + archive)
 

@@ -33,6 +33,7 @@ from pathlib import Path
 import crx3
 import ecdsa_p256
 import repo
+import signing
 
 RESPONSE_PREFIX = ")]}'\n"
 CUP_KEY_VERSION = 1
@@ -345,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         write_vector()
     elif args.command == "crx":
         args.out.write_bytes(crx3.build({args.installer.name: args.installer.read_bytes()},
-                                        load_key(args.key)))
+                                        signing.file_signer(args.key)))
     else:
         server = UpdateServer(("127.0.0.1", args.port),
                               Offer(args.appid, args.version, args.crx, args.installer,
