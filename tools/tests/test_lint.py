@@ -92,5 +92,28 @@ class LintRepoTest(GitTestCase):
                          ["docs/a.md: broken relative link ../../outside.md"])
 
 
+class PrivateKeyTest(unittest.TestCase):
+    PEM = "-----BEGIN " + "PRIVATE KEY-----\nMIGHAgEA\n"
+
+    def test_a_pem_key_outside_test_updater(self):
+        self.assertIsNotNone(lint.private_key_problem("docs/notes.md", self.PEM))
+
+    def test_an_encrypted_pem_key_too(self):
+        text = "-----BEGIN ENCRYPTED " + "PRIVATE KEY-----\nMIIF\n"
+        self.assertIsNotNone(lint.private_key_problem("backup.p8", text))
+
+    def test_a_json_key_field_at_any_depth(self):
+        self.assertIsNotNone(lint.private_key_problem("keys/cup.json", '{"private_key": "ab"}'))
+        self.assertIsNotNone(lint.private_key_problem("a.json", '{"a": [{"private_key": "ab"}]}'))
+
+    def test_test_updater_may_hold_test_keys(self):
+        self.assertIsNone(lint.private_key_problem("test/updater/cup_test_key.json",
+                                                   '{"private_key": "ab"}'))
+
+    def test_code_that_names_the_field_is_fine(self):
+        self.assertIsNone(lint.private_key_problem("tools/x.py", 'data["private_key"]'))
+        self.assertIsNone(lint.private_key_problem("broken.json", '{"private_key": '))
+
+
 if __name__ == "__main__":
     unittest.main()

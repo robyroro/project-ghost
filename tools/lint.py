@@ -8,6 +8,7 @@
 - Text files use LF line endings.
 - Relative links in Markdown point at files that exist.
 - patches/ passes `patches.py check`.
+- No private key outside test/updater/, where the committed test keys live.
 
 Only files tracked by git are checked, so build output and editor files never
 produce noise. Usage: python tools/lint.py
@@ -15,6 +16,7 @@ produce noise. Usage: python tools/lint.py
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -34,6 +36,8 @@ HEADER_EXEMPT_DIRS = ("third_party/", "patches/")
 HEADER_SEARCH_LINES = 15
 _COMMENT_MARKERS = re.compile(r"^\s*(#|//|/\*+|\*+/?|<!--|-->)|(\*/|-->)\s*$")
 _MD_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+_PRIVATE_KEY_PEM = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+PRIVATE_KEYS_ALLOWED = ("test/updater/",)
 
 
 def tracked_files(root: Path) -> list[str]:
@@ -97,6 +101,27 @@ def broken_links(md_path: Path, text: str, root: Path) -> list[str]:
     return broken
 
 
+def _has_private_key_field(value) -> bool:
+    if isinstance(value, dict):
+        return "private_key" in value or any(_has_private_key_field(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_has_private_key_field(v) for v in value)
+    return False
+
+
+def private_key_problem(rel: str, text: str) -> str | None:
+    """A private key outside test/updater/ would be a custody key committed by mistake."""
+    if rel.startswith(PRIVATE_KEYS_ALLOWED):
+        return None
+    found = bool(_PRIVATE_KEY_PEM.search(text))
+    if not found and rel.endswith(".json"):
+        try:
+            found = _has_private_key_field(json.loads(text))
+        except ValueError:
+            found = False
+    return f"{rel}: a private key outside test/updater/" if found else None
+
+
 def lint(root: Path) -> list[str]:
     problems = []
     for rel in tracked_files(root):
@@ -109,6 +134,9 @@ def lint(root: Path) -> list[str]:
         if b"\r\n" in data:
             problems.append(f"{rel}: CRLF line endings (the repo is LF-only; see .gitattributes)")
         text = data.decode("utf-8", "replace")
+        problem = private_key_problem(rel, text)
+        if problem:
+            problems.append(problem)
         if Path(rel).suffix in HEADER_EXTENSIONS and not rel.startswith(HEADER_EXEMPT_DIRS):
             if not has_mpl_notice(text):
                 problems.append(f"{rel}: missing the MPL-2.0 notice in the first "
