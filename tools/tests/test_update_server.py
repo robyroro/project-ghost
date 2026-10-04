@@ -61,13 +61,13 @@ class CupTest(unittest.TestCase):
 
 
 class KeyHeaderTest(unittest.TestCase):
-    def test_headers_match_the_test_keys(self):
-        cup = us.load_key(us.CUP_KEY_FILE)
-        crx = us.load_key(us.CRX_KEY_FILE)
-        self.assertEqual(us.CUP_HEADER.read_text(encoding="utf-8"),
-                         us.render_cup_header(us.CUP_KEY_VERSION, ec.spki(ec.public_key(cup))))
-        self.assertEqual(us.CRX_HEADER.read_text(encoding="utf-8"),
-                         us.render_crx_header(ec.spki(ec.public_key(crx))))
+    def test_the_development_header_is_current(self):
+        keys = [signing.file_signer(f).public_der
+                for f in (us.CUP_KEY_FILE, us.CRX_KEY_FILE, us.CRX_BACKUP_KEY_FILE)]
+        self.assertEqual(us.DEV_HEADER.read_text(encoding="utf-8"),
+                         signing.render_identity_header("dev", us.CUP_KEY_VERSION, keys[0],
+                                                        keys[1:], "tools/update_server.py "
+                                                        "dev-files"))
 
 
 class IdentityTest(unittest.TestCase):
@@ -81,10 +81,30 @@ class IdentityTest(unittest.TestCase):
 
 
 class FixtureTest(unittest.TestCase):
-    def test_ghost_fixture_is_signed_by_the_test_publisher_key(self):
+    def test_the_primary_fixture_is_signed_by_the_development_primary(self):
         data = (DATA / "data" / "ghost_publisher.crx3").read_bytes()
-        key = ec.spki(ec.public_key(us.load_key(us.CRX_KEY_FILE)))
-        self.assertEqual(crx3.verified_keys(data), [key])
+        self.assertEqual(crx3.verified_keys(data),
+                         [signing.file_signer(us.CRX_KEY_FILE).public_der])
+
+    def test_the_backup_fixture_carries_the_development_backup(self):
+        data = (DATA / "data" / "ghost_backup_publisher.crx3").read_bytes()
+        self.assertEqual(crx3.verified_keys(data),
+                         [signing.file_signer(us.CRX_KEY_FILE).public_der,
+                          signing.file_signer(us.CRX_BACKUP_KEY_FILE).public_der])
+
+    def test_the_development_header_pins_the_committed_keys(self):
+        pinned = signing.pinned_keys("dev")
+        self.assertEqual(pinned.cup_version, 1)
+        self.assertEqual(pinned.cup_der, signing.file_signer(us.CUP_KEY_FILE).public_der)
+        self.assertEqual(pinned.publisher_hashes,
+                         (signing.file_signer(us.CRX_KEY_FILE).key_hash,
+                          signing.file_signer(us.CRX_BACKUP_KEY_FILE).key_hash))
+
+    def test_the_vector_verifies_with_the_development_cup_key(self):
+        vector = load("cup_vector.json")
+        public = ec.public_key(us.load_key(us.CUP_KEY_FILE))
+        self.assertTrue(us.cup_verify(public, vector["cup2key"], vector["request"].encode(),
+                                      vector["response"].encode(), vector["proof"]))
 
 
 class ResponseTest(unittest.TestCase):
