@@ -99,6 +99,7 @@ def install_arguments(appid: str) -> list[str]:
 def build(src: Path, out: Path, installer: Path, version: str, appid: str, output: Path,
           signing: Signing | None = None, depot_tools: Path = DEPOT_TOOLS) -> int:
     out_dir = (src / out).resolve()
+    output.resolve().parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         manifest = Path(tmp) / "OfflineManifest.gup"
         manifest.write_text(MANIFEST, encoding="utf-8", newline="\n")

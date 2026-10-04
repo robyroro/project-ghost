@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -70,6 +71,15 @@ class CommandTest(unittest.TestCase):
                          [str(Path("out", "tag.exe")),
                           "--set-tag=appguid={A}&appname=Project%20Ghost&needsadmin=False",
                           f"--out={Path('o.exe')}", "in.exe"])
+
+    def test_the_output_directory_is_created(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp, "new", "dir", "Setup.exe")
+            with mock.patch.object(oi.subprocess, "run") as run:
+                run.return_value.returncode = 0
+                oi.build(Path("src"), Path("out", "updater"), Path("mini.exe"), "1.2.3.4",
+                         "{A}", output)
+            self.assertTrue(output.parent.is_dir())
 
     def test_install_arguments(self):
         self.assertEqual(oi.install_arguments("{APPID}"),
