@@ -51,6 +51,26 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(argv[argv.index("--in_file") + 1],
                          str((src / out).resolve() / "UpdaterSetup.exe"))
 
+    def test_signed_command(self):
+        out = Path("out", "updater")
+        signing = oi.Signing(Path("signtool.exe"), "Project Ghost Test Code Signing",
+                             "http://ts")
+        argv = oi.sign_command(Path("depot"), out, Path("mini.exe"), Path("m.gup"), "{A}",
+                               "1.2.3.4", Path("S.exe"), signing)
+        self.assertNotIn("--disable_tag_and_sign", argv)
+        self.assertEqual(argv[argv.index("--identity") + 1], "Project Ghost Test Code Signing")
+        self.assertEqual(argv[argv.index("--signtool") + 1], "signtool.exe")
+        self.assertEqual(argv[argv.index("--tagging_exe") + 1], str(out / "tag.exe"))
+        self.assertEqual([a for a in argv if a.startswith("--sign_flags=")],
+                         ["--sign_flags=/fd", "--sign_flags=SHA256", "--sign_flags=/tr",
+                          "--sign_flags=http://ts", "--sign_flags=/td", "--sign_flags=SHA256"])
+
+    def test_tag_command(self):
+        self.assertEqual(oi.tag_command(Path("out"), Path("in.exe"), Path("o.exe"), "{A}"),
+                         [str(Path("out", "tag.exe")),
+                          "--set-tag=appguid={A}&appname=Project%20Ghost&needsadmin=False",
+                          f"--out={Path('o.exe')}", "in.exe"])
+
     def test_install_arguments(self):
         self.assertEqual(oi.install_arguments("{APPID}"),
                          ["--install=appguid={APPID}&appname=Project%20Ghost&needsadmin=False",
