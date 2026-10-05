@@ -112,5 +112,31 @@ class RecoveryArgumentsTest(unittest.TestCase):
         self.assertEqual(args.cup_key.name, "k.json")
 
 
+class RolloutArgumentsTest(unittest.TestCase):
+    BASE = ["sandbox", "--offline-installer", "s.exe", "--release-version", "1.0.0.1",
+            "--update-crx", "u.crx3", "--update-version", "1.0.0.2", "--appid", "{a}"]
+
+    def problem(self, *extra):
+        return update_smoke.argument_problem(update_smoke.parser().parse_args(self.BASE
+                                                                             + list(extra)))
+
+    def test_rollout_with_the_offline_installer_and_an_update(self):
+        self.assertIsNone(self.problem("--rollout-server", "srv", "--cup-version", "2"))
+
+    def test_rollout_serves_its_own_package(self):
+        self.assertIn("no --server", self.problem("--rollout-server", "srv", "--server", "x"))
+
+    def test_rollout_and_the_recovery_drill_are_separate_runs(self):
+        self.assertIn("separate", self.problem("--rollout-server", "srv", "--recovery-crx", "r",
+                                               "--recovery-version", "1.0.0.3"))
+
+    def test_the_run_command_carries_rollout(self):
+        args = update_smoke.parser().parse_args(["run", "--payload", "p", "--results", "r",
+                                                 "--appid", "{a}", "--rollout",
+                                                 "--cup-version", "2"])
+        self.assertTrue(args.rollout)
+        self.assertEqual(args.cup_version, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

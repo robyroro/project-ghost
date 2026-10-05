@@ -9,6 +9,7 @@
           [--server URL [--server-ssh USER@HOST]]
           [--tagged] [--codesign-cert CERT] [--cup-key K]
           [--recovery-crx R --recovery-version V3]
+          [--rollout-server SRV [--cup-version N]]
       on the build machine: run the test in a fresh Windows Sandbox. Without
       --server it runs tools/update_server.py in the sandbox; with it, the
       sandbox gets network access and uses that server, whose root
@@ -26,6 +27,11 @@ PE file must be signed by it (sub-project D). With --tagged, the installer
 runs with only --silent, so its tag must name the app. --recovery-crx is a
 second update, signed with the backup publisher key, which the updater must
 also take.
+
+With --rollout-server, the test runs the update server repository's own
+service (a copy of SRV) instead of tools/update_server.py, and offers the
+update as its candidate: first halted, at fraction 0, when the updater must
+stay on V1, then at fraction 1, when it must take V2 (sub-project E).
 """
 
 from __future__ import annotations
@@ -44,6 +50,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import authenticode
+import candidate_server
 import installer_smoke as smoke
 import offline_installer
 import repo
@@ -181,7 +188,8 @@ def signature_failures(dirs: list[Path], thumb: str) -> list[str]:
 def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         update_version: str | None, server: str | None = None,
         installer: str = OFFLINE_INSTALLER, tagged: bool = False,
-        recovery_version: str | None = None) -> dict:
+        recovery_version: str | None = None, rollout: bool = False,
+        cup_version: int = 1) -> dict:
     """Without `server`, serves update_version from payload/update.crx3 on loopback.
     Without `update_version` (the online installer), installs and checks only."""
     result = {"expectations": exp.__dict__, "steps": []}
@@ -193,8 +201,12 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         result["steps"].append({"name": name, "failures": failures, **details})
         return not failures
 
-    local = None
-    if server is None:
+    local = candidate = None
+    if rollout:
+        candidate = candidate_server.CandidateServer(
+            payload, Path(tempfile.mkdtemp(prefix="releases-")), appid, update_version,
+            payload / "update.crx3", payload / CUP_KEY, cup_version, log)
+    elif server is None:
         local = update_server.UpdateServer(
             ("127.0.0.1", 8484),
             update_server.Offer(appid, update_version, payload / "update.crx3",
@@ -260,7 +272,23 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
             return step(name, failures)
 
         if update_version:
-            if not update_to(update_version, "update"):
+            if candidate:
+                subprocess.run([str(updater), "--update-apps", "--enable-logging"],
+                               timeout=1800)
+                asked = _wait(lambda: bool(candidate.answers), 600)
+                time.sleep(60)  # time for an update the server did offer to land
+                failures = [] if asked else ["the updater made no update check"]
+                failures += [f"the server offered {answer}" for answer in candidate.answers
+                             if answer != "noupdate"]
+                pv = _registered_version(exp, appid)
+                failures += [] if pv == exp.release_version else [
+                    f"pv is {pv!r}, expected {exp.release_version!r}"]
+                if not step("halted (fraction 0)", failures):
+                    return result
+                candidate.set_fraction(1.0)
+                if not update_to(update_version, "rolled out (fraction 1)"):
+                    return result
+            elif not update_to(update_version, "update"):
                 return result
             if recovery_version:
                 local.offer = update_server.Offer(
@@ -303,6 +331,8 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
     finally:
         if local:
             local.shutdown()
+        if candidate:
+            candidate.shutdown()
         for name in ("chrome_installer.log",):
             path = Path(tempfile.gettempdir()) / name
             if path.exists():
@@ -321,7 +351,8 @@ def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
                    cup_key: Path = update_server.CUP_KEY_FILE,
                    codesign_cert: Path | None = None, tagged: bool = False,
                    recovery_crx: Path | None = None,
-                   recovery_version: str | None = None) -> int:
+                   recovery_version: str | None = None,
+                   rollout_server: Path | None = None, cup_version: int = 1) -> int:
     payload = Path(tempfile.mkdtemp(prefix="update-payload-"))
     shutil.copy(installer, payload / installer.name)
     if crx:
@@ -332,6 +363,9 @@ def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
         shutil.copy(codesign_cert, payload / CODESIGN_CERT)
     if recovery_crx:
         shutil.copy(recovery_crx, payload / RECOVERY_CRX)
+    if rollout_server:
+        shutil.copytree(rollout_server / "ghost_update", payload / "ghost_update",
+                        ignore=shutil.ignore_patterns("__pycache__"))
     if server_ssh:
         cert = _ssh(server_ssh, f"sudo cat {CADDY_ROOT_CERT}")
         if cert.returncode or not cert.stdout:
@@ -347,7 +381,8 @@ def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
               + (f" --update-version {update_version}" if update_version else "")
               + (f" --server {server}" if server else "")
               + (" --tagged" if tagged else "")
-              + (f" --recovery-version {recovery_version}" if recovery_version else ""))
+              + (f" --recovery-version {recovery_version}" if recovery_version else "")
+              + (f" --rollout --cup-version {cup_version}" if rollout_server else ""))
     config = results.with_suffix(".wsb")
     config.write_text(smoke.sandbox_config(payload, TOOLS_DIR, Path(sys.base_prefix), results,
                                            script_args=script, networking=server is not None),
@@ -396,6 +431,10 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--recovery-crx", type=Path,
                    help="a second update, signed with the backup publisher key")
     s.add_argument("--recovery-version")
+    s.add_argument("--rollout-server", type=Path,
+                   help="project-ghost-update-server: run its service, halted then rolled out")
+    s.add_argument("--cup-version", type=int, default=1,
+                   help="the CUP key version the build pins (test identity: 2)")
     r = sub.add_parser("run")
     r.add_argument("--payload", type=Path, required=True)
     r.add_argument("--results", type=Path, required=True)
@@ -405,10 +444,19 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--server")
     r.add_argument("--tagged", action="store_true")
     r.add_argument("--recovery-version")
+    r.add_argument("--rollout", action="store_true")
+    r.add_argument("--cup-version", type=int, default=1)
     return p
 
 
 def argument_problem(args: argparse.Namespace) -> str | None:
+    if getattr(args, "rollout_server", None):
+        if args.server:
+            return "the rollout serves its package itself; no --server"
+        if args.recovery_crx:
+            return "the rollout and the recovery drill are separate runs"
+        if not (args.offline_installer and args.update_crx and args.update_version):
+            return "the rollout needs --offline-installer, --update-crx and --update-version"
     if (args.recovery_crx is None) != (args.recovery_version is None):
         return "pass --recovery-crx and --recovery-version together"
     if args.recovery_crx and args.server:
@@ -440,14 +488,16 @@ def main(argv: list[str] | None = None) -> int:
                               args.release_version, args.update_version, args.appid,
                               args.timeout, args.server, args.server_ssh, args.cup_key,
                               args.codesign_cert, args.tagged, args.recovery_crx,
-                              args.recovery_version)
+                              args.recovery_version, rollout_server=args.rollout_server,
+                              cup_version=args.cup_version)
     if not smoke.is_disposable(os.environ.get("USERNAME", ""), False):
         print("run installs into this user's profile; use `sandbox`", file=sys.stderr)
         return 2
     exp = smoke.Expectations(**json.loads(
         (args.results / EXPECTATIONS_FILE).read_text(encoding="utf-8")))
     result = run(args.payload, args.results, exp, args.appid, args.update_version,
-                 args.server, args.installer, args.tagged, args.recovery_version)
+                 args.server, args.installer, args.tagged, args.recovery_version,
+                 rollout=args.rollout, cup_version=args.cup_version)
     print(smoke.format_result(result))
     return 0 if smoke.passed(result) else 1
 
