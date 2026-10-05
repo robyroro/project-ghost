@@ -20,6 +20,7 @@ docs/build/release.md is the runbook.
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import hashlib
 import json
@@ -509,3 +510,84 @@ def verify(directory: Path, identity: str) -> list[str]:
             failures += authenticode.verify([setup], authenticode.thumbprint(certificate),
                                             require_trusted=False)
     return failures
+
+
+def _fraction(text: str) -> float:
+    value = float(text)
+    if not 0 <= value <= 1:
+        raise argparse.ArgumentTypeError("a fraction is between 0 and 1")
+    return value
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    r = sub.add_parser("run", help="make a release from a tag")
+    r.add_argument("--tag", required=True)
+    r.add_argument("--src", type=Path, required=True, help="the Chromium checkout's src")
+    r.add_argument("--identity", choices=("dev", "test"), default="test")
+    r.add_argument("--update-url", help="the update server's URL the build uses")
+    r.add_argument("--redo", choices=[s.name for s in STAGES])
+    r.add_argument("--stage", type=_fraction, metavar="FRACTION",
+                   help="offer the release to this fraction of update checks")
+    r.add_argument("--host", help="USER@HOST of the update server")
+    r.add_argument("--public", action="store_true", help="a public release, not a draft")
+    r.add_argument("--releases", type=Path, default=DEFAULT_RELEASES)
+    r.add_argument("--depot-tools", type=Path, default=DEFAULT_DEPOT_TOOLS)
+    r.add_argument("--server-repo", type=Path, default=DEFAULT_SERVER_REPO)
+    r.add_argument("--jobs", type=int, default=10)
+    v = sub.add_parser("verify", help="check a release's files")
+    v.add_argument("directory", type=Path)
+    v.add_argument("--identity", choices=("dev", "test"), default="test")
+    for action in ("rollout", "halt", "promote", "drop"):
+        a = sub.add_parser(action, help=f"{action} the update server's candidate")
+        a.add_argument("--host", required=True, help="USER@HOST of the update server")
+        a.add_argument("--appid", default=None, help="default: branding/updater.gni")
+        if action == "rollout":
+            a.add_argument("--fraction", type=_fraction, required=True)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as e:
+        return int(e.code or 0)
+
+    if args.command == "verify":
+        failures = verify(args.directory, args.identity)
+        for failure in failures:
+            print(f"FAILED  {failure}")
+        print("verified" if not failures else f"{len(failures)} failure(s)")
+        return 1 if failures else 0
+    if args.command != "run":
+        appid = args.appid or browser_appid()
+        action = "set-fraction" if args.command == "rollout" else args.command
+        command = admin_command(args.host, action, appid, getattr(args, "fraction", None))
+        return 0 if subprocess.run(command).returncode == 0 else 1
+
+    if args.public and args.identity in NOT_PUBLIC:
+        print(f"release: the {args.identity} identity never makes a public release "
+              "(docs/licensing.md#release-gates)", file=sys.stderr)
+        return 2
+    if (args.stage is None) != (args.host is None):
+        print("release: --stage and --host go together", file=sys.stderr)
+        return 2
+    ctx = Context(tag=args.tag, src=args.src.resolve(), identity=args.identity,
+                  update_url=args.update_url, depot_tools=args.depot_tools,
+                  releases=args.releases, server_repo=args.server_repo, host=args.host,
+                  fraction=args.stage, public=args.public, jobs=args.jobs)
+    problems = check(ctx)
+    for problem in problems:
+        print(f"release: {problem}", file=sys.stderr)
+    if problems:
+        return 1
+    try:
+        state = release_state.State.load(ctx.dir / "state.json", ctx.tag)
+        run_stages(ctx, state, runner_for(ctx), redo=args.redo)
+    except (subprocess.CalledProcessError, ReleaseError, release_state.StateError,
+            OSError) as e:
+        print(f"release: {e}", file=sys.stderr)
+        return 1
+    print(f"release {ctx.tag} ({ctx.version}) done; its files are in {ctx.dir / PUBLISH}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

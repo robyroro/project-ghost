@@ -2,10 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import contextlib
 import datetime
+import io
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import crx3
@@ -326,3 +329,35 @@ class VerifyTest(unittest.TestCase):
         (self.dir / "update.crx3").write_bytes(b"changed")
         self.assertIn("update.crx3: its SHA-256 differs from SHA256SUMS",
                       release.verify(self.dir, "dev"))
+
+
+class MainTest(unittest.TestCase):
+    def main(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = release.main(list(argv))
+        return code, out.getvalue() + err.getvalue()
+
+    def test_public_is_refused_with_the_test_identity(self):
+        code, text = self.main("run", "--tag", TAG, "--src", str(SRC), "--public")
+        self.assertEqual(code, 2)
+        self.assertIn("the test identity never makes a public release", text)
+
+    def test_stage_needs_a_host(self):
+        code, text = self.main("run", "--tag", TAG, "--src", str(SRC), "--stage", "0.01")
+        self.assertEqual(code, 2)
+        self.assertIn("--stage and --host go together", text)
+
+    def test_a_fraction_is_between_zero_and_one(self):
+        code, text = self.main("rollout", "--host", "h", "--fraction", "1.5")
+        self.assertEqual(code, 2)
+        self.assertIn("between 0 and 1", text)
+
+    def test_rollout_commands_go_to_the_server(self):
+        calls = []
+        with unittest.mock.patch.object(release.subprocess, "run",
+                                        lambda argv, **kw: calls.append(argv)
+                                        or subprocess.CompletedProcess(argv, 0)):
+            self.assertEqual(self.main("halt", "--host", "ghost@h")[0], 0)
+        self.assertEqual(calls, [release.admin_command("ghost@h", "halt",
+                                                       release.browser_appid())])
