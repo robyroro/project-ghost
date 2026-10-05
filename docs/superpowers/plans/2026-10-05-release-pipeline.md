@@ -112,6 +112,12 @@ Get-Content chrome\build\win64.pgo.txt; Get-ChildItem chrome\build\pgo_profiles 
 
 Expected: the `.profdata` file named in `win64.pgo.txt`, about 1 GB. If the download fails, stop and report it: an official build can't run without it.
 
+The official build also needs V8's builtins profiles (`v8/tools/builtins-pgo/profiles/x64-rl.profile`), from DEPS's other `checkout_pgo_profiles` hook; without them siso stops at once, "missing and no known rule to make it":
+
+```powershell
+vpython3 v8\tools\builtins-pgo\download_profiles.py download --depot-tools third_party\depot_tools --check-v8-revision
+```
+
 - [ ] **Step 4: Write `out\release\args.gn`** exactly as `release.py` will (Task 9's `render_args("test", None)`), so the release later reuses this build:
 
 ```bash
@@ -1623,9 +1629,14 @@ def sync_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
         run([ctx.python, str(ctx.webops / "tools" / "bootstrap.py"), "--root", str(ctx.root),
              "--depot-tools", str(ctx.depot_tools), "--pgo"])
         (ctx.root / builder.SYNC_STAMP).write_text(pin + "\n", encoding="utf-8")
-    # The win64 hook from DEPS: idempotent, and quick when the profile is there.
-    run([_tool(ctx.depot_tools, "vpython3"), "tools/update_pgo_profiles.py", "--target=win64",
-         "update", "--gs-url-base=chromium-optimization-profiles/pgo_profiles"], cwd=ctx.src)
+    # The two DEPS hooks an official x64 build needs, which checkout_pgo_profiles
+    # turns on: Chrome's win64 profile and V8's builtins profiles. Both are
+    # idempotent, and quick when the profiles are there.
+    vpython = _tool(ctx.depot_tools, "vpython3")
+    run([vpython, "tools/update_pgo_profiles.py", "--target=win64", "update",
+         "--gs-url-base=chromium-optimization-profiles/pgo_profiles"], cwd=ctx.src)
+    run([vpython, "v8/tools/builtins-pgo/download_profiles.py", "download", "--depot-tools",
+         "third_party/depot_tools", "--check-v8-revision", "--quiet"], cwd=ctx.src)
     return {"pin": pin, "profile": pgo_profile(ctx)}
 
 
