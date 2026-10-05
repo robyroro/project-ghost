@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Release build: what ships (Phase 2, sub-project E). tools/release.py writes
+# out/release/args.gn: this import, then the release's signing identity and,
+# when given, its update URL. Never rename out/release: a renamed output
+# directory discards the build state (docs/build/windows.md).
+
+# Static, ThinLTO and the PGO profiles Chromium publishes, as Chrome ships.
+# Official builds don't load the field-trial testing configuration.
+is_official_build = true
+is_debug = false
+
+# Official Windows builds default to full symbols (symbol_level = 2), which the
+# reference machine's disk can't hold beside the other output directories.
+# Level 1 keeps function names and line tables; Ghost uploads no crash reports.
+symbol_level = 1
+
+# Product name, company and copyright in version resources and About.
+branding_file_path = "//ghost/branding/BRANDING"
+
+# Ghost's updater (sub-project B) and the browser's "relaunch to update" prompt.
+enable_updater = true
+enable_update_notifications = true
