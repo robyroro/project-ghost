@@ -117,7 +117,8 @@ def apply(src: Path, base: str, branch: str, patches_dir: Path, force: bool = Fa
     return 0
 
 
-def export(src: Path, base: str, patches_dir: Path) -> int:
+def render_series(src: Path, base: str) -> dict[str, bytes]:
+    """The series as `export` would write it, file name -> bytes; writes nothing."""
     _require_commit(src, base)
     rng = f"{base}..HEAD"
     if _git(src, "rev-list", "--merges", rng).stdout.strip():
@@ -125,7 +126,17 @@ def export(src: Path, base: str, patches_dir: Path) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         _git(src, *_GIT_CONFIG_OVERRIDES, "format-patch", *_FORMAT_PATCH_FLAGS,
              "-o", tmp, rng)
-        new = {p.name: p.read_bytes() for p in Path(tmp).glob("*.patch")}
+        return {p.name: p.read_bytes() for p in sorted(Path(tmp).glob("*.patch"))}
+
+
+def series_matches(src: Path, base: str, patches_dir: Path) -> bool:
+    """Whether the branch checked out in src is exactly the series in patches_dir."""
+    return render_series(src, base) == {p.name: p.read_bytes()
+                                        for p in list_patches(patches_dir)}
+
+
+def export(src: Path, base: str, patches_dir: Path) -> int:
+    new = render_series(src, base)
     old = {p.name: p.read_bytes() for p in list_patches(patches_dir)}
     patches_dir.mkdir(parents=True, exist_ok=True)
     for name in old:

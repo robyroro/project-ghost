@@ -286,3 +286,29 @@ class CanaryTest(SeriesTestCase):
     def test_missing_revision_explains_how_to_fetch_it(self):
         with self.assertRaisesRegex(patches.PatchError, "fetch --depth=1 origin tag 999.0.0.0"):
             patches.canary(self.src, "refs/tags/999.0.0.0", self.patches_dir)
+
+
+class SeriesMatchesTest(SeriesTestCase):
+    def test_the_exported_series_matches_its_branch(self):
+        self.export()
+        self.assertTrue(patches.series_matches(self.src, TAG, self.patches_dir))
+
+    def test_a_commit_not_exported_does_not_match(self):
+        self.export()
+        self.commit(self.src, {"net/base/socket.cc": "int Connect() { return 2; }\n"},
+                    "net: another change\n\n" + TRAILERS)
+        self.assertFalse(patches.series_matches(self.src, TAG, self.patches_dir))
+
+    def test_a_changed_patch_file_does_not_match(self):
+        self.export()
+        first = patches.list_patches(self.patches_dir)[0]
+        first.write_bytes(first.read_bytes().replace(b"Hook for Ghost defaults.",
+                                                     b"Hook for something else."))
+        self.assertFalse(patches.series_matches(self.src, TAG, self.patches_dir))
+
+    def test_render_series_writes_nothing(self):
+        before = self.snapshot()
+        rendered = patches.render_series(self.src, TAG)
+        self.assertEqual(list(rendered), ["0001-prefs-call-into-ghost.patch",
+                                          "0002-net-change-connect.patch"])
+        self.assertEqual(self.snapshot(), before)
