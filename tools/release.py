@@ -21,6 +21,7 @@ docs/build/release.md is the runbook.
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -33,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import builder
+import crx3
 import offline_installer
 import patches
 import provenance
@@ -40,6 +42,7 @@ import release_state
 import release_version
 import repo
 import sbom
+import signing
 
 OUT = Path("out") / "release"
 DEFAULT_RELEASES = Path.home() / "ProjectGhostReleases"
@@ -480,3 +483,29 @@ def run_stages(ctx: Context, state: release_state.State, run: Runner,
         started = now()
         outputs = stage.perform(ctx, state, run)
         state.record(stage.name, inputs, outputs, started, now())
+
+
+def verify(directory: Path, identity: str) -> list[str]:
+    """What anyone with a release's files can check: hashes, provenance, signatures."""
+    failures = provenance.check_files(directory)
+    crx = directory / "update.crx3"
+    if crx.is_file():
+        pinned = signing.pinned_keys(identity).publisher_hashes
+        try:
+            keys = crx3.verified_keys(crx.read_bytes())
+        except (ValueError, IndexError):
+            keys = []
+        if not any(hashlib.sha256(key).digest() in pinned for key in keys):
+            failures.append(f"update.crx3: no valid proof by the {identity} identity's "
+                            "publisher keys")
+    setup = directory / offline_installer.OUTPUT_NAME
+    if setup.is_file() and identity != "dev":
+        if os.name != "nt":
+            failures.append(f"{setup.name}: Authenticode can only be checked on Windows")
+        else:
+            import authenticode
+            certificate = (repo.REPO_ROOT / "branding" / "signing"
+                           / f"{identity}_codesign.cer").read_bytes()
+            failures += authenticode.verify([setup], authenticode.thumbprint(certificate),
+                                            require_trusted=False)
+    return failures

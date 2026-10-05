@@ -8,8 +8,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import crx3
+import provenance
 import release
 import release_state
+import signing
+import update_server
 from tests.gitutil import GitTestCase
 
 TAG = "152.0.7977.149-1"
@@ -284,3 +288,41 @@ class BuildStageTest(ReleaseRepos):
             release.build_perform(ctx, state, write_version)
         self.assertEqual((self.src / "chrome" / "VERSION").read_text(), VERSION_FILE)
         self.assertEqual((ctx.out / "args.gn").read_text(), release.render_args("test", None))
+
+
+FACTS = provenance.BuildFacts(
+    tag=TAG, webops_commit="a" * 40, chromium_commit="b" * 40, series_digest="c" * 64,
+    depot_tools_commit="d" * 40, toolchain={"clang": "x"}, args_gn="", identity="dev",
+    tests={}, started=datetime.datetime(2026, 10, 5, tzinfo=datetime.timezone.utc),
+    finished=datetime.datetime(2026, 10, 6, tzinfo=datetime.timezone.utc))
+
+
+class VerifyTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+        developer = signing.file_signer(update_server.CRX_KEY_FILE)
+        publisher = signing.file_signer(update_server.CRX_BACKUP_KEY_FILE)  # pinned for dev
+        (self.dir / "update.crx3").write_bytes(
+            crx3.build({"mini_installer.exe": b"installer"}, developer, [publisher]))
+        provenance.write_release_files(self.dir, ["update.crx3"], FACTS)
+
+    def test_a_good_development_release(self):
+        self.assertEqual(release.verify(self.dir, "dev"), [])
+
+    def test_a_proof_by_another_key_fails(self):
+        # crx_test_key.json is also dev's primary publisher key: a developer key
+        # nobody pins, so that no proof in the package is a pinned one.
+        developer = signing.scalar_signer("developer", 0x1234567890ABCDEF)
+        other = signing.scalar_signer("other", update_server.OTHER_KEY)
+        (self.dir / "update.crx3").write_bytes(
+            crx3.build({"mini_installer.exe": b"installer"}, developer, [other]))
+        provenance.write_release_files(self.dir, ["update.crx3"], FACTS)
+        self.assertEqual(release.verify(self.dir, "dev"),
+                         ["update.crx3: no valid proof by the dev identity's publisher keys"])
+
+    def test_hash_failures_are_reported(self):
+        (self.dir / "update.crx3").write_bytes(b"changed")
+        self.assertIn("update.crx3: its SHA-256 differs from SHA256SUMS",
+                      release.verify(self.dir, "dev"))
