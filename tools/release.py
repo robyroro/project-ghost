@@ -20,17 +20,23 @@ docs/build/release.md is the runbook.
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import builder
 import offline_installer
+import patches
 import provenance
+import release_state
 import release_version
 import repo
 import sbom
@@ -262,3 +268,215 @@ def release_notes(ctx: Context) -> str:
         "build/release.md)).",
     ]
     return "\n".join(lines) + "\n"
+
+
+Runner = Callable[..., None]  # run(argv, cwd=None); raises CalledProcessError
+
+
+def _env(ctx: Context) -> dict[str, str]:
+    env = dict(os.environ, DEPOT_TOOLS_WIN_TOOLCHAIN="0")
+    env["PATH"] = str(ctx.depot_tools) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def runner_for(ctx: Context) -> Runner:
+    env = _env(ctx)
+
+    def run(argv: list[str], cwd: Path | None = None) -> None:
+        print("    " + subprocess.list2cmdline([str(a) for a in argv]), flush=True)
+        subprocess.run(argv, cwd=cwd, env=env, check=True)
+    return run
+
+
+@dataclass(frozen=True)
+class Stage:
+    name: str
+    inputs: Callable[[Context, release_state.State], dict]
+    perform: Callable[[Context, release_state.State, Runner], dict]
+    wanted: Callable[[Context], bool] = lambda ctx: True
+
+
+def _pin(ctx: Context) -> str:
+    return repo.read_chromium_commit(ctx.webops)
+
+
+def _series(ctx: Context) -> str:
+    return builder.series_digest(ctx.webops / "patches", _pin(ctx))
+
+
+def pgo_profile(ctx: Context) -> str:
+    return (ctx.src / "chrome" / "build" / "win64.pgo.txt").read_text(encoding="utf-8").strip()
+
+
+def sync_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    pin = _pin(ctx)
+    if not builder.is_synced(ctx.root, pin):
+        run([ctx.python, str(ctx.webops / "tools" / "bootstrap.py"), "--root", str(ctx.root),
+             "--depot-tools", str(ctx.depot_tools), "--pgo"])
+        (ctx.root / builder.SYNC_STAMP).write_text(pin + "\n", encoding="utf-8")
+    # The two DEPS hooks an official x64 build needs, which checkout_pgo_profiles
+    # turns on: Chrome's win64 profile and V8's builtins profiles. Both are
+    # idempotent, and quick when the profiles are there.
+    vpython = _tool(ctx.depot_tools, "vpython3")
+    run([vpython, "tools/update_pgo_profiles.py", "--target=win64", "update",
+         "--gs-url-base=chromium-optimization-profiles/pgo_profiles"], cwd=ctx.src)
+    run([vpython, "v8/tools/builtins-pgo/download_profiles.py", "download", "--depot-tools",
+         "third_party/depot_tools", "--check-v8-revision", "--quiet"], cwd=ctx.src)
+    return {"pin": pin, "profile": pgo_profile(ctx)}
+
+
+def apply_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    patches_dir = ctx.webops / "patches"
+    if not patches.series_matches(ctx.src, ctx.base, patches_dir):
+        run([ctx.python, str(ctx.webops / "tools" / "patches.py"), "apply", "--src",
+             str(ctx.src), "--force"])
+        if not patches.series_matches(ctx.src, ctx.base, patches_dir):
+            raise ReleaseError("the series applied, but the branch still differs from patches/")
+    (ctx.root / builder.APPLY_STAMP).write_text(_series(ctx) + "\n", encoding="utf-8")
+    return {"series": _series(ctx)}
+
+
+def build_inputs(ctx: Context, state: release_state.State) -> dict:
+    return {"commit": tag_commit(ctx), "args.gn": render_args(ctx.identity, ctx.update_url),
+            "series": state.outputs("apply")["series"], "targets": " ".join(build_targets())}
+
+
+def build_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    args = ctx.out / "args.gn"
+    wanted = render_args(ctx.identity, ctx.update_url)
+    if not args.exists() or args.read_text(encoding="utf-8") != wanted:
+        args.parent.mkdir(parents=True, exist_ok=True)
+        args.write_text(wanted, encoding="utf-8", newline="\n")
+    try:
+        run([ctx.python, str(ctx.webops / "tools" / "release_version.py"), "write", "--src",
+             str(ctx.src), "--tag", ctx.tag])
+        for argv in build_commands(ctx):
+            run(argv, cwd=ctx.src)
+    finally:
+        _git(ctx.src, "checkout", "--", "chrome/VERSION")
+    return {name: provenance.sha256_file(ctx.out / name)
+            for name in ("mini_installer.exe", "UpdaterSetup.exe")}
+
+
+def test_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    results = ctx.dir / "results"
+    results.mkdir(parents=True, exist_ok=True)
+    for argv in test_commands(ctx, results):
+        run(argv, cwd=ctx.src)
+    return {"ghost_unittests": OUT.as_posix(), "ghost_browsertests": BROWSERTESTS_OUT.as_posix()}
+
+
+def sign_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    signed = ctx.dir / SIGNED
+    if signed.exists():
+        shutil.rmtree(signed)  # this stage's own output, from an earlier run
+    run(sign_command(ctx, browser_appid(ctx.webops)), cwd=ctx.src)
+    return {name: provenance.sha256_file(signed / name)
+            for name in ("mini_installer.exe", "update.crx3", offline_installer.OUTPUT_NAME)}
+
+
+def toolchain(ctx: Context) -> dict[str, str]:
+    import check_env
+    versions = {"clang": (ctx.src / "third_party" / "llvm-build" / "Release+Asserts"
+                          / "cr_build_revision").read_text(encoding="utf-8").strip()}
+    sdks = check_env.probe_sdk_include_versions()
+    if sdks:
+        versions["windows-sdk"] = max(sdks, key=repo.parse_version)
+    _, _, satisfying = check_env.probe_vs(repo.load_requirements(ctx.webops)["windows"]
+                                          ["visual_studio"])
+    if satisfying:
+        versions["visual-studio"] = satisfying[0].version
+    return versions
+
+
+def describe_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    publish = ctx.dir / PUBLISH
+    if publish.exists():
+        shutil.rmtree(publish)  # this stage's own output, from an earlier run
+    publish.mkdir(parents=True)
+    for name in (offline_installer.OUTPUT_NAME, "update.crx3"):
+        shutil.copy2(ctx.dir / SIGNED / name, publish / name)
+    sbom.build(_tool(ctx.depot_tools, "vpython3"), ctx.src, ctx.out, ctx.tag, tag_commit(ctx),
+               publish / sbom.DOCUMENT, env=_env(ctx))
+    build = state.stages["build"]
+    facts = provenance.BuildFacts(
+        tag=ctx.tag, webops_commit=tag_commit(ctx), chromium_commit=_pin(ctx),
+        series_digest=state.outputs("apply")["series"],
+        depot_tools_commit=_git(ctx.depot_tools, "rev-parse", "HEAD"), toolchain=toolchain(ctx),
+        args_gn=render_args(ctx.identity, ctx.update_url), identity=ctx.identity,
+        tests=state.outputs("test"), started=datetime.datetime.fromisoformat(build["started"]),
+        finished=datetime.datetime.fromisoformat(build["finished"]))
+    provenance.write_release_files(
+        publish, [offline_installer.OUTPUT_NAME, "update.crx3", sbom.DOCUMENT], facts)
+    return provenance.parse_sums((publish / provenance.SUMS_FILE).read_text(encoding="utf-8"))
+
+
+def _gh(ctx: Context, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["gh", *args], cwd=ctx.webops, capture_output=True)
+
+
+def draft_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    publish = ctx.dir / PUBLISH
+    notes = ctx.dir / "notes.md"
+    notes.write_text(release_notes(ctx), encoding="utf-8", newline="\n")
+    ours = (publish / provenance.SUMS_FILE).read_bytes()
+    existing = _gh(ctx, "release", "view", ctx.tag, "--json", "assets")
+    if existing.returncode == 0:
+        assets = {a["name"]: a for a in json.loads(existing.stdout)["assets"]}
+        sums = assets.get(provenance.SUMS_FILE)
+        theirs = _gh(ctx, "api", "-H", "Accept: application/octet-stream",
+                     sums["apiUrl"]).stdout if sums else b""
+        if set(assets) != set(PUBLISHED) or theirs != ours:
+            raise ReleaseError(f"GitHub already has a release {ctx.tag} with other files; "
+                               "compare it with this one before changing either")
+    else:
+        run(draft_command(ctx, publish, notes), cwd=ctx.webops)
+    view = _gh(ctx, "release", "view", ctx.tag, "--json", "url")
+    return {"url": json.loads(view.stdout)["url"] if view.returncode == 0 else ""}
+
+
+def stage_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
+    run(stage_command(ctx, ctx.dir / PUBLISH / "update.crx3", browser_appid(ctx.webops)),
+        cwd=ctx.server_repo)
+    return {"fraction": str(ctx.fraction), "host": ctx.host}
+
+
+STAGES = (
+    Stage("sync", lambda ctx, state: {"pin": _pin(ctx)}, sync_perform),
+    Stage("apply", lambda ctx, state: {"series": _series(ctx), "pin": _pin(ctx)},
+          apply_perform),
+    Stage("build", build_inputs, build_perform),
+    Stage("test", lambda ctx, state: dict(state.outputs("build")), test_perform),
+    Stage("sign", lambda ctx, state: {**state.outputs("build"), "identity": ctx.identity},
+          sign_perform),
+    Stage("describe", lambda ctx, state: {**state.outputs("sign"),
+                                          **{f"test {k}": v for k, v
+                                             in state.outputs("test").items()}},
+          describe_perform),
+    Stage("draft", lambda ctx, state: {**state.outputs("describe"), "public": str(ctx.public)},
+          draft_perform),
+    Stage("stage", lambda ctx, state: {"update.crx3": state.outputs("sign")["update.crx3"],
+                                       "fraction": str(ctx.fraction), "host": str(ctx.host)},
+          stage_perform, wanted=lambda ctx: ctx.fraction is not None),
+)
+
+
+def _now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def run_stages(ctx: Context, state: release_state.State, run: Runner,
+               stages=STAGES, redo: str | None = None, now=_now) -> None:
+    for stage in stages:
+        if not stage.wanted(ctx):
+            continue
+        if stage.name == redo:
+            state.forget(stage.name)
+        inputs = stage.inputs(ctx, state)
+        if state.is_done(stage.name, inputs):
+            print(f"[{stage.name}] done before; skipped", flush=True)
+            continue
+        print(f"[{stage.name}]", flush=True)
+        started = now()
+        outputs = stage.perform(ctx, state, run)
+        state.record(stage.name, inputs, outputs, started, now())

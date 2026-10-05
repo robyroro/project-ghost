@@ -2,11 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import datetime
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
 import release
+import release_state
 from tests.gitutil import GitTestCase
 
 TAG = "152.0.7977.149-1"
@@ -189,3 +192,95 @@ class NotesTest(unittest.TestCase):
         for name in release.PUBLISHED:
             self.assertIn(f"`{name}`", notes)
 
+
+class Recorder:
+    """Stands in for the runner: records each command, fails on request."""
+
+    def __init__(self, fail_on: str | None = None):
+        self.commands, self.fail_on = [], fail_on
+
+    def __call__(self, argv, cwd=None):
+        self.commands.append(list(argv))
+        if self.fail_on and any(self.fail_on in str(a) for a in argv):
+            raise subprocess.CalledProcessError(1, argv)
+
+
+def stage(name, log, outputs=None, wanted=lambda ctx: True):
+    def perform(ctx, state, run):
+        log.append(name)
+        return outputs or {name: "done"}
+    return release.Stage(name, lambda ctx, state: {"input": name}, perform, wanted)
+
+
+class RunStagesTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.state = release_state.State.load(Path(tmp.name) / "state.json", TAG)
+        self.clock = iter(datetime.datetime(2026, 10, 5, 9, m, tzinfo=datetime.timezone.utc)
+                          for m in range(60))
+
+    def run_stages(self, stages, redo=None):
+        release.run_stages(CTX, self.state, Recorder(), stages=stages, redo=redo,
+                           now=lambda: next(self.clock))
+
+    def test_runs_in_order_and_records(self):
+        log = []
+        self.run_stages([stage("a", log), stage("b", log)])
+        self.assertEqual(log, ["a", "b"])
+        self.assertTrue(self.state.is_done("b", {"input": "b"}))
+
+    def test_a_rerun_skips_what_is_done(self):
+        log = []
+        self.run_stages([stage("a", log), stage("b", log)])
+        self.run_stages([stage("a", log), stage("b", log)])
+        self.assertEqual(log, ["a", "b"])
+
+    def test_redo_runs_one_stage_again(self):
+        log = []
+        self.run_stages([stage("a", log), stage("b", log)])
+        self.run_stages([stage("a", log), stage("b", log)], redo="a")
+        self.assertEqual(log, ["a", "b", "a"])
+
+    def test_a_failed_stage_is_not_recorded(self):
+        def fail(ctx, state, run):
+            raise release.ReleaseError("no")
+        with self.assertRaises(release.ReleaseError):
+            self.run_stages([release.Stage("a", lambda c, s: {}, fail, lambda c: True)])
+        self.assertNotIn("a", self.state.stages)
+
+    def test_an_unwanted_stage_is_skipped(self):
+        log = []
+        self.run_stages([stage("a", log, wanted=lambda ctx: False)])
+        self.assertEqual(log, [])
+
+    def test_the_stage_stage_runs_only_with_a_fraction(self):
+        stage_stage = next(s for s in release.STAGES if s.name == "stage")
+        self.assertFalse(stage_stage.wanted(CTX))
+        self.assertTrue(stage_stage.wanted(release.Context(tag=TAG, src=SRC, webops=WEBOPS,
+                                                           fraction=0.0, host="h")))
+
+    def test_the_stage_names(self):
+        self.assertEqual([s.name for s in release.STAGES],
+                         ["sync", "apply", "build", "test", "sign", "describe", "draft",
+                          "stage"])
+
+
+class BuildStageTest(ReleaseRepos):
+    def test_chrome_version_is_restored_when_the_build_fails(self):
+        run = Recorder(fail_on="autoninja")
+        state = release_state.State.load(self.tmp / "state.json", TAG)
+        state.record("apply", {}, {"series": "d" * 64}, datetime.datetime.now(),
+                     datetime.datetime.now())
+        ctx = release.Context(tag=TAG, src=self.src, webops=self.webops, python="python")
+
+        def write_version(argv, cwd=None):
+            run(argv, cwd)
+            if "release_version.py" in " ".join(argv):
+                self.write(self.src, "chrome/VERSION", VERSION_FILE.replace("PATCH=149",
+                                                                            "PATCH=14901"))
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            release.build_perform(ctx, state, write_version)
+        self.assertEqual((self.src / "chrome" / "VERSION").read_text(), VERSION_FILE)
+        self.assertEqual((ctx.out / "args.gn").read_text(), release.render_args("test", None))
