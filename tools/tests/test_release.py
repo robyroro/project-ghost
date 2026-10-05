@@ -110,3 +110,82 @@ class CheckTest(ReleaseRepos):
     def test_the_same_configuration_passes(self):
         self.write(self.src, "out/release/args.gn", release.render_args("test", None))
         self.assertEqual(self.check(), [])
+
+
+SRC = Path(r"C:\w\chromium\src")
+DEPOT = Path(r"C:\src\depot_tools")
+WEBOPS = release.repo.REPO_ROOT  # its CHROMIUM_VERSION, 152.0.7977.149, gives the versions
+CTX = release.Context(tag=TAG, src=SRC, webops=WEBOPS, depot_tools=DEPOT,
+                      releases=Path(r"C:\r"), python="python.exe")
+
+
+def tool(name):
+    return str(DEPOT / (name + (".bat" if release.os.name == "nt" else "")))
+
+
+class CommandTest(unittest.TestCase):
+    def test_build(self):
+        self.assertEqual(release.build_commands(CTX), [
+            [tool("gn"), "gen", str(release.OUT)],
+            [tool("autoninja"), "-C", str(release.OUT), "-j", "10", "chrome", "mini_installer",
+             "chrome/updater/win/installer:installer", "chrome/updater/win:signing",
+             "chrome/updater/win:updater", "ghost_unittests", "ghost_browsertests"]])
+
+    def test_tests_run_on_the_bits_that_ship(self):
+        results = Path(r"C:\r\results")
+        commands = release.test_commands(CTX, results)
+        self.assertEqual(commands[0], [str(SRC / release.OUT / "ghost_unittests.exe"),
+                                       f"--test-launcher-summary-output="
+                                       f"{results / 'ghost_unittests.json'}"])
+        self.assertEqual(commands[1][0], str(SRC / release.OUT / "ghost_browsertests.exe"))
+        self.assertEqual(commands[2], ["python.exe", str(WEBOPS / "tools" / "installer_smoke.py"),
+                                       "sandbox", "--installer",
+                                       str(SRC / release.OUT / "mini_installer.exe")])
+        self.assertEqual(commands[3], ["python.exe", str(WEBOPS / "tools" / "egress_audit.py"),
+                                       "run", "--chrome", str(SRC / release.OUT / "chrome.exe"),
+                                       "--netlog", str(results / "netlog.json")])
+
+    def test_sign_once_for_both_products(self):
+        self.assertEqual(release.sign_command(CTX, "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}"), [
+            "python.exe", str(WEBOPS / "tools" / "sign_release.py"), "--src", str(SRC),
+            "--browser-out", str(release.OUT), "--updater-out", str(release.OUT),
+            "--identity", "test", "--output", str(Path(r"C:\r") / TAG / "signed"),
+            "--crx", "--offline-installer", "--version", "152.0.7977.14901",
+            "--appid", "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}"])
+
+    def test_a_draft_unless_public(self):
+        publish, notes = Path(r"C:\r\p"), Path(r"C:\r\notes.md")
+        draft = release.draft_command(CTX, publish, notes)
+        self.assertEqual(draft[:10], ["gh", "release", "create", TAG, "--verify-tag", "--title",
+                                      "Project Ghost 152.0.7977.14901 (test identity)",
+                                      "--notes-file", str(notes), "--prerelease"])
+        self.assertIn("--draft", draft)
+        self.assertEqual(draft[-5:], [str(publish / name) for name in release.PUBLISHED])
+        public = release.Context(tag=TAG, src=SRC, webops=WEBOPS, identity="prod", public=True)
+        self.assertNotIn("--draft", release.draft_command(public, publish, notes))
+
+    def test_stage_uploads_the_candidate(self):
+        ctx = release.Context(tag=TAG, src=SRC, webops=WEBOPS, host="ghost@203.0.113.5",
+                              fraction=0.01, python="python.exe")
+        self.assertEqual(release.stage_command(ctx, Path(r"C:\r\update.crx3"), "{a}"), [
+            "python.exe", "-m", "ghost_update.release", "--crx", str(Path(r"C:\r\update.crx3")),
+            "--appid", "{a}", "--version", "152.0.7977.14901", "--identity", "test",
+            "--host", "ghost@203.0.113.5", "--fraction", "0.01"])
+
+    def test_admin_commands(self):
+        self.assertEqual(release.admin_command("ghost@h", "set-fraction", "{a}", 0.05),
+                         ["ssh", "ghost@h", "sudo ghost-update-admin set-fraction --appid '{a}' "
+                                            "--fraction 0.05"])
+        self.assertEqual(release.admin_command("ghost@h", "halt", "{a}"),
+                         ["ssh", "ghost@h", "sudo ghost-update-admin halt --appid '{a}'"])
+
+
+class NotesTest(unittest.TestCase):
+    def test_the_test_identity_is_announced(self):
+        notes = release.release_notes(CTX)
+        self.assertIn("**Test identity: not for daily use.**", notes)
+        self.assertIn("won't migrate", notes)
+        self.assertIn("152.0.7977.149", notes)
+        for name in release.PUBLISHED:
+            self.assertIn(f"`{name}`", notes)
+

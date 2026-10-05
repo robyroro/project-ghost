@@ -21,14 +21,19 @@ docs/build/release.md is the runbook.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import offline_installer
+import provenance
 import release_version
 import repo
+import sbom
 
 OUT = Path("out") / "release"
 DEFAULT_RELEASES = Path.home() / "ProjectGhostReleases"
@@ -162,3 +167,98 @@ def check(ctx: Context, ci_conclusions=_ci_conclusions) -> list[str]:
         problems.append(f"{args} differs from this release's configuration: find out what "
                         "changed it")
     return problems
+
+
+SHIPPED_TARGETS = ("chrome", "mini_installer", "chrome/updater/win/installer:installer",
+                   "chrome/updater/win:signing", "chrome/updater/win:updater")
+# Where ghost_browsertests is built and run. out/release, unless the spike
+# found its LTO link unaffordable (progress notes); then the development build.
+BROWSERTESTS_OUT = OUT
+SIGNED = "signed"
+PUBLISH = "publish"
+PUBLISHED = (offline_installer.OUTPUT_NAME, "update.crx3", sbom.DOCUMENT,
+             provenance.PROVENANCE_FILE, provenance.SUMS_FILE)
+
+
+def _tool(depot_tools: Path, name: str) -> str:
+    return str(depot_tools / (f"{name}.bat" if os.name == "nt" else name))
+
+
+def build_targets() -> tuple[str, ...]:
+    tests = ("ghost_unittests",) + (("ghost_browsertests",) if BROWSERTESTS_OUT == OUT else ())
+    return SHIPPED_TARGETS + tests
+
+
+def build_commands(ctx: Context) -> list[list[str]]:
+    return [[_tool(ctx.depot_tools, "gn"), "gen", str(OUT)],
+            [_tool(ctx.depot_tools, "autoninja"), "-C", str(OUT), "-j", str(ctx.jobs),
+             *build_targets()]]
+
+
+def test_commands(ctx: Context, results: Path) -> list[list[str]]:
+    commands = []
+    if BROWSERTESTS_OUT != OUT:
+        commands.append([_tool(ctx.depot_tools, "autoninja"), "-C", str(BROWSERTESTS_OUT),
+                         "-j", str(ctx.jobs), "ghost_browsertests"])
+    for suite, out in (("ghost_unittests", OUT), ("ghost_browsertests", BROWSERTESTS_OUT)):
+        commands.append([str(ctx.src / out / f"{suite}.exe"),
+                         f"--test-launcher-summary-output={results / (suite + '.json')}"])
+    tools = ctx.webops / "tools"
+    commands.append([ctx.python, str(tools / "installer_smoke.py"), "sandbox", "--installer",
+                     str(ctx.out / "mini_installer.exe")])
+    # The NetLog holds this machine's addresses: it stays in the release
+    # directory, which is never published.
+    commands.append([ctx.python, str(tools / "egress_audit.py"), "run", "--chrome",
+                     str(ctx.out / "chrome.exe"), "--netlog", str(results / "netlog.json")])
+    return commands
+
+
+def sign_command(ctx: Context, appid: str) -> list[str]:
+    return [ctx.python, str(ctx.webops / "tools" / "sign_release.py"), "--src", str(ctx.src),
+            "--browser-out", str(OUT), "--updater-out", str(OUT), "--identity", ctx.identity,
+            "--output", str(ctx.dir / SIGNED), "--crx", "--offline-installer",
+            "--version", ctx.version, "--appid", appid]
+
+
+def draft_command(ctx: Context, publish: Path, notes: Path) -> list[str]:
+    title = f"Project Ghost {ctx.version}" + ("" if ctx.public else f" ({ctx.identity} identity)")
+    command = ["gh", "release", "create", ctx.tag, "--verify-tag", "--title", title,
+               "--notes-file", str(notes), "--prerelease"]
+    if not ctx.public:
+        command.append("--draft")
+    return command + [str(publish / name) for name in PUBLISHED]
+
+
+def stage_command(ctx: Context, crx: Path, appid: str) -> list[str]:
+    return [ctx.python, "-m", "ghost_update.release", "--crx", str(crx), "--appid", appid,
+            "--version", ctx.version, "--identity", ctx.identity, "--host", ctx.host,
+            "--fraction", str(ctx.fraction)]
+
+
+def admin_command(host: str, action: str, appid: str, fraction: float | None = None) -> list[str]:
+    args = ["sudo", "ghost-update-admin", action, "--appid", appid]
+    if fraction is not None:
+        args += ["--fraction", str(fraction)]
+    return ["ssh", host, shlex.join(args)]
+
+
+def release_notes(ctx: Context) -> str:
+    lines = [f"Project Ghost {ctx.version}: Chromium {ctx.chromium_version} with Ghost's patch "
+             f"series, from the tag `{ctx.tag}`.", ""]
+    if ctx.identity in NOT_PUBLIC:
+        lines += ["**Test identity: not for daily use.** This build carries Phase 2's "
+                  f"{ctx.identity} identity: test app IDs, a certificate only test machines "
+                  "trust, and test update keys. Installs of it won't migrate to the final "
+                  "product name.", ""]
+    lines += [
+        "| File | What it is |", "|---|---|",
+        f"| `{offline_installer.OUTPUT_NAME}` | The signed offline installer |",
+        "| `update.crx3` | The update package, with Ghost's publisher proof |",
+        f"| `{sbom.DOCUMENT}` | The SBOM (SPDX 2.2) |",
+        f"| `{provenance.PROVENANCE_FILE}` | How it was built (SLSA Build Level 1, unsigned) |",
+        f"| `{provenance.SUMS_FILE}` | The SHA-256 of each file |", "",
+        "Check them with `python tools/release.py verify <directory>` "
+        "([docs/build/release.md](https://github.com/robyroro/project-ghost/blob/main/docs/"
+        "build/release.md)).",
+    ]
+    return "\n".join(lines) + "\n"
