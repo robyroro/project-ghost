@@ -13,7 +13,7 @@
 | Fingerprinting | Browser tests evaluating script in frames, workers and media queries | Every PR | Consistency, determinism per site, unlinkability across sites, per-mode tiers |
 | Egress audit | Harness driving the packaged browser; NetLog analysis | Nightly and release | No contact with hosts outside the allowlist |
 | Installer smoke | `tools/installer_smoke.py` in Windows Sandbox | Nightly and release | Per-user install, registration, shortcuts, launch, uninstall, cleanup |
-| Updater end to end | `tools/update_smoke.py` in Windows Sandbox, against `tools/update_server.py` | Release; run by hand until the builder runs it | Install through the updater, an applied update, the update request's allow-list, uninstall of the browser and the updater |
+| Updater end to end | `tools/update_smoke.py` in Windows Sandbox, against `tools/update_server.py` | Release; run by hand until the builder runs it | Install through the updater, an applied update, the update request's allow-list, uninstall of the browser and the updater; for signed releases, every PE file's signature, the installer's tag and an update proved by the backup key |
 | Upstream suites | Filtered `unit_tests`, `browser_tests`, `content_browsertests` | Nightly | Upstream behavior our patches touch |
 | Fuzzing | libFuzzer | Nightly, later continuous | List parsing, parameter stripping, manifest parsing, every mojom handler we add |
 | Performance | crossbench (Speedometer 3, JetStream, MotionMark) and a page-load corpus | Nightly | Regression against vanilla Chromium at the same tag; blocking overhead budget |
@@ -58,6 +58,11 @@
   - **privacy:** every request the server logged is an update check (an event request reaches the server scrubbed, as an app without `updatecheck`) and carries only allow-listed keys, and the updater's log names no host but the server;
   - **uninstall:** setup removes the browser, then the updater, woken, finds no app and removes itself, its scheduled task and its registry key.
   - Mutation checks showed each check fails when the hook it covers is undone; the results are in the [spike notes](superpowers/specs/2026-10-02-branded-updater-spike.md#mutation-checks).
+  - **Signed releases** ([signing](signing/README.md)) add these steps and options:
+    - `--codesign-cert` makes the sandbox **trust the signing certificate** (`Root` and `TrustedPublisher`) before the install. Then **signatures**, after the install, requires every PE file under the browser's and the updater's directories to carry a valid signature by that certificate; **signatures after the update** checks the browser's directory again.
+    - `--tagged` runs the offline installer with only `--silent`, so the install succeeds only if its tag names the app.
+    - `--recovery-crx` adds the **recovery update (backup publisher key)** after the update: a third release whose publisher proof is made by the backup key, as when the primary is lost.
+    - Four mutation checks showed these fail as required: a CRX3 proved by a third key, an unsigned `chrome.dll`, an untagged installer, and an updater pinning only the primary publisher key. The results are in the [progress notes](superpowers/specs/2026-10-04-signing-spike.md#mutation-checks).
 
 ## Running the tooling tests
 

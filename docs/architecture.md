@@ -280,12 +280,13 @@ The company directory has no space: the updater's uninstall script, which is ups
 
 **Trust chain.**
 - **Responses: CUP with Ghost's key.** Each update response is signed with ECDSA P-256 over the request hash and the response body. The client holds only Ghost's public key (`branding/cup_key.h`); upstream's keys stay compiled in but unused, so a key rotation stays a one-line change.
-- **Packages: Ghost's publisher proof.** Updates are CRX3 files. The updater accepts only `CRX3_WITH_GHOST_PUBLISHER_PROOF`, a format Ghost adds: the package must carry a signature by the key in `branding/crx_publisher_key.h`. The Chrome Web Store's format is unchanged for extensions.
+- **Packages: Ghost's publisher proof.** Updates are CRX3 files. The updater accepts only `CRX3_WITH_GHOST_PUBLISHER_PROOF`, a format Ghost adds: the package must carry a signature by a key pinned in `branding/crx_publisher_key.h`. The Chrome Web Store's format is unchanged for extensions.
+- **Two publisher keys.** The updater accepts a proof by the identity's primary or its backup (`branding/keys/<identity>.h`, chosen by `ghost_signing_identity`). The primary is in a TPM, the backup offline ([signing](signing/README.md)).
 - **The package's hash** comes from the signed response and is checked before the package is opened.
 
 **The request scrubber** (`components/update_client/request_scrubber.cc`) applies the allow-list to the serialized JSON just before it's sent, so a key that upstream adds later is dropped too. `update_client` sends no event requests. Both sit in `update_client`, which the browser's component updater also uses.
 
-**Testing.** `tools/update_server.py` is a test Omaha server that signs with the test CUP key and serves a CRX3 signed with the test publisher key; both private keys are committed in `test/updater/` and marked test-only. `tools/update_smoke.py` installs from the offline installer in Windows Sandbox, applies an update, checks every request against the allow-list, and uninstalls. The production keys and signed installers are sub-project D.
+**Testing.** `tools/update_server.py` is a test Omaha server that signs with the test CUP key and serves a CRX3 signed with the test publisher key; both private keys are committed in `test/updater/` and marked test-only. `tools/update_smoke.py` installs from the offline installer in Windows Sandbox, applies an update, checks every request against the allow-list, and uninstalls. Signed releases, the key custody and the recovery drill are described in [signing](signing/README.md).
 
 The release process and SLA are in [roadmap.md](roadmap.md#security-release-sla).
 

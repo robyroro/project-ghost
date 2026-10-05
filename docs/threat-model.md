@@ -66,7 +66,7 @@ A change that violates one of these is rejected regardless of its benefit.
   - Pull-request CI never runs on the release builder.
   - Self-hosted runners never run pull requests from forks without a maintainer's approval label, because a public repository with self-hosted runners is otherwise a remote-code-execution vector.
 - **Release builds** are produced from a clean checkout of a tag, on a builder dedicated to releases.
-  - They are signed through a hardware-backed signing service. Releases to Stable require two maintainers' approval.
+  - They are signed with hardware-held keys ([signing](signing/README.md)). Releases to Stable require two maintainers' approval.
   - Each release publishes an SBOM (SPDX) and build provenance (SLSA).
 - **Reproducibility** is a goal we track, not a claim we make. Chromium has deterministic-build infrastructure. We'll measure how close our release builds get before advertising anything.
 
@@ -75,9 +75,10 @@ A change that violates one of these is rejected regardless of its benefit.
 - **Browser updates.** Installers are Authenticode-signed, and update responses are signed with CUP. Clients refuse versions older than the installed one, except for an explicit, signed rollback instruction.
 - **Components.** They are CRX3-signed with our key. Mirrored Google security components (CRLSet, certificate transparency data, file-type policies) keep Google's signatures, which the client verifies unchanged.
 - **Keys.**
-  - Signing keys are held in an HSM or a managed signing service and never on build machines.
+  - The publisher key, which signs every update package, is held in a TPM or a hardware token and never exists as a file on a build machine. A backup publisher key, pinned beside it and kept offline elsewhere, means losing the primary doesn't strand installed browsers ([signing](signing/README.md)).
+  - The CUP key signs each update response live, over the client's nonce, so it is the one signing key on the update server. Its versions let it rotate.
   - Key rotation is supported by shipping the next public key in a signed release before it's used.
-- **Server compromise.** Our update servers never hold signing keys. An attacker who controls the servers can withhold updates, but can't serve malicious ones.
+- **Server compromise.** Our update servers hold only the CUP key. An attacker who controls them can withhold updates, but can't serve malicious ones without the publisher key.
 
 ## Security response
 

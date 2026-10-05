@@ -14,6 +14,8 @@
 
 **Deferred (plan Tasks 13, 14 Step 4, 16 and 17):** by decision on 2026-10-03, the VPS isn't created yet. Nothing has run on a Linux server: `provision.sh`, Caddy's configuration, the nftables rules, the systemd hardening, `find-address`, and the remote and online end-to-end runs are untested beyond their configuration tests. Phase 2's exit criterion "an update shipped end to end to test machines" stays open until they pass.
 
+Since sub-project D, `deploy.py` takes `--cup-key 2=<file>` (the test identity's CUP key, version 2) and `release.py` takes `--identity test`.
+
 The VPS can be temporary: billed by the hour, provisioned with `tools/deploy.py`, deleted after the runs, and provisioned again the same way when the domain and the production keys exist.
 
 ## Measurements

@@ -226,6 +226,12 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - `//ghost`: the update URL is a build argument (`ghost_update_url`); `tools/update_smoke.py` has a remote mode and an online-installer mode. The local end-to-end test still passes.
    - **Not yet verified:** nothing has run on a Linux server. `provision.sh`, the Caddy and nftables configuration, the systemd hardening and the "no addresses kept" check run for the first time on a VPS, with plan Tasks 13, 14 (Step 4) and 16. Deferred by decision on 2026-10-03; a temporary VPS is enough, and the domain can come later.
 4. **D. Signing.** Authenticode, the CUP key, the CRX3 key, and where the keys live.
+
+   **Done 2026-10-05.** `tools/signing.py`, `tpm.py`, `authenticode.py`, `mini_installer.py`, `ceremony.py`, `sign_release.py`; patch 0018 takes two publisher keys; [design](superpowers/specs/2026-10-04-signing-design.md), [progress notes](superpowers/specs/2026-10-04-signing-spike.md), [signing](signing/README.md).
+   - All free, under the test identity: the publisher primary and the Authenticode key in the reference machine's TPM, the publisher backup off this PC (the user's cloud storage, encrypted with a password stretched 600,000 times), the CUP key on the server with versions.
+   - In Windows Sandbox, the signed and tagged offline installer installs with only `--silent`; every installed PE file has a valid signature; the updater takes respin `-2` signed in the TPM, then respin `-3` signed with the backup.
+   - Four mutation checks fail the end-to-end test as required.
+   - Bought hardware (a YubiKey pair) and a bought or donated code-signing certificate come at the end, as a change of backend or certificate.
 5. **E. Release pipeline.** Official build from a tag, SBOM and provenance, staged rollout with a halt switch. It calls `release_version.py write` after `patches.py apply`.
 6. **F. Security release runbook,** and one measured milestone move (to 154).
 

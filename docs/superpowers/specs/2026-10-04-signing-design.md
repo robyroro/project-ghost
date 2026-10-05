@@ -1,6 +1,6 @@
 # Signing: design
 
-- Status: design approved 2026-10-04
+- Status: done 2026-10-05 ([progress notes](2026-10-04-signing-spike.md)); design approved 2026-10-04
 - Phase 2, sub-project D ([roadmap](../../roadmap.md#phase-2-release-engineering))
 - Depends on sub-projects B ([branded updater](2026-10-02-branded-updater-design.md)) and C ([update server](2026-10-03-update-server-design.md))
 
@@ -31,7 +31,7 @@ These were settled in discussion on 2026-10-04:
 
 | Key | Algorithm | Where it lives | Used for |
 |---|---|---|---|
-| Publisher primary, `ProjectGhost-test-publisher-1` | ECDSA P-256 | This PC's TPM, not exportable; a PIN on each use if the spike confirms it | The publisher proof of every update package, once per release |
+| Publisher primary, `ProjectGhost-test-publisher-1` | ECDSA P-256 | This PC's TPM, not exportable; a PIN each time a process opens it (confirmed by the spike) | The publisher proof of every update package, once per release |
 | Publisher backup | ECDSA P-256 | Off this PC: for the test identity, the user's cloud storage (no USB stick on hand, decided 2026-10-04). A PKCS#8 file encrypted with the user's password, stretched by PBKDF2-HMAC-SHA256 600,000 times, so a stolen copy makes each guess expensive | The publisher proof only when the primary is lost or compromised |
 | Authenticode | RSA 2048, in a self-signed code-signing certificate (CertEnroll can't put an ECDSA key in the TPM: [spike](2026-10-04-signing-spike.md)) | This PC's TPM, the certificate in the user's `My` store; no PIN, since a release signs hundreds of files | Every PE file and installer |
 | CUP, version 2 | ECDSA P-256 | A file outside the repository, deployed to the server through `LoadCredential=` (C) | Signing update responses live |
@@ -128,7 +128,7 @@ The runbook in `docs/signing/` covers:
 - **The end-to-end test in Windows Sandbox,** with the test identity:
   - **Inputs:** `ghost_signing_identity = "test"` set in `out/vanilla` and `out/updater`, an incremental rebuild of the targets that include the keys. No new output directory, and none renamed.
   - The Sandbox imports `test_codesign.cer` into `Root` and `TrustedPublisher`.
-  - The offline installer for respin `-1` runs **with no arguments**: the tag supplies them.
+  - The offline installer for respin `-1` runs **with only `--silent`**: the tag supplies the install arguments.
   - Every installed PE file has a `Valid` Authenticode signature.
   - The update `-1 → -2`, its publisher proof made in the TPM.
   - **The recovery drill:** the update `-2 → -3`, its publisher proof made with the backup key. The client must accept it.

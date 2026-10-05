@@ -150,11 +150,11 @@ Then build the installer for a release. `tools\release_version.py` writes the re
 ```
 python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-1
 autoninja -C out\vanilla mini_installer
-python ghost\tools\offline_installer.py --src . --out out\updater --installer out\vanilla\mini_installer.exe --version 152.0.7977.14901 --appid {c0ff4371-d9ab-461e-bffd-6b0dc2430b02} --output D:\scratch\ProjectGhostOfflineSetup.exe
+python ghost\tools\offline_installer.py --src . --out out\updater --installer out\vanilla\mini_installer.exe --version 152.0.7977.14901 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}' --output D:\scratch\ProjectGhostOfflineSetup.exe
 git checkout -- chrome\VERSION
 ```
 
-`offline_installer.py` runs upstream's `sign.py` without signing or tagging. Until installers are signed and tagged (Phase 2, sub-project D), the install arguments go on the command line.
+This is a development build: `offline_installer.py` runs upstream's `sign.py` without signing or tagging, so the install arguments go on the command line, and the build pins the development identity's keys, committed in `test/updater/`. Signed releases are below.
 
 **The end-to-end test** needs a second release as the update. Build respin `-2` the same way, pack it as a CRX3 signed with the test key, then run the test in Windows Sandbox:
 
@@ -163,11 +163,37 @@ python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-2
 autoninja -C out\vanilla mini_installer
 python ghost\tools\update_server.py crx --installer out\vanilla\mini_installer.exe --out D:\scratch\update.crx3
 git checkout -- chrome\VERSION
-python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\ProjectGhostOfflineSetup.exe --release-version 152.0.7977.14901 --update-crx D:\scratch\update.crx3 --update-version 152.0.7977.14902 --appid {c0ff4371-d9ab-461e-bffd-6b0dc2430b02}
+python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\ProjectGhostOfflineSetup.exe --release-version 152.0.7977.14901 --update-crx D:\scratch\update.crx3 --update-version 152.0.7977.14902 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
 ```
 
 - A respin of `mini_installer` takes about 7 minutes on the reference machine (about 400 actions).
 - The test runs in about 4 minutes. It installs, updates from `-1` to `-2`, launches, checks every update request against the allow-list, and uninstalls. What it checks is in [testing.md](../testing.md).
+
+### Signed releases
+
+A signed release is built on the machine that holds the identity's keys ([signing](../signing/README.md)). Both output directories pin the identity's keys, so add to each `args.gn`:
+
+```
+ghost_signing_identity = "test"
+```
+
+Then rebuild: on the reference machine, `out\vanilla` takes about 2 minutes and `out\updater` under 1. Build `mini_installer` for each respin as above, and sign it with `sign_release.py`, which asks for the publisher key's PIN:
+
+```
+python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-1
+autoninja -C out\vanilla mini_installer
+python ghost\tools\sign_release.py --src . --browser-out out\vanilla --identity test --output D:\scratch\r1 --offline-installer --updater-out out\updater --version 152.0.7977.14901 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
+git checkout -- chrome\VERSION
+```
+
+For the update, build respin `-2` and sign it with `--crx` instead of `--offline-installer` and its arguments; for the recovery drill, respin `-3` with `--crx --publisher-backup <file>.p8`, which asks for the backup's password. The test then trusts the certificate, installs with the tag alone, checks every signature and takes both updates:
+
+```
+python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\r1\ProjectGhostOfflineSetup.exe --tagged --codesign-cert ghost\branding\signing\test_codesign.cer --cup-key $HOME\ProjectGhostKeys\test\cup_key_2.json --release-version 152.0.7977.14901 --update-crx D:\scratch\r2\update.crx3 --update-version 152.0.7977.14902 --recovery-crx D:\scratch\r3\update.crx3 --recovery-version 152.0.7977.14903 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
+```
+
+- Signing one respin takes 15–16 minutes, 10 of them repacking `chrome.7z` (LZMA, ultra). It signs, with timestamps, the 919 PE files inside a component build's `mini_installer`, then the installers themselves.
+- The signed test runs in about 7 minutes.
 
 ## Troubleshooting
 
