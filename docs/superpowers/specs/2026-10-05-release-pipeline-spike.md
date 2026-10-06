@@ -15,6 +15,10 @@
 | Memory | Peak commit 45.4 GB; available memory fell to **0.8 GB** during `chrome.dll`'s ThinLTO link (2026-10-06 15:25). It fit, with no room to spare: nothing else should run beside an official link on 32 GB. |
 | `out/release` | 35.7 GB |
 | Free disk | 90.5 GB before, 46.5 GB after |
+| `mini_installer.exe` | 123 MB (a component build's: 462 MB) |
+| `ghost_unittests` in `out/release` | 27 of 27 pass (one more than in the development build: the test identity's own test) |
+| `ghost_browsertests` in `out/release` | **Not built there.** siso scheduled 29,978 actions, then about 14,500 once started (the browser's test support code, then a ThinLTO link): four hours or more at the measured pace, over the plan's three-hour limit. The build was stopped cleanly after a minute. |
+| `ghost_browsertests` in `out/vanilla` | Built in 6.7 min (incremental); 15 of 15 pass in 20 s. `release.py` builds and runs it there (`BROWSERTESTS_OUT`), and the provenance says so. |
 
 **Findings so far:**
 - **An official x64 build needs two of DEPS's `checkout_pgo_profiles` hooks,** not one: Chrome's `win64` profile, and V8's builtins profiles (`v8/tools/builtins-pgo/download_profiles.py`). Without the second, siso stops at once: `x64-rl.profile`, "missing and no known rule to make it". `release.py`'s sync stage runs both.
