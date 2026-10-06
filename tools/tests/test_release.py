@@ -139,19 +139,22 @@ class CommandTest(unittest.TestCase):
             [tool("gn"), "gen", str(release.OUT)],
             [tool("autoninja"), "-C", str(release.OUT), "-j", "10", "chrome", "mini_installer",
              "chrome/updater/win/installer:installer", "chrome/updater/win:signing",
-             "chrome/updater/win:updater", "ghost_unittests", "ghost_browsertests"]])
+             "chrome/updater/win:updater", "ghost_unittests"]])
 
     def test_tests_run_on_the_bits_that_ship(self):
         results = Path(r"C:\r\results")
         commands = release.test_commands(CTX, results)
-        self.assertEqual(commands[0], [str(SRC / release.OUT / "ghost_unittests.exe"),
+        vanilla = Path("out") / "vanilla"
+        self.assertEqual(commands[0], [tool("autoninja"), "-C", str(vanilla), "-j", "10",
+                                       "ghost_browsertests"])
+        self.assertEqual(commands[1], [str(SRC / release.OUT / "ghost_unittests.exe"),
                                        f"--test-launcher-summary-output="
                                        f"{results / 'ghost_unittests.json'}"])
-        self.assertEqual(commands[1][0], str(SRC / release.OUT / "ghost_browsertests.exe"))
-        self.assertEqual(commands[2], ["python.exe", str(WEBOPS / "tools" / "installer_smoke.py"),
+        self.assertEqual(commands[2][0], str(SRC / vanilla / "ghost_browsertests.exe"))
+        self.assertEqual(commands[3], ["python.exe", str(WEBOPS / "tools" / "installer_smoke.py"),
                                        "sandbox", "--installer",
                                        str(SRC / release.OUT / "mini_installer.exe")])
-        self.assertEqual(commands[3], ["python.exe", str(WEBOPS / "tools" / "egress_audit.py"),
+        self.assertEqual(commands[4], ["python.exe", str(WEBOPS / "tools" / "egress_audit.py"),
                                        "run", "--chrome", str(SRC / release.OUT / "chrome.exe"),
                                        "--netlog", str(results / "netlog.json")])
 

@@ -181,9 +181,12 @@ def check(ctx: Context, ci_conclusions=_ci_conclusions) -> list[str]:
 
 SHIPPED_TARGETS = ("chrome", "mini_installer", "chrome/updater/win/installer:installer",
                    "chrome/updater/win:signing", "chrome/updater/win:updater")
-# Where ghost_browsertests is built and run. out/release, unless the spike
-# found its LTO link unaffordable (progress notes); then the development build.
-BROWSERTESTS_OUT = OUT
+# Where ghost_browsertests is built and run: the development build. In the
+# official configuration it is about 14,500 more actions (the browser's test
+# support code, then a ThinLTO link): four hours or more on the reference
+# machine, against minutes in out/vanilla (progress notes). The provenance
+# records where each suite ran.
+BROWSERTESTS_OUT = Path("out") / "vanilla"
 SIGNED = "signed"
 PUBLISH = "publish"
 PUBLISHED = (offline_installer.OUTPUT_NAME, "update.crx3", sbom.DOCUMENT,
