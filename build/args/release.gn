@@ -20,6 +20,15 @@ symbol_level = 1
 # Product name, company and copyright in version resources and About.
 branding_file_path = "//ghost/branding/BRANDING"
 
+# Official builds scramble Mojo message IDs with a salt read from
+# //chrome/VERSION, which tools/release_version.py rewrites for every release.
+# A new salt changes every generated mojom header, and so recompiles most of
+# the browser: a respin cost 13 hours instead of minutes. The salt is
+# upstream's chrome/VERSION at the pin instead (tools/release.py checks the
+# copy), so message IDs change with each Chromium version, as Chrome's do with
+# each of its releases, and stay the same across Ghost's respins of it.
+mojom_message_id_salt_path = "//ghost/build/mojom_message_id_salt"
+
 # Ghost's updater (sub-project B) and the browser's "relaunch to update" prompt.
 enable_updater = true
 enable_update_notifications = true

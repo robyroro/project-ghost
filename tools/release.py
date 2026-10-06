@@ -46,6 +46,8 @@ import sbom
 import signing
 
 OUT = Path("out") / "release"
+# The Mojo message ID salt release.gn names: upstream's chrome/VERSION at the pin.
+SALT = Path("build") / "mojom_message_id_salt"
 DEFAULT_RELEASES = Path.home() / "ProjectGhostReleases"
 DEFAULT_DEPOT_TOOLS = Path(r"C:\src\depot_tools")
 DEFAULT_SERVER_REPO = repo.REPO_ROOT.parent / "project-ghost-update-server"
@@ -171,6 +173,12 @@ def check(ctx: Context, ci_conclusions=_ci_conclusions) -> list[str]:
     if _git(ctx.src, "status", "--porcelain", "--untracked-files=no"):
         problems.append(f"{ctx.src} has local changes, which no release may build: "
                         "commit them to the series or check them out")
+    salt = ctx.webops / SALT
+    upstream = subprocess.run(["git", "-C", str(ctx.src), "show", f"{ctx.base}:chrome/VERSION"],
+                              capture_output=True)
+    if upstream.returncode or not salt.is_file() or salt.read_bytes() != upstream.stdout:
+        problems.append(f"{SALT.as_posix()} is not chrome/VERSION at {ctx.base}: copy it from "
+                        "there (build/args/release.gn says why)")
     args = ctx.out / "args.gn"
     if args.exists() and args.read_text(encoding="utf-8") != render_args(ctx.identity,
                                                                          ctx.update_url):

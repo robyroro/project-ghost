@@ -47,7 +47,8 @@ class ReleaseRepos(GitTestCase):
         subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(self.origin)],
                        check=True)
         self.webops = self.init_repo("webops")
-        self.commit(self.webops, {"CHROMIUM_VERSION": "152.0.7977.149\n"}, "Initial")
+        self.commit(self.webops, {"CHROMIUM_VERSION": "152.0.7977.149\n",
+                                  "build/mojom_message_id_salt": VERSION_FILE}, "Initial")
         self.git(self.webops, "remote", "add", "origin", str(self.origin))
         self.git(self.webops, "tag", "-a", "-m", "Release", TAG)
         self.git(self.webops, "push", "-q", "origin", "main", TAG)
@@ -55,6 +56,7 @@ class ReleaseRepos(GitTestCase):
         self.src = self.init_repo("src")
         self.commit(self.src, {"chrome/VERSION": VERSION_FILE, "README.md": "chromium\n"},
                     "Upstream")
+        self.git(self.src, "tag", "152.0.7977.149")
         self.git(self.tmp, "clone", "-q", str(self.webops), str(self.src / "ghost"))
         with open(self.src / ".git" / "info" / "exclude", "a", encoding="utf-8") as f:
             f.write("/ghost/\n")
@@ -116,6 +118,16 @@ class CheckTest(ReleaseRepos):
     def test_another_configuration_in_out_release_fails(self):
         self.write(self.src, "out/release/args.gn", "is_official_build = false\n")
         self.assertIn("args.gn differs", "\n".join(self.check()))
+
+    def test_the_mojo_salt_must_be_upstreams_version_file(self):
+        self.commit(self.webops, {"build/mojom_message_id_salt": "MAJOR=153\n"}, "Stale salt")
+        self.git(self.webops, "tag", "-a", "-m", "Release", "152.0.7977.149-2")
+        self.git(self.webops, "push", "-q", "origin", "main", "152.0.7977.149-2")
+        self.git(self.src / "ghost", "pull", "-q")
+        ctx = release.Context(tag="152.0.7977.149-2", src=self.src, webops=self.webops)
+        self.assertEqual(self.check(ctx), [
+            "build/mojom_message_id_salt is not chrome/VERSION at refs/tags/152.0.7977.149: "
+            "copy it from there (build/args/release.gn says why)"])
 
     def test_the_same_configuration_passes(self):
         self.write(self.src, "out/release/args.gn", release.render_args("test", None))
