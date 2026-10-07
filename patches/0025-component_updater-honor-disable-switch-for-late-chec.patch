@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Wed, 7 Oct 2026 10:42:14 +0300
+Subject: [PATCH] component_updater: honor disable switch for late checks
+
+Dynamic components, including the on-device model manifest, can register after startup skips RegisterComponentsForUpdate. The component updater then still uses Google's default URLs. Make the component configurator return no update or ping URLs while the switch is present; update_client handles missing URLs without a request.
+
+Why: no extension point controls the component configurator's network URLs after late registration.
+
+Upstream: not upstreamable: Ghost requires the stronger fail-closed meaning of this startup switch until its own component server exists.
+
+diff --git a/chrome/browser/component_updater/chrome_component_updater_configurator.cc b/chrome/browser/component_updater/chrome_component_updater_configurator.cc
+index 744a905fa17d6f54d6e19c16292d7720d4ea5aa4..c3532c632facec057bc49113fa4b7bf19da281c1 100644
+--- a/chrome/browser/component_updater/chrome_component_updater_configurator.cc
++++ b/chrome/browser/component_updater/chrome_component_updater_configurator.cc
+@@ -9,6 +9,7 @@
+ #include <string>
+ #include <vector>
+ 
++#include "base/command_line.h"
+ #include "base/check.h"
+ #include "base/files/file_path.h"
+ #include "base/functional/bind.h"
+@@ -29,6 +30,7 @@
+ #include "chrome/browser/update_client/chrome_update_query_params_delegate.h"
+ #include "chrome/common/channel_info.h"
+ #include "chrome/common/chrome_paths.h"
++#include "chrome/common/chrome_switches.h"
+ #include "components/component_updater/component_updater_command_line_config_policy.h"
+ #include "components/component_updater/configurator_impl.h"
+ #include "components/prefs/pref_service.h"
+@@ -108,6 +110,7 @@ class ChromeConfigurator : public update_client::Configurator {
+ 
+   SEQUENCE_CHECKER(sequence_checker_);
+   ConfiguratorImpl configurator_impl_;
++  const bool component_updates_disabled_;
+   raw_ptr<PrefService, LeakedDanglingUntriaged> pref_service_;
+   std::unique_ptr<update_client::PersistedData> persisted_data_;
+   scoped_refptr<update_client::NetworkFetcherFactory> network_fetcher_factory_;
+@@ -124,6 +127,8 @@ ChromeConfigurator::ChromeConfigurator(const base::CommandLine* cmdline,
+                                        PrefService* pref_service)
+     : configurator_impl_(ComponentUpdaterCommandLineConfigPolicy(cmdline),
+                          /*require_encryption=*/false),
++      component_updates_disabled_(
++          cmdline->HasSwitch(switches::kDisableComponentUpdate)),
+       pref_service_(pref_service),
+       persisted_data_(update_client::CreatePersistedData(
+           base::BindRepeating(
+@@ -161,11 +166,19 @@ base::TimeDelta ChromeConfigurator::UpdateDelay() const {
+ 
+ std::vector<GURL> ChromeConfigurator::UpdateUrl() const {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  // Components can register after the normal startup registration is skipped.
++  // Keep those later checks from contacting the upstream update service too.
++  if (component_updates_disabled_) {
++    return {};
++  }
+   return configurator_impl_.UpdateUrl();
+ }
+ 
+ std::vector<GURL> ChromeConfigurator::PingUrl() const {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  if (component_updates_disabled_) {
++    return {};
++  }
+   return configurator_impl_.PingUrl();
+ }
+ 
