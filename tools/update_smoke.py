@@ -202,18 +202,21 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         return not failures
 
     local = candidate = None
-    if rollout:
-        candidate = candidate_server.CandidateServer(
-            payload, Path(tempfile.mkdtemp(prefix="releases-")), appid, update_version,
-            payload / "update.crx3", payload / CUP_KEY, cup_version, log)
-    elif server is None:
-        local = update_server.UpdateServer(
-            ("127.0.0.1", 8484),
-            update_server.Offer(appid, update_version, payload / "update.crx3",
-                                "mini_installer.exe", "--verbose-logging --do-not-launch-chrome"),
-            update_server.load_key(payload / CUP_KEY), log)
-        threading.Thread(target=local.serve_forever, daemon=True).start()
     try:
+        # Inside the try: a server that can't start is reported in the result
+        # file, which the host waits for.
+        if rollout:
+            candidate = candidate_server.CandidateServer(
+                payload, Path(tempfile.mkdtemp(prefix="releases-")), appid, update_version,
+                payload / "update.crx3", payload / CUP_KEY, cup_version, log)
+        elif server is None:
+            local = update_server.UpdateServer(
+                ("127.0.0.1", 8484),
+                update_server.Offer(appid, update_version, payload / "update.crx3",
+                                    "mini_installer.exe",
+                                    "--verbose-logging --do-not-launch-chrome"),
+                update_server.load_key(payload / CUP_KEY), log)
+            threading.Thread(target=local.serve_forever, daemon=True).start()
         if not step("clean machine", smoke.evaluate_uninstalled(smoke.snapshot(exp), exp)
                     + (["an updater is already installed"] if _updater_exe(exp) else [])):
             return result
@@ -345,6 +348,23 @@ def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
     return result
 
 
+def sandbox_python_problem(rollout_server: Path) -> str | None:
+    """Can the sandbox's Python import the update server's service?
+
+    The sandbox maps only this Python's base installation, not the user's
+    site-packages, where pip may have put a dependency (cffi, for cryptography).
+    """
+    python = Path(sys.base_prefix) / "python.exe"
+    code = (f"import sys; sys.path.insert(0, {str(rollout_server)!r}); "
+            "from ghost_update import cup, identity, manifest, protocol, service")
+    out = subprocess.run([str(python), "-I", "-c", code], capture_output=True, text=True)
+    if out.returncode == 0:
+        return None
+    error = (out.stderr.strip().splitlines() or ["no output"])[-1]
+    return (f"the sandbox's Python ({python}) can't import the update server: {error}. "
+            f"Install what's missing into it: {python} -s -m pip install --no-user <package>")
+
+
 def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
                    update_version: str | None, appid: str, timeout: int,
                    server: str | None = None, server_ssh: str | None = None,
@@ -353,6 +373,11 @@ def run_in_sandbox(installer: Path, crx: Path | None, release_version: str,
                    recovery_crx: Path | None = None,
                    recovery_version: str | None = None,
                    rollout_server: Path | None = None, cup_version: int = 1) -> int:
+    if rollout_server:
+        problem = sandbox_python_problem(rollout_server)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
     payload = Path(tempfile.mkdtemp(prefix="update-payload-"))
     shutil.copy(installer, payload / installer.name)
     if crx:

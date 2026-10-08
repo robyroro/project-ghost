@@ -3,8 +3,13 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import json
+import subprocess
+import tempfile
 import unittest
+import unittest.mock
+from pathlib import Path
 
+import installer_smoke
 import update_smoke
 
 
@@ -136,6 +141,51 @@ class RolloutArgumentsTest(unittest.TestCase):
                                                  "--cup-version", "2"])
         self.assertTrue(args.rollout)
         self.assertEqual(args.cup_version, 2)
+
+
+class SandboxFailureTest(unittest.TestCase):
+    EXP = installer_smoke.Expectations(
+        product_path="Browser", company_path="", app_name="Ghost", prog_id_prefix="GhostHTML",
+        pdf_prog_id_prefix="GhostPDF", url_scheme="ghost", product_name="Project Ghost",
+        company_name="Project Ghost", release_version="1.0.0.1", web_version="1.0.0.1")
+
+    def test_a_server_that_cannot_start_is_reported(self):
+        # The host waits for the result file; without one it waited its whole timeout.
+        missing = ModuleNotFoundError("No module named '_cffi_backend'")
+        with tempfile.TemporaryDirectory() as d, unittest.mock.patch.object(
+                update_smoke.candidate_server, "CandidateServer", side_effect=missing):
+            results = Path(d)
+            result = update_smoke.run(results, results, self.EXP, "{a}", "1.0.0.2",
+                                      rollout=True)
+            self.assertTrue((results / update_smoke.RESULT_FILE).exists())
+        self.assertEqual(result["steps"][-1]["name"], "error")
+        self.assertIn("_cffi_backend", result["steps"][-1]["failures"][0])
+
+    def test_the_sandbox_python_must_import_the_server(self):
+        failed = subprocess.CompletedProcess([], 1, "", "ModuleNotFoundError: No module named "
+                                                       "'_cffi_backend'\n")
+        with unittest.mock.patch.object(update_smoke.subprocess, "run",
+                                        return_value=failed) as run:
+            problem = update_smoke.sandbox_python_problem(Path("srv"))
+        self.assertIn("_cffi_backend", problem)
+        self.assertIn("-s -m pip install --no-user", problem)
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[1], "-I")  # no user site-packages: the sandbox has none
+        self.assertIn("ghost_update", argv[-1])
+
+    def test_a_sandbox_python_that_imports_the_server_is_fine(self):
+        ok = subprocess.CompletedProcess([], 0, "", "")
+        with unittest.mock.patch.object(update_smoke.subprocess, "run", return_value=ok):
+            self.assertIsNone(update_smoke.sandbox_python_problem(Path("srv")))
+
+    def test_no_sandbox_starts_when_its_python_cannot_run_the_server(self):
+        with unittest.mock.patch.object(update_smoke, "sandbox_python_problem",
+                                        return_value="missing"),                 unittest.mock.patch.object(update_smoke.subprocess, "Popen") as popen:
+            code = update_smoke.run_in_sandbox(Path("s.exe"), Path("u.crx3"), "1.0.0.1",
+                                               "1.0.0.2", "{a}", 60, rollout_server=Path("srv"),
+                                               cup_version=2)
+        self.assertEqual(code, 2)
+        popen.assert_not_called()
 
 
 if __name__ == "__main__":
