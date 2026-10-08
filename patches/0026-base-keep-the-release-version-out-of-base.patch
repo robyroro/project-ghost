@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Thu, 8 Oct 2026 06:22:17 +0300
+Subject: [PATCH] base: keep the release version out of //base
+
+Release builds rewrite chrome/VERSION for every respin (ADR 0007). Two
+//base actions read it: check_version_internal, for MAJOR, and
+version_info, whose values patches/0012 already overrides with the
+Chromium release. Each rewrite reran both; their regenerated headers
+rebuilt base and relinked every host tool on top of it (protoc's
+plugins, the DXC and V8 generators, transport_security_state_generator),
+which then regenerated everything they write. With the build timestamp
+(build/args/release.gn), that made a respin of an official build about
+18,000 actions, five hours. Both actions now take MAJOR..PATCH from
+//ghost/build/version.gni, the Chromium release, which changes only
+with the pin. Their outputs are unchanged.
+
+Why: process_version reads chrome/VERSION unconditionally in //base,
+with no way for an embedder to give base another version file.
+Upstream: not upstreamable: upstream builds chrome/VERSION's release
+from scratch or through a content-addressed cache
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/base/BUILD.gn b/base/BUILD.gn
+index ddcc03bf9bec0c0b8d32eabbf01cddd269c887b7..9c178ad963447d89e8dad5cd805985ad66b75693 100644
+--- a/base/BUILD.gn
++++ b/base/BUILD.gn
+@@ -38,6 +38,7 @@ import("//build/nocompile.gni")
+ import("//build/rust/rust_static_library.gni")
+ import("//build/util/process_version.gni")
+ import("//build_overrides/build.gni")
++import("//ghost/build/version.gni")
+ import("//testing/libfuzzer/fuzzer_test.gni")
+ import("//testing/test.gni")
+ import("//third_party/protobuf/proto_library.gni")
+@@ -6490,8 +6491,11 @@ process_version("check_version_internal") {
+   # doesn't need to build base_unittests. If this is required in the future, but
+   # we haven't moved chrome/VERSION, we should ifdef out those tests.
+   if (build_with_chromium) {
+-    sources = [ "//chrome/VERSION" ]
+-    extra_args = [
++    # Ghost: MAJOR from the Chromium release, not chrome/VERSION, which release
++    # builds rewrite for every respin (ADR 0007). Read here, it reran this action
++    # and relinked every host tool built on //base, regenerating their outputs.
++    extra_args = ghost_chromium_version_args
++    extra_args += [
+       "-e",
+       "VERSION_MAJOR=\"%s\" % (MAJOR)",
+       "-e",
+diff --git a/base/version_info/BUILD.gn b/base/version_info/BUILD.gn
+index 5847ef41f696fa67f6a72794eb9ea6955e35447f..0ea7ec20d9e21365b94b84ef023e6dcfa705dba4 100644
+--- a/base/version_info/BUILD.gn
++++ b/base/version_info/BUILD.gn
+@@ -41,13 +41,15 @@ static_library("version_string") {
+ process_version("generate_version_info") {
+   template_file = "version_info_values.h.version"
+   sources = [
+-    "//chrome/VERSION",
+     branding_file_path,
+     lastchange_file,
+   ]
+   output = "$target_gen_dir/version_info_values.h"
+ 
+   # Ghost: report the Chromium release, not chrome/VERSION's release version
+-  # (ADR 0007), to everything that reads version_info.
++  # (ADR 0007), to everything that reads version_info. These arguments set
++  # every value chrome/VERSION would, so it isn't read: release builds rewrite
++  # it for every respin, and as an input it reran this action and recompiled
++  # whatever includes version_info.
+   extra_args = ghost_chromium_version_args
+ }
