@@ -29,6 +29,12 @@ branding_file_path = "//ghost/branding/BRANDING"
 # each of its releases, and stay the same across Ghost's respins of it.
 mojom_message_id_salt_path = "//ghost/build/mojom_message_id_salt"
 
+# Official Windows builds add chrome/VERSION's PATCH to the build timestamp,
+# which goes into every link's /TIMESTAMP, base's build date and DevTools'
+# generated files: a respin relinked every host tool and regenerated all
+# their outputs. Ghost's script adds the Chromium release's PATCH instead.
+compute_build_timestamp = "//ghost/build/compute_build_timestamp.py"
+
 # Ghost's updater (sub-project B) and the browser's "relaunch to update" prompt.
 enable_updater = true
 enable_update_notifications = true
