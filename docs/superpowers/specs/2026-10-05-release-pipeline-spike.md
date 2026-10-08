@@ -34,3 +34,19 @@
 - **An official x64 build needs two of DEPS's `checkout_pgo_profiles` hooks,** not one: Chrome's `win64` profile, and V8's builtins profiles (`v8/tools/builtins-pgo/download_profiles.py`). Without the second, siso stops at once: `x64-rl.profile`, "missing and no known rule to make it". `release.py`'s sync stage runs both.
 - **A build started from a tool's PowerShell dies with it.** `Start-Process` children belong to the tool's process tree, which ends with the command. A long build is started through WMI (`Win32_Process.Create`), outside it.
 - **Windows PowerShell 5.1 turns a native program's stderr into errors.** With `$ErrorActionPreference = "Stop"`, `autoninja … 2>&1` ended the script on siso's first stderr line. `cmd /c "… > log 2>&1"` does the redirection instead.
+- **The end-to-end test's Python lacked cffi.** The sandbox maps only the base Python installation; pip had put `cryptography`'s `cffi` in the user's site-packages, so the update server's service failed to import in the sandbox (`No module named '_cffi_backend'`). It failed before the block that writes the result file, and the host waited its whole hour. `update_smoke.py` now checks, before starting a sandbox, that the base Python imports the service (`python -I`), and reports a server that can't start as the run's error. The fix on this machine: `python -s -m pip install --no-user cffi==2.0.0 pycparser==3.0` (without `-s`, pip sees the user's copy and installs nothing).
+
+## Releases, 2026-10-08
+
+Patch 0025 (late component checks) and the respin fixes (patch 0026, the build timestamp) came after `-1` and `-2`, so the releases this plan names `-1` and `-2` are `-3` and `-4`, both on `547fd5e`. `-1` failed the egress audit; `-2` was stopped twice and never finished.
+
+| Stage | `152.0.7977.149-3` | `152.0.7977.149-4` (respin) |
+|---|---|---|
+| Build | 5 h 42 min, about 31,000 actions: the one-time rerun after the respin fixes; `chrome.dll`'s ThinLTO link about 40 min | **23 min**, 664 actions: version headers and resources, the updater, the installer, `chrome.dll`'s link. `siso_explain` names nothing in `//base` and no host tool. |
+| Test | 15 min: 27/27, 15/15, Sandbox install PASSED, egress audit 0 unexpected | 14 min, the same results |
+| Sign | 7 min | 3 min 20 s |
+| Describe, draft | 1 min | 1 min |
+| Whole run | about 6 h 5 min | **41 min** |
+
+- `release.py verify` passed for both; the drafts' asset digests match the local files.
+- **End to end, `-3` → `-4`** (2026-10-08, 3 min 21 s in Windows Sandbox, the update server's own service on loopback): clean machine, trust the signing certificate, install, signatures, halted (fraction 0), rolled out (fraction 1), signatures after the update, launch, privacy, uninstall: all ok, PASSED.
