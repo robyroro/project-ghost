@@ -65,9 +65,9 @@ A change that violates one of these is rejected regardless of its benefit.
 - **CI isolation.**
   - Pull-request CI never runs on the release builder.
   - Self-hosted runners never run pull requests from forks without a maintainer's approval label, because a public repository with self-hosted runners is otherwise a remote-code-execution vector.
-- **Release builds** are produced from a clean checkout of a tag, on a builder dedicated to releases.
-  - They are signed with hardware-held keys ([signing](signing/README.md)). Releases to Stable require two maintainers' approval.
-  - Each release publishes an SBOM (SPDX) and build provenance (SLSA).
+- **Release builds** are made by `tools/release.py` from a pushed tag whose commit passed CI, on the machine that holds the signing keys ([release.md](build/release.md)). It refuses a checkout with local changes or at another commit.
+  - They are signed with hardware-held keys ([signing](signing/README.md)). Once the project has a second maintainer, releases to Stable require two maintainers' approval.
+  - Each release publishes an SBOM (SPDX) and build provenance (SLSA Build Level 1: complete, not yet signed by a build platform).
 - **Reproducibility** is a goal we track, not a claim we make. Chromium has deterministic-build infrastructure. We'll measure how close our release builds get before advertising anything.
 
 ## Update security

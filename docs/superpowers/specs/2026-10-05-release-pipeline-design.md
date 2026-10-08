@@ -1,6 +1,6 @@
 # Release pipeline: design
 
-- Status: design approved 2026-10-05
+- Status: done 2026-10-08 ([progress notes](2026-10-05-release-pipeline-spike.md)); design approved 2026-10-05
 - Phase 2, sub-project E ([roadmap](../../roadmap.md#phase-2-release-engineering))
 - Depends on sub-projects A ([release version](2026-10-02-release-version-design.md)), B ([branded updater](2026-10-02-branded-updater-design.md)), C ([update server](2026-10-03-update-server-design.md)) and D ([signing](2026-10-04-signing-design.md))
 
@@ -29,7 +29,7 @@ One command turns a release tag into a release: an official build, tested on the
 | `enable_updater`, `enable_update_notifications` | `true` | As in `dev.gn` |
 | `ghost_signing_identity` | `"test"` | D's keys |
 | `ghost_update_url` | the test server's URL | C |
-| `symbol_level` | set by the spike | Full symbols on a Windows official build may not fit the free disk |
+| `symbol_level` | 1 | Full symbols (2, the default for official Windows builds) may not fit the free disk; 1 keeps function names and line tables, and Ghost uploads no crash reports |
 
 Official builds don't load the field-trial testing configuration, so `disable_fieldtrial_testing_config` isn't needed. `out/release` builds every shipped target: `chrome`, `mini_installer`, and the updater with its metainstaller. An official build is static, so the updater needs no output directory of its own.
 
@@ -59,7 +59,7 @@ Official builds don't load the field-trial testing configuration, so `disable_fi
 | `releases.json` (`manifest.py`) | Beside each app's active release, an optional **candidate**: the same fields plus `fraction`, from 0 to 1 |
 | `protocol.py` | Offers the candidate with probability `fraction`, the active release otherwise, from a random source the tests inject. The decision isn't logged. A client already at or above the offered version gets `noupdate`, as now. |
 | `ghost-update-admin` | `stage --fraction F` (a staged package becomes the candidate), `set-fraction F`, `halt` (`fraction` 0), `promote` (the candidate becomes the active release), `drop` |
-| `ghost_update/release.py` | Uploads as the candidate with a fraction, instead of activating |
+| `ghost_update/release.py` | With `--fraction`, uploads as the candidate; without it, activates as before (C's first deployment uses that) |
 
 **One candidate at a time.** If `-2` is halted for a bug, it is dropped and `-3` staged; clients left on `-2` take `-3`, which is newer.
 

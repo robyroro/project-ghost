@@ -282,6 +282,7 @@ The company directory has no space: the updater's uninstall script, which is ups
 - **Responses: CUP with Ghost's key.** Each update response is signed with ECDSA P-256 over the request hash and the response body. The client holds only Ghost's public key (`branding/cup_key.h`); upstream's keys stay compiled in but unused, so a key rotation stays a one-line change.
 - **Packages: Ghost's publisher proof.** Updates are CRX3 files. The updater accepts only `CRX3_WITH_GHOST_PUBLISHER_PROOF`, a format Ghost adds: the package must carry a signature by a key pinned in `branding/crx_publisher_key.h`. The Chrome Web Store's format is unchanged for extensions.
 - **Two publisher keys.** The updater accepts a proof by the identity's primary or its backup (`branding/keys/<identity>.h`, chosen by `ghost_signing_identity`). The primary is in a TPM, the backup offline ([signing](signing/README.md)).
+- **Staged rollout.** The server holds a candidate release beside the active one and offers it to a fraction of update checks, drawn per check because requests carry no identifier; a fraction of 0 halts it ([release.md](build/release.md#rolling-out)).
 - **The package's hash** comes from the signed response and is checked before the package is opened.
 
 **The request scrubber** (`components/update_client/request_scrubber.cc`) applies the allow-list to the serialized JSON just before it's sent, so a key that upstream adds later is dropped too. `update_client` sends no event requests. Both sit in `update_client`, which the browser's component updater also uses.

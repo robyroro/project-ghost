@@ -78,6 +78,6 @@ The first run does everything once:
 
 ## Security
 
-- **The builder holds no secrets.** The workflow's token is read-only, and the build needs no credentials. Signing keys never go on this machine: releases are built and signed on a separate builder from Phase 2 ([testing.md](../testing.md#ci)).
+- **The builder holds no secrets.** The workflow's token is read-only, and the build needs no credentials. Signing keys never go on this machine: releases are built and signed on the release machine ([release.md](release.md#the-release-machine)).
 - **Code from pull requests runs as the builder account.** That is why the account is a standard user on a dedicated machine, and why fork pull requests need a maintainer's label each time.
 - **Network access** is needed to `github.com` and `chromium.googlesource.com`, plus Chromium's dependency hosts during a sync.

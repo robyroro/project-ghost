@@ -50,3 +50,14 @@ Patch 0025 (late component checks) and the respin fixes (patch 0026, the build t
 
 - `release.py verify` passed for both; the drafts' asset digests match the local files.
 - **End to end, `-3` → `-4`** (2026-10-08, 3 min 21 s in Windows Sandbox, the update server's own service on loopback): clean machine, trust the signing certificate, install, signatures, halted (fraction 0), rolled out (fraction 1), signatures after the update, launch, privacy, uninstall: all ok, PASSED.
+
+## Mutation checks
+
+Each change made its check fail, and was undone before the next (2026-10-08, against `-3` and `-4`).
+
+| Change | Result |
+|---|---|
+| A local change in the Chromium checkout (`README.md`) | `release.py run --tag 152.0.7977.149-4` stopped at the checks: "…\src has local changes, which no release may build", exit 1. (It also named this repository being past the tag's commit, which was true.) |
+| A server that ignores the fraction (`Offer.choose` offers always) | The end-to-end test, `-3` → `-4`: "halted (fraction 0)" FAILED, "the server offered 152.0.7977.14904" and "pv is '152.0.7977.14904', expected '152.0.7977.14903'", exit 1 |
+| A wrong hash in the provenance (a copy of `-4`'s files) | `verify`: "provenance.intoto.json: its SHA-256 differs from SHA256SUMS" and "ProjectGhostOfflineSetup.exe: the provenance names another SHA-256", exit 1 |
+| `--public` with the test identity | "the test identity never makes a public release (docs/licensing.md#release-gates)", exit 2 |

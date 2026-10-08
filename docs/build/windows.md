@@ -171,6 +171,8 @@ python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\Projec
 
 ### Signed releases
 
+For a release, `tools/release.py` does all of this and more: see [release.md](release.md). The steps below sign a development build by hand.
+
 A signed release is built on the machine that holds the identity's keys ([signing](../signing/README.md)). Both output directories pin the identity's keys, so add to each `args.gn`:
 
 ```

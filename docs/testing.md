@@ -63,6 +63,7 @@
     - `--tagged` runs the offline installer with only `--silent`, so the install succeeds only if its tag names the app.
     - `--recovery-crx` adds the **recovery update (backup publisher key)** after the update: a third release whose publisher proof is made by the backup key, as when the primary is lost.
     - Four mutation checks showed these fail as required: a CRX3 proved by a third key, an unsigned `chrome.dll`, an untagged installer, and an updater pinning only the primary publisher key. The results are in the [progress notes](superpowers/specs/2026-10-04-signing-spike.md#mutation-checks).
+  - **Rollout** ([release.md](build/release.md#rolling-out)): `--rollout-server` runs the update server repository's own service in the Sandbox and offers the update as its candidate. **halted (fraction 0):** the updater checks and stays on the installed release; **rolled out (fraction 1):** it takes the update. Four mutation checks cover the release pipeline: a local change in the Chromium checkout, a server ignoring the fraction, a wrong hash in the provenance, and `--public` with the test identity ([progress notes](superpowers/specs/2026-10-05-release-pipeline-spike.md#mutation-checks)). The Sandbox maps only the base Python installation, so the service's `cryptography` and its `cffi` must be installed there, not in the user's site-packages (`python -s -m pip install --no-user …`); `update_smoke.py` checks before starting a Sandbox.
 
 ## Running the tooling tests
 

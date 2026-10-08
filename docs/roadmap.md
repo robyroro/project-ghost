@@ -233,6 +233,11 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - Four mutation checks fail the end-to-end test as required.
    - Bought hardware (a YubiKey pair) and a bought or donated code-signing certificate come at the end, as a change of backend or certificate.
 5. **E. Release pipeline.** Official build from a tag, SBOM and provenance, staged rollout with a halt switch. It calls `release_version.py write` after `patches.py apply`.
+   **Done 2026-10-08.** `tools/release.py`, `release_state.py`, `sbom.py`, `provenance.py`, `candidate_server.py`; `build/args/release.gn`, `build/compute_build_timestamp.py`; patches 0025 (late component checks) and 0026 (`//base` takes the Chromium release); in the update server, the candidate and `stage`, `set-fraction`, `halt`, `promote`, `drop`; [design](superpowers/specs/2026-10-05-release-pipeline-design.md), [progress notes](superpowers/specs/2026-10-05-release-pipeline-spike.md), [release.md](build/release.md).
+   - Official builds (ThinLTO, PGO) on the reference machine: 13 h 16 min for a Chromium version, 23 min of build per respin (41 min tag to draft).
+   - `152.0.7977.149-3` and `-4` released as GitHub drafts, each with an SBOM (SPDX), SLSA Build Level 1 provenance and checksums; the egress audit on the official build finds no unexpected host. `-1` failed that audit (a late component check, patch 0025); `-2` was stopped and never finished.
+   - In Windows Sandbox, the update server's own service holds `-4` as a candidate: halted, the updater stays on `-3`; at fraction 1, it takes `-4`.
+   - Four mutation checks fail as required.
 6. **F. Security release runbook,** and one measured milestone move (to 154).
 
 **Exit criteria**
