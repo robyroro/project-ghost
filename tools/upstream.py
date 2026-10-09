@@ -220,7 +220,16 @@ def _move_branch(src: Path, version: str, patches_dir: Path) -> None:
                             f"{src} is back on {start}")
 
 
-def _write_pin(webops: Path, pinned: str, release: Release) -> None:
+# Official builds salt Mojo's message IDs with this byte copy of upstream's
+# chrome/VERSION at the pin (build/args/release.gn); release.py checks it.
+SALT = Path("build") / "mojom_message_id_salt"
+
+
+def _write_pin(webops: Path, pinned: str, release: Release, src: Path) -> None:
+    salt = subprocess.run(["git", "-C", str(src), "show",
+                           f"refs/tags/{release.version}:chrome/VERSION"],
+                          capture_output=True, check=True).stdout
+    (webops / SALT).write_bytes(salt)
     (webops / "CHROMIUM_VERSION").write_text(release.version + "\n", encoding="utf-8",
                                              newline="\n")
     (webops / "CHROMIUM_COMMIT").write_text(release.commit + "\n", encoding="utf-8",
@@ -270,7 +279,7 @@ def bump(version: str, src: Path, webops: Path = repo.REPO_ROOT,
         patches.export(src, tag, patches_dir)
     except patches.PatchError as e:
         raise UpstreamError(str(e)) from None
-    _write_pin(webops, pinned, release)
+    _write_pin(webops, pinned, release, src)
     merged = sum(r.status == "merged" for r in results)
     message = (f"build: move to Chromium {version}\n\n"
                f"A security release of milestone {release.milestone}, published "
@@ -278,7 +287,7 @@ def bump(version: str, src: Path, webops: Path = repo.REPO_ROOT,
                f"lists it. The patch series applies to it: {len(results) - merged} clean, "
                f"{merged} with moved context; patches/ re-exported from ghost/{version}.\n")
     _git(webops, "add", "--", "CHROMIUM_VERSION", "CHROMIUM_COMMIT",
-         "build/requirements.json", "patches")
+         "build/requirements.json", SALT.as_posix(), "patches")
     _git(webops, "commit", "-q", "-F", "-", stdin=message)
     return (f"Moved to Chromium {version}: {src} is on ghost/{version}; committed the pin in "
             f"{webops}. Next: push, wait for CI, tag {version}-1 ({RUNBOOK}).")

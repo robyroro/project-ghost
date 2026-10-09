@@ -141,17 +141,23 @@ REQUIREMENTS = """{{
 """
 
 
+def version_file(version: str) -> str:
+    major, minor, build, patch = version.split(".")
+    return f"MAJOR={major}\nMINOR={minor}\nBUILD={build}\nPATCH={patch}\n"
+
+
 class BumpTest(GitTestCase):
     def make(self, conflicting: bool = False) -> None:
         """Upstream with two tagged releases; src on the series' branch from
         the older; webops pinned to it with the series exported. With
         `conflicting`, the newer release changes the line the patch changes."""
         self.upstream = self.init_repo("upstream")
-        self.old = self.commit(self.upstream, {"a.txt": "one\ntwo\nthree\n", "b.txt": "b\n"},
-                               "149")
+        self.old = self.commit(self.upstream, {"a.txt": "one\ntwo\nthree\n", "b.txt": "b\n",
+                                               "chrome/VERSION": version_file(OLD)}, "149")
         self.git(self.upstream, "tag", "-a", "-m", "149", OLD)
         change = {"a.txt": "one\nzwei\nthree\n"} if conflicting else {"b.txt": "b2\n"}
-        self.new = self.commit(self.upstream, change, "158")
+        self.new = self.commit(self.upstream, {**change, "chrome/VERSION": version_file(NEW)},
+                               "158")
         self.git(self.upstream, "tag", "-a", "-m", "158", NEW)
 
         self.src = self.tmp / "src"
@@ -167,7 +173,8 @@ class BumpTest(GitTestCase):
             patches.export(self.src, f"refs/tags/{OLD}", self.webops / "patches")
         self.commit(self.webops, {"CHROMIUM_VERSION": OLD + "\n",
                                   "CHROMIUM_COMMIT": self.old + "\n",
-                                  "build/requirements.json": REQUIREMENTS.format(v=OLD)}, "pin")
+                                  "build/requirements.json": REQUIREMENTS.format(v=OLD),
+                                  "build/mojom_message_id_salt": version_file(OLD)}, "pin")
         self.webops_head = self.head(self.webops)
 
     def head(self, repo_dir: Path) -> str:
@@ -203,13 +210,17 @@ class BumpTest(GitTestCase):
         self.assertEqual(json.loads(requirements)["chromium_version"], NEW)
         self.assertIn(f"/refs/tags/{NEW}/docs/", requirements)
         self.assertNotIn(OLD, requirements)
+        # Official builds salt Mojo's message IDs with upstream's chrome/VERSION
+        # at the pin (build/args/release.gn): the salt moves with it.
+        self.assertEqual((self.webops / "build" / "mojom_message_id_salt").read_text(
+            encoding="utf-8"), version_file(NEW))
 
         self.assertEqual(self.git(self.webops, "rev-parse", "HEAD~1").strip(), self.webops_head)
         self.assertEqual(self.git(self.webops, "log", "-1", "--format=%s").strip(),
                          f"build: move to Chromium {NEW}")
         changed = set(self.git(self.webops, "show", "--name-only", "--format=", "HEAD").split())
         self.assertLessEqual(changed, {"CHROMIUM_VERSION", "CHROMIUM_COMMIT",
-                                       "build/requirements.json",
+                                       "build/requirements.json", "build/mojom_message_id_salt",
                                        *(f"patches/{p.name}" for p in
                                          (self.webops / "patches").glob("*.patch"))})
         self.assertEqual(self.git(self.webops, "status", "--porcelain"), "")
