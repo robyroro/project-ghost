@@ -19,7 +19,8 @@ These were settled in discussion on 2026-10-09:
 - **The test signing identity stays as it is.** The certificate "Project Ghost Test Code Signing" and the test CUP and publisher keys are throwaway: only test machines trust them. The production identity, made by the same ceremony at the end, is named Shade. A new test ceremony now would cost the PIN and a new backup and prove nothing new.
 - **Every GUID and CLSID stays.** They are random, unique and unseen outside this project.
 - **The logo comes from one source image, through a tool, into committed files** (approach 1 of three). The alternatives were generating icons during the build (every build would need Pillow, and nobody sees the result without building) and copying icons over `chrome/app/theme/chromium/` at apply time (breaks "every change through `git am`", makes `patches.py export` produce binary diffs that `check` rejects).
-- **The source is the raster the user supplied** (1250 px WebP on white), until a vector master arrives. Replacing `branding/logo/source.png` and running the tool again is the whole upgrade. At 16–32 px the white S-shaped gap is expected to blur; a simplified small variant can be added beside the source.
+- **The logo is the user's own work,** made in Photoshop for this project; the user holds its rights. [licensing.md](../../licensing.md#assets) records this.
+- **The source is the raster the user supplied** (1250 px WebP on white), until a larger or transparent export from the Photoshop file, or a vector master, arrives. Replacing `branding/logo/source.png` and running the tool again is the whole upgrade. At 16–32 px the white S-shaped gap is expected to blur; a simplified small variant can be added beside the source.
 - **The trademark is not cleared.** A quick search on 2026-10-09 found no browser named Shade, but found a US application for "SHADES" (Shades Media, Inc., serial 97720908, filed 2022-12-16) covering downloadable software for accessing the internet, plus nearby names (a tab-masking extension called Shade, ShadeYouVPN, NetShade). The name gate in [licensing.md](../../licensing.md#release-gates) stays open until a trademark attorney's search (USPTO and EUIPO) clears it. Until the first public build, renaming again costs only this sub-project's work.
 
 ## The names
@@ -162,7 +163,7 @@ No official release is cut for this sub-project. F's `152.0.7977.158-1` is the f
 ## Documentation
 
 - `branding/README.md`: the name is final; the icons and the tool; how to replace the source.
-- [licensing.md](../../licensing.md#trademarks): "Shade" chosen; the clearance search pending, with the "SHADES" application to check; buying browseshade.com before the first public build. The release gate stays open. Under [Assets](../../licensing.md#assets), where the logo comes from and who holds its rights, as the user states it.
+- [licensing.md](../../licensing.md#trademarks): "Shade" chosen; the clearance search pending, with the "SHADES" application to check; buying browseshade.com before the first public build. The release gate stays open. Under [Assets](../../licensing.md#assets): the logo was drawn for this project by its author, who holds its rights.
 - [architecture.md](../../architecture.md), [windows.md](../../build/windows.md), [release.md](../../build/release.md), [privacy-model.md](../../privacy-model.md): the new names, paths and installer name.
 - [roadmap.md](../../roadmap.md): this sub-project, before F.
 - Earlier specs, plans and the 2026-10-04 ceremony record keep the old name: they record what was true then.
