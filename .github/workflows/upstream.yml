@@ -1,0 +1,39 @@
+# Watches Chromium's Extended Stable channel for Windows and opens an issue
+# when it moves past CHROMIUM_VERSION: a security release to ship within the
+# SLA, or a new milestone (docs/build/security-release.md).
+name: upstream
+
+on:
+  schedule:
+    # Every three hours, off the hour: GitHub delays runs scheduled at :00.
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+# Reads the repository and writes issues and their labels; nothing else.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # Actions are pinned to commit SHAs, as in tooling.yml.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Compare Extended Stable with the pin
+        run: python tools/upstream.py check --json > "$RUNNER_TEMP/check.json"
+      - name: Open the issue it calls for
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python tools/upstream.py report --check "$RUNNER_TEMP/check.json"
