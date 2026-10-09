@@ -218,7 +218,7 @@ Ghost's updater speaks Omaha 4 (JSON). Before a request is sent, an allow-list i
 
 **Removed:** the install ID (`iid`) and install date; the `ping` object with its activity and "days since" counters; hardware details (`hw`), language, domain membership and the OS service pack; the updater's own state (`updaters`); install sources, cohorts and installer attributes; and the text of `data` entries.
 
-A real request, captured by the test update server when an installed browser checked for an update:
+A real request, captured by the test update server when an installed browser checked for an update (before the product was named Shade; the updater now names itself `ShadeUpdater`):
 
 ```json
 {
@@ -255,7 +255,7 @@ The names and the app ID are the development identity; the release identity repl
 - **`requestid` and `sessionid` are random.** A new `requestid` is made for each request and a new `sessionid` for each update session (one check and the downloads it leads to). Neither is stored.
 - **`version` is Ghost's release version; `prodversion` is the Chromium release** ([ADR 0007](adr/0007-version-numbers.md)).
 - **No event requests are sent.** The Omaha protocol reports install and update results in separate "event" pings; Ghost's updater sends none.
-- **Headers.** The request URL carries the response signing key's version and a hash of the request (CUP). The headers name the updater and the apps it checks: `User-Agent: ProjectGhostUpdater <version>`, `X-Goog-Update-Updater`, `X-Goog-Update-AppId` and `X-Goog-Update-Interactivity` (`fg` when a person asked for the check, `bg` otherwise). The `X-Goog-` names are the protocol's; the values are Ghost's.
+- **Headers.** The request URL carries the response signing key's version and a hash of the request (CUP). The headers name the updater and the apps it checks: `User-Agent: ShadeUpdater <version>`, `X-Goog-Update-Updater`, `X-Goog-Update-AppId` and `X-Goog-Update-Interactivity` (`fg` when a person asked for the check, `bg` otherwise). The `X-Goog-` names are the protocol's; the values are Ghost's.
 
 **Third parties the browser may contact on its own:**
 - the Chrome Web Store, when you install or update an extension from it (Google receives those requests);

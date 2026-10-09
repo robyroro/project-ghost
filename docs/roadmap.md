@@ -238,7 +238,13 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - `152.0.7977.149-3` and `-4` released as GitHub drafts, each with an SBOM (SPDX), SLSA Build Level 1 provenance and checksums; the egress audit on the official build finds no unexpected host. `-1` failed that audit (a late component check, patch 0025); `-2` was stopped and never finished.
    - In Windows Sandbox, the update server's own service holds `-4` as a candidate: halted, the updater stays on `-3`; at fraction 1, it takes `-4`.
    - Four mutation checks fail as required.
-6. **F. Security release runbook,** and one measured milestone move (to 154).
+6. **The product name: Shade.** The Windows identity, the installers, the updater, the icons and the release's names, before F so that F's first official release carries them.
+
+   **Done 2026-10-09.** `tools/brand_icons.py`, `pe_resources.py`; `branding/` renamed, `branding/logo/` and `branding/theme/`; patch 0027 (the icons from `//ghost/branding/theme`); the tools read the names from `branding/`; [design](superpowers/specs/2026-10-09-shade-rebrand-design.md), [progress notes](superpowers/specs/2026-10-09-shade-rebrand-spike.md).
+   - Installs as `%LOCALAPPDATA%\Shade\Browser`, named "Shade" in Start, on the taskbar and in Apps & features; the installer smoke test proves the installed `chrome.exe`, `setup.exe` and the installer carry the committed icons. The updater's end-to-end test passes with the new names, and the egress audit finds no unexpected host.
+   - Three mutation checks fail as required.
+   - Still upstream's: "Chromium" in the browser's menus and dialogs (a later sub-project). Open release gates: the trademark search and buying browseshade.com ([licensing](licensing.md#trademarks)).
+7. **F. Security release runbook,** and one measured milestone move (to 154).
 
 **Exit criteria**
 - [ ] An update shipped end to end to test machines.

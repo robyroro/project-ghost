@@ -128,6 +128,7 @@ python ghost\tools\installer_smoke.py sandbox --installer out\vanilla\mini_insta
 - After `chrome` is built, `mini_installer` takes about 2 minutes on the reference machine.
 - A development installer is large: 643 MB, from a 1.7 GB `chrome.7z`. A component build packs every DLL and uses fast compression.
 - The smoke test installs, checks, launches and uninstalls in a fresh Windows Sandbox with no network, and prints each step's result. What it checks is in [testing.md](../testing.md).
+- **Icons** come from `branding/theme/`, generated from the logo by `tools\brand_icons.py` ([branding/README.md](../../branding/README.md#changing-the-logo)); patch 0027 points the build at them. To see whether a program carries the product's icon: `python ghost\tools\pe_resources.py check-icon --ico ghost\branding\theme\win\app.ico out\vanilla\chrome.exe`.
 - **Windows Sandbox** needs Windows 11 Pro or Enterprise with virtualization enabled in the firmware. Enabling it is a system change for the developer to make, as an administrator, followed by a restart:
 
   ```
@@ -150,7 +151,7 @@ Then build the installer for a release. `tools\release_version.py` writes the re
 ```
 python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-1
 autoninja -C out\vanilla mini_installer
-python ghost\tools\offline_installer.py --src . --out out\updater --installer out\vanilla\mini_installer.exe --version 152.0.7977.14901 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}' --output D:\scratch\ProjectGhostOfflineSetup.exe
+python ghost\tools\offline_installer.py --src . --out out\updater --installer out\vanilla\mini_installer.exe --version 152.0.7977.14901 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}' --output D:\scratch\ShadeSetup.exe
 git checkout -- chrome\VERSION
 ```
 
@@ -163,7 +164,7 @@ python ghost\tools\release_version.py write --src . --tag 152.0.7977.149-2
 autoninja -C out\vanilla mini_installer
 python ghost\tools\update_server.py crx --installer out\vanilla\mini_installer.exe --out D:\scratch\update.crx3
 git checkout -- chrome\VERSION
-python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\ProjectGhostOfflineSetup.exe --release-version 152.0.7977.14901 --update-crx D:\scratch\update.crx3 --update-version 152.0.7977.14902 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
+python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\ShadeSetup.exe --release-version 152.0.7977.14901 --update-crx D:\scratch\update.crx3 --update-version 152.0.7977.14902 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
 ```
 
 - A respin of `mini_installer` takes about 7 minutes on the reference machine (about 400 actions).
@@ -191,7 +192,7 @@ git checkout -- chrome\VERSION
 For the update, build respin `-2` and sign it with `--crx` instead of `--offline-installer` and its arguments; for the recovery drill, respin `-3` with `--crx --publisher-backup <file>.p8`, which asks for the backup's password. The test then trusts the certificate, installs with the tag alone, checks every signature and takes both updates:
 
 ```
-python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\r1\ProjectGhostOfflineSetup.exe --tagged --codesign-cert ghost\branding\signing\test_codesign.cer --cup-key $HOME\ProjectGhostKeys\test\cup_key_2.json --release-version 152.0.7977.14901 --update-crx D:\scratch\r2\update.crx3 --update-version 152.0.7977.14902 --recovery-crx D:\scratch\r3\update.crx3 --recovery-version 152.0.7977.14903 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
+python ghost\tools\update_smoke.py sandbox --offline-installer D:\scratch\r1\ShadeSetup.exe --tagged --codesign-cert ghost\branding\signing\test_codesign.cer --cup-key $HOME\ProjectGhostKeys\test\cup_key_2.json --release-version 152.0.7977.14901 --update-crx D:\scratch\r2\update.crx3 --update-version 152.0.7977.14902 --recovery-crx D:\scratch\r3\update.crx3 --recovery-version 152.0.7977.14903 --appid '{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}'
 ```
 
 - Signing one respin takes 15–16 minutes, 10 of them repacking `chrome.7z` (LZMA, ultra). It signs, with timestamps, the 919 PE files inside a component build's `mini_installer`, then the installers themselves.

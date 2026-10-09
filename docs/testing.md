@@ -12,7 +12,7 @@
 | Isolation contract | Browser tests, table-driven | Every PR | Every storage mechanism × every boundary; see [architecture.md](architecture.md#testing-isolation) |
 | Fingerprinting | Browser tests evaluating script in frames, workers and media queries | Every PR | Consistency, determinism per site, unlinkability across sites, per-mode tiers |
 | Egress audit | Harness driving the packaged browser; NetLog analysis | Nightly and release | No contact with hosts outside the allowlist |
-| Installer smoke | `tools/installer_smoke.py` in Windows Sandbox | Nightly and release | Per-user install, registration, shortcuts, launch, uninstall, cleanup |
+| Installer smoke | `tools/installer_smoke.py` in Windows Sandbox | Nightly and release | Per-user install, registration, shortcuts, the product's icons, launch, uninstall, cleanup |
 | Updater end to end | `tools/update_smoke.py` in Windows Sandbox, against `tools/update_server.py` | Release; run by hand until the builder runs it | Install through the updater, an applied update, the update request's allow-list, uninstall of the browser and the updater; for signed releases, every PE file's signature, the installer's tag and an update proved by the backup key |
 | Upstream suites | Filtered `unit_tests`, `browser_tests`, `content_browsertests` | Nightly | Upstream behavior our patches touch |
 | Fuzzing | libFuzzer | Nightly, later continuous | List parsing, parameter stripping, manifest parsing, every mojom handler we add |
@@ -39,7 +39,7 @@
   - **Blind spot:** NetLog sees only Chromium's network stack. Crashpad uploads crash reports from its own process, so crash upload stays disabled rather than relying on this audit.
   - **Not covered: payment cards.** Autofill handles cards only on HTTPS pages, and the loopback site is HTTP. Card requests to Google's payments servers carry an OAuth token for the signed-in Google account, and Ghost builds can't sign in.
 
-- **The installer smoke test** is `tools/installer_smoke.py`. `sandbox --installer <mini_installer.exe>` runs it in a fresh Windows Sandbox with no network ([build/windows.md](build/windows.md#installer)). Expected names come from `branding/` and `CHROMIUM_VERSION`.
+- **The installer smoke test** is `tools/installer_smoke.py`. `sandbox --installer <mini_installer.exe>` runs it in a fresh Windows Sandbox with no network ([build/windows.md](build/windows.md#installer)). Expected names come from `branding/` and `CHROMIUM_VERSION`. It also checks the icons: the installer's, the installed `chrome.exe`'s and `setup.exe`'s first icon group (the one Explorer shows) must be `branding/theme/win/app.ico` byte for byte, and `chrome.exe` must carry the document icons; `tools/pe_resources.py` reads them, with the standard library only, so it runs in the Sandbox.
   - **After install:**
     - the browser and `setup.exe` are in place;
     - Apps & features shows the product name, publisher and version;
@@ -71,6 +71,8 @@
 python -m unittest discover -s tools/tests -t tools
 python tools/lint.py
 ```
+
+They need the packages in `tools/requirements.txt` (`python -m pip install -r tools/requirements.txt`), Pillow among them: `test_brand_icons.py` regenerates every icon from `branding/logo/` and compares it with the committed `branding/theme/`, by decoded pixels, so PNG compression differences between platforms don't matter. Without Pillow the test fails rather than skips.
 
 The tooling tests run git with system and global config disabled. The CI runners' `core.autocrlf` and the developer's `diff.*` and `format.*` settings therefore can't change results.
 

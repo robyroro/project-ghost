@@ -268,10 +268,10 @@ Ghost uses Chrome's install model: a small metainstaller installs the updater, a
 
 | What | Where |
 |---|---|
-| Browser | `%LOCALAPPDATA%\ProjectGhost\Browser\Application` |
-| Updater | `%LOCALAPPDATA%\ProjectGhost\ProjectGhostUpdater\<version>\updater.exe`, with a scheduled task |
-| Browser settings | `HKCU\Software\ProjectGhost\Browser` |
-| Registration | `HKCU\Software\ProjectGhost\Update\Clients\{appid}` (`pv`, the installed release version) and `ClientState\{appid}` |
+| Browser | `%LOCALAPPDATA%\Shade\Browser\Application` |
+| Updater | `%LOCALAPPDATA%\Shade\ShadeUpdater\<version>\updater.exe`, with a scheduled task |
+| Browser settings | `HKCU\Software\Shade\Browser` |
+| Registration | `HKCU\Software\Shade\Update\Clients\{appid}` (`pv`, the installed release version) and `ClientState\{appid}` |
 
 The company directory has no space: the updater's uninstall script, which is upstream's, can't handle one.
 

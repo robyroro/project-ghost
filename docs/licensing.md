@@ -65,6 +65,7 @@ Every release must:
 ## Assets
 
 - Icons are drawn for this project or taken from permissively licensed sets (Apache-2.0 Material Symbols, which Chromium already ships).
+- The logo was drawn for this project by its author, who holds its rights; `branding/logo/` holds the source.
 - Fonts are system fonts, or fonts under the SIL Open Font License.
 - The Code of Conduct is adapted from the Contributor Covenant 2.1 (CC BY 4.0), with attribution kept in the file.
 
@@ -85,7 +86,9 @@ These must be settled, and recorded in an ADR, before the first public build.
 
 ## Trademarks
 
-- "Ghost" is a working name.
+- **The product is "Shade"** (decided 2026-10-09); "Ghost" stays as the internal codename, which users never see.
+- **Not cleared yet.** A quick search on 2026-10-09 found no browser named Shade, but found a US trademark application for "SHADES" (Shades Media, Inc., serial 97720908, filed 2022-12-16) covering downloadable software for accessing the internet, and nearby names: a tab-masking browser extension called Shade, ShadeYouVPN, NetShade. A trademark attorney's search (USPTO and EUIPO) decides the release gate.
+- **The domain, browseshade.com, isn't bought yet.** Identifiers such as `com.browseshade.browser` work without it, but would have to change if someone else registered it. Buy it before the first public build.
 - **Ghost Browser** (ghostbrowser.com) is an existing Chromium-based browser that offers color-coded per-tab "Identities" with per-identity proxies. That's the same name, the same feature term and an overlapping audience. Ghostery also operates in the browser-privacy space.
 - We treat "Ghost" as unavailable for the product, and will choose a user-facing term for identities that doesn't collide.
 

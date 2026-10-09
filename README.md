@@ -1,8 +1,8 @@
-# Ghost (working name)
+# Shade
 
-Ghost is an open-source desktop browser built on Chromium. Its design goals are privacy by default and browsing identities that are properly isolated from each other.
+Shade is an open-source desktop browser built on Chromium. Its design goals are privacy by default and browsing identities that are properly isolated from each other.
 
-"Ghost" is a codename. The product will ship under a different name, because at least one existing Chromium-based browser already uses it (see [licensing: trademarks](docs/licensing.md#trademarks)). Everything user-visible is confined to `branding/`, so the rename touches one directory.
+The product is named Shade; "Ghost" is the codename that stays in the code (`//ghost`, the patches, this repository's name). Everything user-visible is confined to `branding/`, so a rename touches one directory. The name's trademark clearance is still open ([licensing: trademarks](docs/licensing.md#trademarks)).
 
 ## Status
 

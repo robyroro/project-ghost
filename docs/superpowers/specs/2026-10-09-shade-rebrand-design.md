@@ -1,6 +1,6 @@
 # The product name, Shade: design
 
-- Status: design approved 2026-10-09
+- Status: done 2026-10-09 ([progress notes](2026-10-09-shade-rebrand-spike.md)); design approved 2026-10-09
 - Phase 2, done before sub-project F ([roadmap](../../roadmap.md#phase-2-release-engineering)): F's first security release is the first official build under the final name
 - Depends on sub-projects B ([branded updater](2026-10-02-branded-updater-design.md)), D ([signing](2026-10-04-signing-design.md)) and E ([release pipeline](2026-10-05-release-pipeline-design.md))
 
