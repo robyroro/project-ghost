@@ -171,7 +171,13 @@ def check(ctx: Context, ci_conclusions=_ci_conclusions) -> list[str]:
                             f"{commit[:12]}")
         if _git(path, "status", "--porcelain"):
             problems.append(f"{name} has uncommitted or untracked files")
-    if _git(ctx.src, "status", "--porcelain", "--untracked-files=no"):
+    status = ["status", "--porcelain", "--untracked-files=no"]
+    if not builder.is_synced(ctx.root, _pin(ctx)):
+        # The pin moved (upstream.py bump) and the sync stage hasn't run: the
+        # dependencies are still checked out at the old DEPS, so every gitlink
+        # that moved shows as modified. sync checks them out by hash.
+        status.append("--ignore-submodules=all")
+    if _git(ctx.src, *status):
         problems.append(f"{ctx.src} has local changes, which no release may build: "
                         "commit them to the series or check them out")
     salt = ctx.webops / SALT

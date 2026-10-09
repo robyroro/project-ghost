@@ -48,6 +48,7 @@ class ReleaseRepos(GitTestCase):
                        check=True)
         self.webops = self.init_repo("webops")
         self.commit(self.webops, {"CHROMIUM_VERSION": "152.0.7977.149\n",
+                                  "CHROMIUM_COMMIT": "a" * 40 + "\n",
                                   "build/mojom_message_id_salt": VERSION_FILE}, "Initial")
         self.git(self.webops, "remote", "add", "origin", str(self.origin))
         self.git(self.webops, "tag", "-a", "-m", "Release", TAG)
@@ -115,6 +116,22 @@ class CheckTest(ReleaseRepos):
         self.write(self.src, "README.md", "changed\n")
         self.assertIn("has local changes", "\n".join(self.check()))
 
+    def test_dependencies_may_differ_from_deps_only_until_the_pin_is_synced(self):
+        # After `upstream.py bump`, the new tag's gitlinks name other commits
+        # than the dependencies checked out; the sync stage moves them.
+        dep = self.init_repo("dep")
+        self.commit(dep, {"d.txt": "1\n"}, "1")
+        self.git(self.src, "-c", "protocol.file.allow=always", "submodule", "add", "-q",
+                 dep.as_uri(), "third_party/dep")
+        self.git(self.src, "commit", "-q", "-m", "Add dep")
+        moved = self.commit(dep, {"d.txt": "2\n"}, "2")
+        self.git(self.src / "third_party" / "dep", "fetch", "-q", "origin")
+        self.git(self.src / "third_party" / "dep", "checkout", "-q", moved)
+        self.assertEqual(self.check(), [])
+        pin = (self.webops / "CHROMIUM_COMMIT").read_text(encoding="utf-8").strip()
+        (self.ctx.root / release.builder.SYNC_STAMP).write_text(pin + "\n", encoding="utf-8")
+        self.assertIn("has local changes", "\n".join(self.check()))
+
     def test_another_configuration_in_out_release_fails(self):
         self.write(self.src, "out/release/args.gn", "is_official_build = false\n")
         self.assertIn("args.gn differs", "\n".join(self.check()))
@@ -136,8 +153,13 @@ class CheckTest(ReleaseRepos):
 
 SRC = Path(r"C:\w\chromium\src")
 DEPOT = Path(r"C:\src\depot_tools")
-WEBOPS = release.repo.REPO_ROOT  # its CHROMIUM_VERSION, 152.0.7977.149, gives the versions
-CTX = release.Context(tag=TAG, src=SRC, webops=WEBOPS, depot_tools=DEPOT,
+WEBOPS = release.repo.REPO_ROOT
+# The commands are built from this repository's pin, which moves with every
+# security release: the versions below follow it.
+PIN = release.repo.read_chromium_version()
+LIVE_TAG = f"{PIN}-1"
+LIVE_VERSION = f"{PIN.rsplit('.', 1)[0]}.{int(PIN.rsplit('.', 1)[1]) * 100 + 1}"
+CTX = release.Context(tag=LIVE_TAG, src=SRC, webops=WEBOPS, depot_tools=DEPOT,
                       releases=Path(r"C:\r"), python="python.exe")
 
 
@@ -174,27 +196,28 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(release.sign_command(CTX, "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}"), [
             "python.exe", str(WEBOPS / "tools" / "sign_release.py"), "--src", str(SRC),
             "--browser-out", str(release.OUT), "--updater-out", str(release.OUT),
-            "--identity", "test", "--output", str(Path(r"C:\r") / TAG / "signed"),
-            "--crx", "--offline-installer", "--version", "152.0.7977.14901",
+            "--identity", "test", "--output", str(Path(r"C:\r") / LIVE_TAG / "signed"),
+            "--crx", "--offline-installer", "--version", LIVE_VERSION,
             "--appid", "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}"])
 
     def test_a_draft_unless_public(self):
         publish, notes = Path(r"C:\r\p"), Path(r"C:\r\notes.md")
         draft = release.draft_command(CTX, publish, notes)
-        self.assertEqual(draft[:10], ["gh", "release", "create", TAG, "--verify-tag", "--title",
-                                      "Shade 152.0.7977.14901 (test identity)",
+        self.assertEqual(draft[:10], ["gh", "release", "create", LIVE_TAG, "--verify-tag",
+                                      "--title", f"Shade {LIVE_VERSION} (test identity)",
                                       "--notes-file", str(notes), "--prerelease"])
         self.assertIn("--draft", draft)
         self.assertEqual(draft[-5:], [str(publish / name) for name in release.PUBLISHED])
-        public = release.Context(tag=TAG, src=SRC, webops=WEBOPS, identity="prod", public=True)
+        public = release.Context(tag=LIVE_TAG, src=SRC, webops=WEBOPS, identity="prod",
+                                 public=True)
         self.assertNotIn("--draft", release.draft_command(public, publish, notes))
 
     def test_stage_uploads_the_candidate(self):
-        ctx = release.Context(tag=TAG, src=SRC, webops=WEBOPS, host="ghost@203.0.113.5",
+        ctx = release.Context(tag=LIVE_TAG, src=SRC, webops=WEBOPS, host="ghost@203.0.113.5",
                               fraction=0.01, python="python.exe")
         self.assertEqual(release.stage_command(ctx, Path(r"C:\r\update.crx3"), "{a}"), [
             "python.exe", "-m", "ghost_update.release", "--crx", str(Path(r"C:\r\update.crx3")),
-            "--appid", "{a}", "--version", "152.0.7977.14901", "--identity", "test",
+            "--appid", "{a}", "--version", LIVE_VERSION, "--identity", "test",
             "--host", "ghost@203.0.113.5", "--fraction", "0.01"])
 
     def test_admin_commands(self):
@@ -210,7 +233,7 @@ class NotesTest(unittest.TestCase):
         notes = release.release_notes(CTX)
         self.assertIn("**Test identity: not for daily use.**", notes)
         self.assertIn("won't migrate", notes)
-        self.assertIn("152.0.7977.149", notes)
+        self.assertIn(PIN, notes)
         for name in release.PUBLISHED:
             self.assertIn(f"`{name}`", notes)
 
