@@ -1,3 +1,7 @@
-# Python packages the tools need beyond the standard library. Only
-# tools/signing.py's offline backup uses one. CI installs this file.
+# Python packages the tools need beyond the standard library. CI installs
+# this file.
+# - cryptography: tools/signing.py's offline backup key.
+# - Pillow: tools/brand_icons.py, which makes the icons from branding/logo/.
+#   Pinned, because the committed icons are its output.
 cryptography==50.0.0
+Pillow==12.2.0
