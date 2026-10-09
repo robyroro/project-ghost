@@ -1,0 +1,246 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Fri, 9 Oct 2026 08:31:43 +0300
+Subject: [PATCH] =?UTF-8?q?=EF=BB=BFtheme:=20take=20the=20product=20icons?=
+ =?UTF-8?q?=20from=20//ghost/branding/theme?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Points the browser's, the installers' and the updater's icons, the Start
+tiles, and the product logos packed for the UI and WebUI at the files
+tools/brand_icons.py generates in //ghost/branding/theme, on Windows.
+Other platforms keep Chromium's. The incognito and app-list icons stay
+upstream's: they carry no product logo.
+
+grit looks a scaled image up as default_<scale>_percent/<file>, so one
+path can't name three scales: each scale has its own branch on the
+output context.
+
+Why: Chromium picks its icons by branding_path_component and names them directly in .rc files, with no argument for another brand.
+Upstream: not upstreamable: product-specific branding
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
+index a33fe738ba4a36e9419bdd39ecf0f4a68b8a32c8..d2ab33dbb8fab450629cc91b5806595ad4ff3bb7 100644
+--- a/chrome/BUILD.gn
++++ b/chrome/BUILD.gn
+@@ -1565,8 +1565,8 @@ if (is_win) {
+ 
+ copy("visual_elements_resources") {
+   sources = [
+-    "//chrome/app/theme/$branding_path_component/win/tiles/Logo.png",
+-    "//chrome/app/theme/$branding_path_component/win/tiles/SmallLogo.png",
++    "//ghost/branding/theme/win/tiles/Logo.png",
++    "//ghost/branding/theme/win/tiles/SmallLogo.png",
+     "app/visual_elements_resources/chrome.VisualElementsManifest.xml",
+   ]
+ 
+diff --git a/chrome/app/chrome_dll.rc b/chrome/app/chrome_dll.rc
+index 02e08e0d4904342e50d3af2e6465cbc0f8bc1c6b..4352d5e9daaf5cde8bc509a94db607e348cb8e3c 100644
+--- a/chrome/app/chrome_dll.rc
++++ b/chrome/app/chrome_dll.rc
+@@ -174,7 +174,7 @@ IDR_X005_BETA       ICON                        "theme\google_chrome\win\chrome_
+ #elif BUILDFLAG(GOOGLE_CHROME_FOR_TESTING_BRANDING)
+ IDR_MAINFRAME       ICON                        "theme\google_chrome\google_chrome_for_testing\win\chrome.ico"
+ #else
+-IDR_MAINFRAME       ICON                        "theme\chromium\win\chromium.ico"
++IDR_MAINFRAME       ICON                        "ghost/branding/theme/win/app.ico"
+ #endif
+ 
+ // We include these resources because all ICON types need to be in the
+diff --git a/chrome/app/chrome_exe.rc b/chrome/app/chrome_exe.rc
+index 7d8d4c39f798834fd6f7cfa1845f56515c2c338f..0dd9f3c0e7ec59b53bcfc7b5179e5a8b943ae164 100644
+--- a/chrome/app/chrome_exe.rc
++++ b/chrome/app/chrome_exe.rc
+@@ -56,7 +56,7 @@ IDR_SXS                 ICON       "theme\\google_chrome\\win\\chrome_sxs.ico"
+ #elif BUILDFLAG(GOOGLE_CHROME_FOR_TESTING_BRANDING)
+ IDR_MAINFRAME           ICON       "theme\\google_chrome\\google_chrome_for_testing\\win\\chrome.ico"
+ #else
+-IDR_MAINFRAME           ICON       "theme\\chromium\\win\\chromium.ico"
++IDR_MAINFRAME           ICON       "ghost/branding/theme/win/app.ico"
+ #endif
+ 
+ // Start a naming scheme to keep icons in order. A leading X is used to keep
+@@ -75,8 +75,8 @@ IDR_X007_PDF_DOC        ICON       "theme\\google_chrome\\win\\chrome_pdf.ico"
+ #else
+ IDR_X001_APP_LIST       ICON       "theme\\chromium\\win\\app_list.ico"
+ IDR_X003_INCOGNITO      ICON       "theme\\chromium\\win\\incognito.ico"
+-IDR_X006_HTML_DOC       ICON       "theme\\chromium\\win\\chromium_doc.ico"
+-IDR_X007_PDF_DOC        ICON       "theme\\chromium\\win\\chromium_pdf.ico"
++IDR_X006_HTML_DOC       ICON       "ghost/branding/theme/win/doc.ico"
++IDR_X007_PDF_DOC        ICON       "ghost/branding/theme/win/pdf.ico"
+ #endif
+ 
+ 
+diff --git a/chrome/app/theme/chrome_unscaled_resources.grd b/chrome/app/theme/chrome_unscaled_resources.grd
+index fe78c61bd857d70531779a40e732700829571ff8..9036473a4cd1c5164f1c80e60fb00a06ac5ae29d 100644
+--- a/chrome/app/theme/chrome_unscaled_resources.grd
++++ b/chrome/app/theme/chrome_unscaled_resources.grd
+@@ -21,9 +21,18 @@
+           <include name="IDR_PRODUCT_LOGO_256" file="${branding_path_component}/linux/product_logo_256.png" type="BINDATA" />
+         </then>
+         <else>
+-          <include name="IDR_PRODUCT_LOGO_64" file="${branding_path_component}/product_logo_64.png" type="BINDATA" />
+-          <include name="IDR_PRODUCT_LOGO_128" file="${branding_path_component}/product_logo_128.png" type="BINDATA" />
+-          <include name="IDR_PRODUCT_LOGO_256" file="${branding_path_component}/product_logo_256.png" type="BINDATA" />
++          <if expr="is_win">
++            <then>
++              <include name="IDR_PRODUCT_LOGO_64" file="../../../ghost/branding/theme/product_logo_64.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_128" file="../../../ghost/branding/theme/product_logo_128.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_256" file="../../../ghost/branding/theme/product_logo_256.png" type="BINDATA" />
++            </then>
++            <else>
++              <include name="IDR_PRODUCT_LOGO_64" file="${branding_path_component}/product_logo_64.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_128" file="${branding_path_component}/product_logo_128.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_256" file="${branding_path_component}/product_logo_256.png" type="BINDATA" />
++            </else>
++          </if>
+         </else>
+       </if>
+       <if expr="is_macosx">
+@@ -84,14 +93,32 @@
+               <include name="IDR_PRODUCT_LOGO_128_CFT_SHORTCUTS" file="google_chrome/google_chrome_for_testing/product_logo_128.png" type="BINDATA" />
+             </then>
+             <else> <!-- not _is_chrome_for_testing_branded -->
+-              <include name="IDR_PRODUCT_LOGO_SVG" file="${branding_path_component}/product_logo.svg" type="BINDATA" />
+-              <include name="IDR_PRODUCT_LOGO_ANIMATION_SVG" file="${branding_path_component}/product_logo_animation.svg" type="BINDATA" />
++              <if expr="is_win">
++                <then>
++                  <include name="IDR_PRODUCT_LOGO_SVG" file="../../../ghost/branding/theme/product_logo.svg" type="BINDATA" />
++                  <include name="IDR_PRODUCT_LOGO_ANIMATION_SVG" file="../../../ghost/branding/theme/product_logo.svg" type="BINDATA" />
++                </then>
++                <else>
++                  <include name="IDR_PRODUCT_LOGO_SVG" file="${branding_path_component}/product_logo.svg" type="BINDATA" />
++                  <include name="IDR_PRODUCT_LOGO_ANIMATION_SVG" file="${branding_path_component}/product_logo_animation.svg" type="BINDATA" />
++                </else>
++              </if>
+             </else>
+           </if> <!-- _is_chrome_for_testing_branded -->
+-            <include name="IDR_PRODUCT_LOGO_16_SHORTCUTS" file="chromium/product_logo_16.png" type="BINDATA" />
+-            <include name="IDR_PRODUCT_LOGO_24_SHORTCUTS" file="chromium/product_logo_24.png" type="BINDATA" />
+-            <include name="IDR_PRODUCT_LOGO_64_SHORTCUTS" file="chromium/product_logo_64.png" type="BINDATA" />
+-            <include name="IDR_PRODUCT_LOGO_128_SHORTCUTS" file="chromium/product_logo_128.png" type="BINDATA" />
++          <if expr="is_win">
++            <then>
++              <include name="IDR_PRODUCT_LOGO_16_SHORTCUTS" file="../../../ghost/branding/theme/product_logo_16.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_24_SHORTCUTS" file="../../../ghost/branding/theme/product_logo_24.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_64_SHORTCUTS" file="../../../ghost/branding/theme/product_logo_64.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_128_SHORTCUTS" file="../../../ghost/branding/theme/product_logo_128.png" type="BINDATA" />
++            </then>
++            <else>
++              <include name="IDR_PRODUCT_LOGO_16_SHORTCUTS" file="chromium/product_logo_16.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_24_SHORTCUTS" file="chromium/product_logo_24.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_64_SHORTCUTS" file="chromium/product_logo_64.png" type="BINDATA" />
++              <include name="IDR_PRODUCT_LOGO_128_SHORTCUTS" file="chromium/product_logo_128.png" type="BINDATA" />
++            </else>
++          </if>
+         </else>
+       </if> <!-- _google_chrome -->
+       <!-- NOTE: product_logo_*.* files beyond what's listed above are
+diff --git a/chrome/app/theme/theme_resources.grd b/chrome/app/theme/theme_resources.grd
+index 1613917dbde6a017ceb04be03b7559b581c96a86..356940f0c5dd78eaa380ad02cb533931ef3a6aa9 100644
+--- a/chrome/app/theme/theme_resources.grd
++++ b/chrome/app/theme/theme_resources.grd
+@@ -175,7 +175,24 @@
+       </if>
+       <structure type="chrome_scaled_image" name="IDR_PLUGINS_FAVICON" file="common/favicon_plugins.png" />
+       <structure type="chrome_scaled_image" name="IDR_PRERENDER" file="common/prerender_succeed_icon.png" />
+-      <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_32" file="${branding_path_component}/product_logo_32.png" />
++      <if expr="is_win">
++        <then>
++          <!-- grit looks a scaled image up as default_<scale>_percent/<file>, so
++               each scale names its own file in //ghost/branding/theme. -->
++          <if expr="context == 'default_100_percent'">
++            <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_32" file="../../../../ghost/branding/theme/default_100_percent/product_logo_32.png" />
++          </if>
++          <if expr="context == 'default_200_percent'">
++            <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_32" file="../../../../ghost/branding/theme/default_200_percent/product_logo_32.png" />
++          </if>
++          <if expr="context == 'default_300_percent'">
++            <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_32" file="../../../../ghost/branding/theme/default_300_percent/product_logo_32.png" />
++          </if>
++        </then>
++        <else>
++          <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_32" file="${branding_path_component}/product_logo_32.png" />
++        </else>
++      </if>
+       <if expr="not is_android">
+           <structure type="chrome_scaled_image" name="IDR_PRICE_TRACKING_ON_IOS_ICON" file="common/price_tracking_on_ios.png" />
+       </if>
+@@ -207,7 +224,22 @@
+               <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_16" file="${branding_path_component}/linux/product_logo_16.png" />
+             </then>
+             <else>
+-              <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_16" file="${branding_path_component}/product_logo_16.png" />
++              <if expr="is_win">
++                <then>
++                  <if expr="context == 'default_100_percent'">
++                    <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_16" file="../../../../ghost/branding/theme/default_100_percent/product_logo_16.png" />
++                  </if>
++                  <if expr="context == 'default_200_percent'">
++                    <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_16" file="../../../../ghost/branding/theme/default_200_percent/product_logo_16.png" />
++                  </if>
++                  <if expr="context == 'default_300_percent'">
++                    <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_16" file="../../../../ghost/branding/theme/default_300_percent/product_logo_16.png" />
++                  </if>
++                </then>
++                <else>
++                  <structure type="chrome_scaled_image" name="IDR_PRODUCT_LOGO_16" file="${branding_path_component}/product_logo_16.png" />
++                </else>
++              </if>
+             </else>
+           </if> <!-- is_linux -->
+           <if expr="_is_chrome_for_testing_branded">
+diff --git a/chrome/installer/mini_installer/mini_installer.rc b/chrome/installer/mini_installer/mini_installer.rc
+index fff6a53c69130651cafd844a76a5d0e882689d56..f28b00cfd72f72723e7242ed1e6a08822da93feb 100644
+--- a/chrome/installer/mini_installer/mini_installer.rc
++++ b/chrome/installer/mini_installer/mini_installer.rc
+@@ -29,7 +29,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+ 
+ // Icon with lowest ID value placed first to ensure application icon
+ // remains consistent on all systems.
+-IDI_MINI_INSTALLER      ICON                    "mini_installer.ico"
++IDI_MINI_INSTALLER      ICON                    "ghost/branding/theme/win/app.ico"
+ 
+ #ifdef APSTUDIO_INVOKED
+ /////////////////////////////////////////////////////////////////////////////
+diff --git a/chrome/installer/setup/setup.rc b/chrome/installer/setup/setup.rc
+index 920109c69cea5b2ae48a75ce07570ed72b55348b..de6ff773ed1f80127700d78b818745b537268867 100644
+--- a/chrome/installer/setup/setup.rc
++++ b/chrome/installer/setup/setup.rc
+@@ -54,7 +54,7 @@ END
+ 
+ // Icon with lowest ID value placed first to ensure application icon
+ // remains consistent on all systems.
+-IDI_SETUP               ICON                    "setup.ico"
++IDI_SETUP               ICON                    "ghost/branding/theme/win/app.ico"
+ #endif    // English (U.S.) resources
+ /////////////////////////////////////////////////////////////////////////////
+ 
+diff --git a/chrome/updater/win/installer/installer.rc b/chrome/updater/win/installer/installer.rc
+index bf95ec410704a46d8bc33954c7c807e93a5a72cc..b5f211e218427a990fdc6e499e19fa9fda1c1d5a 100644
+--- a/chrome/updater/win/installer/installer.rc
++++ b/chrome/updater/win/installer/installer.rc
+@@ -30,7 +30,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+ 
+ // Icon with lowest ID value placed first to ensure application icon
+ // remains consistent on all systems.
+-IDI_MINI_INSTALLER      ICON                "installer.ico"
++IDI_MINI_INSTALLER      ICON                "ghost/branding/theme/win/app.ico"
+ 
+ #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+   IDB_LOGO         BITMAP                   "chrome/updater/internal/logo.bmp"
+diff --git a/chrome/updater/win/ui/resources/resources_en.rc b/chrome/updater/win/ui/resources/resources_en.rc
+index ce1fb72c9445610aa6b80a6fc0e29c6a0e85f6c7..8c4eae50bd9b821fd1b5e116904b42ce61eb938d 100644
+--- a/chrome/updater/win/ui/resources/resources_en.rc
++++ b/chrome/updater/win/ui/resources/resources_en.rc
+@@ -11,7 +11,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+ 
+ // Icon with lowest ID value placed first to ensure application icon
+ // remains consistent on all systems.
+-IDI_APP   ICON    "chrome/updater/win/ui/resources/google_update.ico"
++IDI_APP   ICON    "ghost/branding/theme/win/app.ico"
+ 
+ IDB_ERROR_ILLUSTRATION BITMAP  "chrome/updater/win/ui/resources/error.bmp"
+ IDB_BACKGROUND_LIGHT BITMAP  "chrome/updater/win/ui/resources/updater_gradient_background_light.bmp"
