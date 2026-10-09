@@ -65,6 +65,29 @@ def read_chromium_commit(root: Path = REPO_ROOT) -> str:
     return commit
 
 
+def read_branding(root: Path = REPO_ROOT) -> dict[str, str]:
+    """branding/BRANDING's KEY=VALUE pairs: the product's names.
+
+    The tools read the names from here, so renaming the product means
+    editing branding/ and nothing else.
+    """
+    values = {}
+    for line in (root / "branding" / "BRANDING").read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            values[key.strip()] = value.strip()
+    return values
+
+
+def read_gni_string(path: Path, name: str) -> str:
+    """The string a .gni file assigns to `name` at the top level (no indentation)."""
+    match = re.search(rf'^{re.escape(name)}\s*=\s*"([^"]*)"',
+                      path.read_text(encoding="utf-8"), re.MULTILINE)
+    if not match:
+        raise RepoError(f"{path}: no top-level string assigned to {name}")
+    return match.group(1)
+
+
 def load_requirements(root: Path = REPO_ROOT) -> dict:
     path = root / "build" / "requirements.json"
     with path.open(encoding="utf-8") as f:

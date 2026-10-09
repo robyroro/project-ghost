@@ -55,5 +55,29 @@ class PinnedFilesTest(unittest.TestCase):
                 repo.read_chromium_version(Path(tmp))
 
 
+class BrandingFilesTest(unittest.TestCase):
+    def test_reads_branding_key_value_pairs(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "branding").mkdir()
+            (root / "branding" / "BRANDING").write_text(
+                "PRODUCT_FULLNAME=Example\nCOPYRIGHT=Copyright 2026 A=B\n\nMAC_TEAM_ID=\n",
+                encoding="utf-8")
+            self.assertEqual(repo.read_branding(root), {
+                "PRODUCT_FULLNAME": "Example", "COPYRIGHT": "Copyright 2026 A=B",
+                "MAC_TEAM_ID": ""})
+
+    def test_reads_a_top_level_gni_string(self):
+        with tempfile.TemporaryDirectory() as d:
+            gni = Path(d) / "x.gni"
+            gni.write_text('# name = "comment"\nname = "value"\nif (x) {\n  other = "in"\n}\n',
+                           encoding="utf-8")
+            self.assertEqual(repo.read_gni_string(gni, "name"), "value")
+            with self.assertRaises(repo.RepoError):
+                repo.read_gni_string(gni, "other")
+            with self.assertRaises(repo.RepoError):
+                repo.read_gni_string(gni, "missing")
+
+
 if __name__ == "__main__":
     unittest.main()
