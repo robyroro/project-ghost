@@ -47,11 +47,7 @@ class Step:
     append_line: tuple[Path, str] | None = None
     # (repository, ref, expected commit): fail unless ref resolves to the commit.
     verify_ref: tuple[Path, str, str] | None = None
-    # (repository, tag ref, expected commit): fail unless origin's tag peels to
-    # the commit, then record the tag locally. A checkout that already holds
-    # the commit gets only the ref: fetching the tag would download its pack
-    # a second time, and on Windows git cannot rename that over the identical,
-    # read-only pack. Otherwise the tag is fetched shallowly.
+    # (repository, tag ref, expected commit): record_tag().
     tag_from_remote: tuple[Path, str, str] | None = None
 
     def render(self) -> str:
@@ -183,22 +179,30 @@ def execute(step: Step, env: dict[str, str]) -> None:
                                f"{ref}^{{commit}}"], capture_output=True, text=True, env=env)
         _check_pin(ref, proc.stdout.strip(), expected)
     elif step.tag_from_remote:
-        repo_dir, ref, expected = step.tag_from_remote
-        proc = subprocess.run(["git", "-C", str(repo_dir), "ls-remote", "origin", ref,
-                               f"{ref}^{{}}"], capture_output=True, text=True, env=env, check=True)
-        found = dict(reversed(line.split("\t", 1)) for line in proc.stdout.splitlines())
-        # An annotated tag is listed twice; its peeled line names the commit.
-        _check_pin(f"{ref} at origin", found.get(f"{ref}^{{}}", found.get(ref, "")), expected)
-        present = subprocess.run(["git", "-C", str(repo_dir), "cat-file", "-e",
-                                  f"{expected}^{{commit}}"], capture_output=True, env=env)
-        if present.returncode == 0:
-            subprocess.run(["git", "-C", str(repo_dir), "update-ref", ref, expected],
-                           env=env, check=True)
-        else:
-            subprocess.run(["git", "-C", str(repo_dir), "fetch", "--depth=1", "--no-tags",
-                            "origin", f"+{ref}:{ref}"], env=env, check=True)
+        record_tag(*step.tag_from_remote, env)
     else:
         subprocess.run(step.argv, cwd=step.cwd, env=env, check=True)
+
+
+def record_tag(repo_dir: Path, ref: str, expected: str, env: dict[str, str]) -> None:
+    """Fails unless origin's tag `ref` peels to `expected`, then records the
+    tag locally. A checkout that already holds the commit gets only the ref:
+    fetching the tag would download its pack a second time, and on Windows git
+    cannot rename that over the identical, read-only pack. Otherwise the tag is
+    fetched shallowly. Used by bootstrap and by upstream.py bump."""
+    proc = subprocess.run(["git", "-C", str(repo_dir), "ls-remote", "origin", ref,
+                           f"{ref}^{{}}"], capture_output=True, text=True, env=env, check=True)
+    found = dict(reversed(line.split("\t", 1)) for line in proc.stdout.splitlines())
+    # An annotated tag is listed twice; its peeled line names the commit.
+    _check_pin(f"{ref} at origin", found.get(f"{ref}^{{}}", found.get(ref, "")), expected)
+    present = subprocess.run(["git", "-C", str(repo_dir), "cat-file", "-e",
+                              f"{expected}^{{commit}}"], capture_output=True, env=env)
+    if present.returncode == 0:
+        subprocess.run(["git", "-C", str(repo_dir), "update-ref", ref, expected],
+                       env=env, check=True)
+    else:
+        subprocess.run(["git", "-C", str(repo_dir), "fetch", "--depth=1", "--no-tags",
+                        "origin", f"+{ref}:{ref}"], env=env, check=True)
 
 
 def _check_pin(ref: str, actual: str, expected: str) -> None:
