@@ -17,15 +17,15 @@ Settled in discussion on 2026-10-08 and 2026-10-09:
 - **Detection runs on GitHub, not on the reference machine:** a scheduled workflow checks chromiumdash every three hours and opens an issue. GitHub notifies the user by email or on the phone; the issue's time is when we knew. It needs no machine to be on, and costs nothing.
 - **One tool, `tools/upstream.py`, with two commands:** `check` (what the workflow runs, and anyone can run locally) and `bump` (moves the pin to a security release of the same milestone). Rejected: a runbook of manual edits only (every release would hand-edit three files, and a mistyped commit would surface only when `bootstrap.py` stops, minutes later), and a `bump` stage inside `release.py` (a pin move is a commit on `main` that must pass CI before it can be tagged, which `release.py` already requires of its input).
 - **`bump` refuses a milestone change.** A new milestone needs the toolchain requirements re-derived and a review of new web APIs and profile services ([patching.md](../../patching.md#a-new-milestone)); that's F's second half.
-- **No manual rebase.** `patching.md` rebases the branch by hand before syncing. Once `patches.py canary` has shown that the series applies to the new tag, `release.py apply` applies it afresh there anyway, so `bump` checks with the canary and leaves the branch to `release.py`.
+- **`bump` moves the Chromium branch too.** `release.py`'s `sync` runs `gclient sync --revision src@<new commit>`, and gclient rebases the checked-out branch onto that commit; on a shallow checkout the old and new tags share no history, so the series' branch must already sit on the new tag ([patching.md](../../patching.md#a-new-security-release-of-the-same-milestone), "Rebase before syncing"). Once the canary has shown the series applies, `bump` applies it with `patches.py`'s own `apply` on a new branch `ghost/<version>` cut from the new tag, and re-exports `patches/`, whose context lines may have moved. (Settled while planning, 2026-10-09: the first version of this design left the branch to `release.py`, which would have let gclient rebase it.)
 - **On call is one person, the user,** notified by GitHub. The runbook's times are those of a one-person project.
 
 ## Components
 
 | Unit | What it does |
 |---|---|
-| `tools/upstream.py` | `check` and `bump`, below. Standard library only. |
-| `.github/workflows/upstream.yml` | Every three hours (`cron: "17 */3 * * *"`) and on demand: runs `upstream.py check --json`, and when the verdict isn't `current`, opens an issue with `gh issue create`, unless an issue with the same title exists, open or closed. Permissions: `contents: read`, `issues: write`, nothing else. Actions pinned to commit SHAs, as in `tooling.yml`. |
+| `tools/upstream.py` | `check`, `report` (opens the issue a check calls for: the workflow's step, kept in Python so it's tested) and `bump`, below. Standard library only. |
+| `.github/workflows/upstream.yml` | Every three hours (`cron: "17 */3 * * *"`) and on demand: runs `upstream.py check --json`, then `upstream.py report`, which, when the verdict isn't `current`, opens the issue with `gh issue create`, unless an issue with the same title exists, open or closed. Permissions: `contents: read`, `issues: write`, nothing else. Actions pinned to commit SHAs, as in `tooling.yml`. |
 | `tools/tests/test_upstream.py` | Unit tests, with saved chromiumdash replies and temporary git repositories; no network. |
 | `tools/tests/test_workflows.py` | Reads `upstream.yml`: its permissions, its schedule, the title it deduplicates on. |
 | `docs/build/security-release.md` | The runbook. |
@@ -52,11 +52,13 @@ In order; nothing is written until every check has passed:
 1. **Refuses** when this repository has uncommitted changes; when VERSION isn't newer than `CHROMIUM_VERSION`; when VERSION's milestone differs from the pin's (it names the milestone procedure).
 2. **Finds VERSION's commit** in chromiumdash (the Extended and Stable lists, newest first, until VERSION) and **checks the tag:** `git ls-remote` on the upstream remote of SRC must resolve `refs/tags/VERSION` (peeled) to that commit. A difference stops everything: either the tag moved or chromiumdash is wrong, and someone must find out which.
 3. **Fetches the tag** into SRC, shallow, the way `bootstrap.py` does (an update of the ref when the commit is already present, else `git fetch --depth=1`). This logic moves from `bootstrap.execute` into a function both call.
-4. **Runs the canary:** `patches.py canary --onto refs/tags/VERSION` (a scratch index; the checkout isn't touched). Any `CONFLICT` or `FAILED` stops `bump`, printing the canary's report; the pin is unchanged.
-5. **Writes the pin:** `CHROMIUM_VERSION`, `CHROMIUM_COMMIT`, and `chromium_version` in `build/requirements.json` (the toolchain requirements are a milestone's, so the rest stays).
-6. **Commits** `build: move to Chromium VERSION`, with the canary's summary and the tag's commit in the message. It doesn't push.
+4. **Runs the canary:** `patches.py canary --onto refs/tags/VERSION` (a scratch index; the checkout isn't touched). Any `CONFLICT` or `FAILED` stops `bump`, printing the canary's report; nothing has changed.
+5. **Moves the branch:** `patches.apply` cuts `ghost/VERSION` from the new tag and applies the series with `git am -3`. If that fails although the canary passed, `bump` aborts the `am`, returns SRC to the branch it was on, deletes the new one, and stops. The old branch stays, as after every move. This rewrites files in SRC: never while a build runs there.
+6. **Re-exports** `patches/` from the new branch (context lines may have moved).
+7. **Writes the pin:** `CHROMIUM_VERSION`, `CHROMIUM_COMMIT`, and the version in `build/requirements.json` (`chromium_version` and its two source links; the toolchain requirements are a milestone's, so the rest stays).
+8. **Commits** the pin and `patches/` as `build: move to Chromium VERSION`, with the publication time, the tag's commit and the canary's counts in the message. It doesn't push.
 
-After `bump`, everything is `release.py`'s, unchanged: `sync` sees the moved pin and runs `bootstrap.py --pgo`, `apply` applies the series on the new tag, `build` builds `out/release` and, for `ghost_browsertests`, `out/vanilla`.
+After `bump`, everything is `release.py`'s, unchanged: `sync` sees the moved pin and runs `bootstrap.py --pgo` (gclient's rebase is now a no-op), `apply` finds the branch is the series and skips, `build` builds `out/release` and, for `ghost_browsertests`, `out/vanilla`.
 
 ## The runbook
 
@@ -100,7 +102,7 @@ The runbook, run for real, from the issue that the workflow's first run opens. I
 **Unit tests, written first, no network:**
 
 - `check`, on saved replies: current, a security release, a new milestone, an older version, an empty list, broken JSON, a missing field. The verdict, and the issue's title, labels, deadline and link.
-- `bump`, in temporary git repositories standing in for upstream and SRC, with chromiumdash replies saved: refuses another milestone, an older version, a dirty repository; a tag at another commit stops it with nothing changed; a canary conflict leaves the pin unchanged; the happy path writes exactly the three files and makes one commit with the expected message.
+- `bump`, in temporary git repositories standing in for upstream and SRC, with chromiumdash replies saved: refuses another milestone, an older version, a dirty repository; a tag at another commit stops it with nothing changed; a canary conflict changes nothing; the happy path leaves SRC on `ghost/VERSION` with the series on the new tag, and webops with one new commit holding the pin and `patches/`.
 - The workflow file: permissions exactly `contents: read` and `issues: write`, the schedule, every action pinned to a commit SHA, deduplication by title.
 
 **Mutation checks**, each must fail:
