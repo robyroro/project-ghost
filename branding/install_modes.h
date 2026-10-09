@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Windows install identity for Project Ghost. Selected by
+// Windows install identity for Shade. Selected by
 // chrome/install_static/install_modes.h in place of
 // chromium_install_modes.h (patches/0004), and structured the same way.
 //
@@ -30,7 +30,7 @@ namespace install_static {
 // Software\<company>\Update survives it. No spaces: the updater's own
 // uninstall.cmd validates its path with an unquoted FindStr, which splits on
 // them (Google and BraveSoftware have none either).
-inline constexpr wchar_t kCompanyPathName[] = L"ProjectGhost";
+inline constexpr wchar_t kCompanyPathName[] = L"Shade";
 
 inline constexpr wchar_t kProductPathName[] = L"Browser";
 
@@ -54,15 +54,15 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
         // Must equal browser_appid in branding/updater.gni: the key the
         // updater finds this browser under.
         .app_guid = L"{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}",
-        .base_app_name = L"Project Ghost",
-        .base_app_id = L"ProjectGhost",
+        .base_app_name = L"Shade",
+        .base_app_id = L"Shade",
         // ProgIDs are limited to 39 characters and user-level installs append
         // a 27-character suffix, so prefixes must stay within 12.
-        .browser_prog_id_prefix = L"GhostHTM",
-        .browser_prog_id_description = L"Project Ghost HTML Document",
-        .direct_launch_url_scheme = "projectghost",
-        .pdf_prog_id_prefix = L"GhostPDF",
-        .pdf_prog_id_description = L"Project Ghost PDF Document",
+        .browser_prog_id_prefix = L"ShadeHTM",
+        .browser_prog_id_description = L"Shade HTML Document",
+        .direct_launch_url_scheme = "shadebrowser",
+        .pdf_prog_id_prefix = L"ShadePDF",
+        .pdf_prog_id_description = L"Shade PDF Document",
         .active_setup_guid = L"{4E4F5201-B77F-499F-A2E6-35F0EC9624AD}",
         .toast_activator_clsid = {0x9B478216,
                                   0xBFDD,

@@ -102,8 +102,8 @@ class BrandTest(unittest.TestCase):
 class FileTest(unittest.TestCase):
     def test_reads_the_committed_branding_file(self):
         branding = installer_strings.read_branding(repo.REPO_ROOT / "branding" / "BRANDING")
-        self.assertEqual(branding["PRODUCT_FULLNAME"], "Project Ghost")
-        self.assertEqual(branding["COMPANY_FULLNAME"], "Project Ghost")
+        self.assertEqual(branding["PRODUCT_FULLNAME"], "Shade")
+        self.assertEqual(branding["COMPANY_FULLNAME"], "Shade")
 
     def test_rewrites_the_utf16_file_the_rc_compiler_reads(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -113,7 +113,7 @@ class FileTest(unittest.TestCase):
                                     "--header", HEADER, str(source), str(output)])
             raw = output.read_bytes()
         self.assertEqual(raw[:2], b"\xff\xfe")
-        self.assertEqual(entries(raw.decode("utf-16"))["IDS_PRODUCT_NAME_JA"], "Project Ghost")
+        self.assertEqual(entries(raw.decode("utf-16"))["IDS_PRODUCT_NAME_JA"], "Shade")
         self.assertNotIn(b"\r\n", raw)
 
 

@@ -13,12 +13,12 @@ import installer_smoke
 import repo
 
 EXP = installer_smoke.Expectations(
-    product_path="Browser", company_path="ProjectGhost", app_name="Project Ghost", prog_id_prefix="GhostHTM",
-    pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost", product_name="Project Ghost",
-    company_name="Project Ghost", release_version="152.0.7977.14001",
+    product_path="Browser", company_path="Shade", app_name="Shade", prog_id_prefix="ShadeHTM",
+    pdf_prog_id_prefix="ShadePDF", url_scheme="shadebrowser", product_name="Shade",
+    company_name="Shade", release_version="152.0.7977.14001",
     web_version="152.0.7977.140")
 LOCALAPPDATA = r"C:\Users\WDAGUtilityAccount\AppData\Local"
-CHROME = LOCALAPPDATA + r"\ProjectGhost\Browser\Application\chrome.exe"
+CHROME = LOCALAPPDATA + r"\Shade\Browser\Application\chrome.exe"
 PROGRAMS = r"C:\Users\WDAGUtilityAccount\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
 DESKTOP = r"C:\Users\WDAGUtilityAccount\Desktop"
 
@@ -27,17 +27,17 @@ INSTALLED = {
     "start_menu": PROGRAMS,
     "desktop": DESKTOP,
     "files": {"chrome.exe": True, "setup.exe": True},
-    "uninstall": {"DisplayName": "Project Ghost", "Publisher": "Project Ghost",
+    "uninstall": {"DisplayName": "Shade", "Publisher": "Shade",
                   "DisplayVersion": "152.0.7977.14001"},
-    "software": ["Clients", "Microsoft", "ProjectGhost"],
+    "software": ["Clients", "Microsoft", "Shade"],
     "product_parent_keys": ["Browser"],
     "product_key": {"values": ["InstallerPinned"], "subkeys": []},
-    "start_menu_internet": ["Project Ghost.ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
-    "classes": ["GhostHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ", "GhostPDF.ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-                "projectghost"],
-    "shortcuts": {PROGRAMS + r"\Project Ghost.lnk": CHROME,
-                  DESKTOP + r"\Project Ghost.lnk": CHROME},
-    "version_info": {"ProductName": "Project Ghost", "CompanyName": "Project Ghost"},
+    "start_menu_internet": ["Shade.ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+    "classes": ["ShadeHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ", "ShadePDF.ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                "shadebrowser"],
+    "shortcuts": {PROGRAMS + r"\Shade.lnk": CHROME,
+                  DESKTOP + r"\Shade.lnk": CHROME},
+    "version_info": {"ProductName": "Shade", "CompanyName": "Shade"},
 }
 UNINSTALLED = {
     "chrome_exe": CHROME,
@@ -45,7 +45,7 @@ UNINSTALLED = {
     "desktop": DESKTOP,
     "files": {"chrome.exe": False, "setup.exe": False},
     "uninstall": None,
-    "software": ["Clients", "Microsoft", "ProjectGhost"],
+    "software": ["Clients", "Microsoft", "Shade"],
     "product_parent_keys": [],
     "product_key": None,
     "start_menu_internet": [],
@@ -65,10 +65,10 @@ class ExpectationsTest(unittest.TestCase):
     def test_come_from_the_branding_directory_the_pin_and_the_installer(self):
         exp = installer_smoke.expectations(repo.REPO_ROOT, release_version="152.0.7977.14901")
         self.assertEqual(exp, installer_smoke.Expectations(
-            product_path="Browser", company_path="ProjectGhost", app_name="Project Ghost",
-            prog_id_prefix="GhostHTM",
-            pdf_prog_id_prefix="GhostPDF", url_scheme="projectghost",
-            product_name="Project Ghost", company_name="Project Ghost",
+            product_path="Browser", company_path="Shade", app_name="Shade",
+            prog_id_prefix="ShadeHTM",
+            pdf_prog_id_prefix="ShadePDF", url_scheme="shadebrowser",
+            product_name="Shade", company_name="Shade",
             release_version="152.0.7977.14901", web_version=repo.read_chromium_version()))
 
     def test_round_trip_through_json(self):
@@ -113,19 +113,19 @@ class InstalledTest(unittest.TestCase):
             software=INSTALLED["software"] + ["Browser"])))
 
     def test_shortcuts_are_named_for_the_product_and_open_it(self):
-        self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Project Ghost.lnk": CHROME}))
+        self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Shade.lnk": CHROME}))
         self.assertTrue(self.failures(shortcuts={
-            PROGRAMS + r"\Project Ghost.lnk": r"C:\elsewhere\chrome.exe",
-            DESKTOP + r"\Project Ghost.lnk": CHROME}))
+            PROGRAMS + r"\Shade.lnk": r"C:\elsewhere\chrome.exe",
+            DESKTOP + r"\Shade.lnk": CHROME}))
 
     def test_file_properties_name_the_product(self):
         self.assertTrue(self.failures(version_info={"ProductName": "Chromium",
-                                                    "CompanyName": "Project Ghost"}))
+                                                    "CompanyName": "Shade"}))
 
     def test_nothing_is_named_chromium(self):
-        # Ghost can be installed next to Chromium only if it claims none of
+        # Shade can be installed next to Chromium only if it claims none of
         # Chromium's names.
-        self.assertTrue(self.failures(software=["Chromium", "Project Ghost"]))
+        self.assertTrue(self.failures(software=["Chromium", "Shade"]))
         self.assertTrue(self.failures(classes=INSTALLED["classes"] + ["ChromiumHTM.ABC"]))
         self.assertTrue(self.failures(shortcuts=dict(INSTALLED["shortcuts"],
                                                      **{PROGRAMS + r"\Chromium.lnk": CHROME})))
@@ -142,8 +142,8 @@ class UninstalledTest(unittest.TestCase):
         self.assertTrue(self.failures(files={"chrome.exe": True, "setup.exe": False}))
         self.assertTrue(self.failures(uninstall=INSTALLED["uninstall"]))
         self.assertTrue(self.failures(start_menu_internet=INSTALLED["start_menu_internet"]))
-        self.assertTrue(self.failures(classes=["GhostHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ"]))
-        self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Project Ghost.lnk": CHROME}))
+        self.assertTrue(self.failures(classes=["ShadeHTM.ABCDEFGHIJKLMNOPQRSTUVWXYZ"]))
+        self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Shade.lnk": CHROME}))
 
     def test_every_registration_is_a_leftover(self):
         # 152.0.7977.140's uninstall left the PDF ProgID behind
@@ -173,21 +173,21 @@ class UninstalledTest(unittest.TestCase):
         self.assertTrue(self.failures(software=UNINSTALLED["software"] + ["Browser"]))
 
     def test_a_shortcut_to_the_browser_under_another_name_is_a_leftover(self):
-        # The browser creates profile shortcuts such as "Person 1 - Project Ghost".
-        self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Person 1 - Project Ghost.lnk":
+        # The browser creates profile shortcuts such as "Person 1 - Shade".
+        self.assertTrue(self.failures(shortcuts={DESKTOP + r"\Person 1 - Shade.lnk":
                                                  CHROME.upper()}))
 
     def test_a_clean_machine_is_what_install_starts_from(self):
-        # The same check guards `run` against a machine that has Ghost already.
+        # The same check guards `run` against a machine that has Shade already.
         self.assertEqual(installer_smoke.evaluate_uninstalled(UNINSTALLED, EXP), [])
         self.assertTrue(installer_smoke.evaluate_uninstalled(INSTALLED, EXP))
 
 
 class LayoutTest(unittest.TestCase):
     def test_company_and_product_paths(self):
-        self.assertEqual(EXP.install_dir_parts, ("ProjectGhost", "Browser"))
-        self.assertEqual(EXP.registry_root, "ProjectGhost")
-        self.assertEqual(EXP.uninstall_key, "ProjectGhost Browser")
+        self.assertEqual(EXP.install_dir_parts, ("Shade", "Browser"))
+        self.assertEqual(EXP.registry_root, "Shade")
+        self.assertEqual(EXP.uninstall_key, "Shade Browser")
 
     def test_without_a_company(self):
         exp = installer_smoke.Expectations(**{**EXP.__dict__, "company_path": ""})

@@ -2,43 +2,44 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-# Ghost's updater identity, imported by chrome/updater/branding.gni
+# Shade's updater identity, imported by chrome/updater/branding.gni
 # (patches/0015) in place of its Chromium values. Generated from those values
-# on 2026-10-02; every GUID is new.
+# on 2026-10-02; every GUID is new. Named Shade on 2026-10-09; the GUIDs were
+# kept, since no public build had used them.
 #
-# TEST IDENTITY (Phase 2): the names and GUIDs are replaced when the final
-# product name is chosen. updater_company_short_name
-# must equal kCompanyPathName in branding/install_modes.h.
+# updater_company_short_name must equal kCompanyPathName in
+# branding/install_modes.h, and browser_appid its app_guid
+# (tools/tests/test_branding.py).
 
-browser_name = "Project Ghost"
-browser_product_name = "Project Ghost"
-crash_product_name = "ProjectGhostUpdater"
+browser_name = "Shade"
+browser_product_name = "Shade"
+crash_product_name = "ShadeUpdater"
 crash_upload_url = ""
 help_center_url = ""
 app_logo_url = ""
-keystone_app_name = "ProjectGhostSoftwareUpdate"
-keystone_bundle_identifier = "org.projectghost.Keystone"
-mac_browser_bundle_identifier = "org.projectghost.Browser"
-mac_updater_bundle_identifier = "org.projectghost.ProjectGhostUpdater"
-privileged_helper_bundle_name = "ProjectGhostUpdaterPrivilegedHelper"
-privileged_helper_name = "org.projectghost.Browser.UpdaterPrivilegedHelper"
+keystone_app_name = "ShadeSoftwareUpdate"
+keystone_bundle_identifier = "com.browseshade.Keystone"
+mac_browser_bundle_identifier = "com.browseshade.Browser"
+mac_updater_bundle_identifier = "com.browseshade.ShadeUpdater"
+privileged_helper_bundle_name = "ShadeUpdaterPrivilegedHelper"
+privileged_helper_name = "com.browseshade.Browser.UpdaterPrivilegedHelper"
 updater_app_icon_path = "//chrome/app/theme/chromium/mac/app.icns"
-updater_company_full_name = "Project Ghost"
-updater_company_short_name = "ProjectGhost"
-updater_company_short_name_lowercase = "projectghost"
-updater_company_short_name_uppercase = "PROJECTGHOST"
-updater_copyright = "Copyright 2026 The Project Ghost Authors."
-updater_product_full_name = "ProjectGhostUpdater"
-updater_product_full_name_dashed_lowercase = "projectghost-updater"
-updater_product_full_display_name = "Project Ghost Updater"
-updater_metainstaller_name = "Project Ghost Installer"
+updater_company_full_name = "Shade"
+updater_company_short_name = "Shade"
+updater_company_short_name_lowercase = "shade"
+updater_company_short_name_uppercase = "SHADE"
+updater_copyright = "Copyright 2026 The Shade Authors."
+updater_product_full_name = "ShadeUpdater"
+updater_product_full_name_dashed_lowercase = "shade-updater"
+updater_product_full_display_name = "Shade Updater"
+updater_metainstaller_name = "Shade Installer"
 mac_team_identifier = "PLACEHOLDER"
 updater_appid = "{4b5a3a08-578b-4b1f-8b2b-26cb99b30c4f}"
 browser_appid = "{c0ff4371-d9ab-461e-bffd-6b0dc2430b02}"
 qualification_appid = "{9e14df17-725e-435c-a7ce-1f6fa1c25565}"
 platform_experience_helper_appid = "{332518f3-bdf5-4f82-bba1-fab46b73c7ff}"
 crx_pkhash = ""
-legacy_service_name_prefix = "pgupdate"
+legacy_service_name_prefix = "shadeupdate"
 prefs_access_mutex = "{666A346D-39D2-47DA-8023-B9B971799F36}"
 setup_mutex_prefix = "{1DC941D7-F3A1-465C-93E6-060316B57BDF}"
 grdfile_name = "chromium_strings"
