@@ -12,7 +12,7 @@ The browser installs, runs and updates as **Shade**. Everything a user or a test
 
 These were settled in discussion on 2026-10-09:
 
-- **The product is "Shade"; its full name is "Shade Browser".** "Shade" alone is the short name (shortcut, Start, taskbar), as with Brave or Vivaldi. "Shade Browser" is the full name where a list of programs needs the noun (Apps & features, the installer, file properties).
+- **The product is "Shade", everywhere Windows shows it:** shortcut, Start, taskbar, Apps & features, file properties, as with Brave or Firefox. "Shade Browser" is for the website and other material. (First approved as two names, "Shade" short and "Shade Browser" full; the shortcut and the Apps & features entry both come from `IDS_PRODUCT_NAME`, which the installer strings take from `PRODUCT_FULLNAME`, so they can't differ without another installer patch. Settled on one name on 2026-10-09.)
 - **The domain is browseshade.com. It isn't bought yet,** so nothing depends on it working: no contact address and no update URL use it. It appears only in reverse-DNS identifiers (`com.browseshade.*`), which work without owning the domain but would have to change if someone else registered it. Buying it is a release gate.
 - **Scope: the Windows identity, the installers, the updater, the icons and the release's names.** The browser's menus and dialogs still say "Chromium": renaming `chromium_strings.grd` touches hundreds of strings and every translation, and is a later sub-project. The logo with the "Chromium" wordmark (`product_logo_name_22`) goes with it.
 - **The internal codename stays `ghost`,** as Chromium keeps `chrome/`: `//ghost`, the patches and their messages, `GHOST_INDEX`, the `Ghost*` features, GN arguments such as `ghost_update_url`, the tools' local directories (`~/ProjectGhostKeys`, `~/ProjectGhostReleases`) and the GitHub repositories (`project-ghost`, `project-ghost-update-server`). Users never see these. The repositories are renamed at the public launch, with the trademark gate; GitHub redirects the old names.
@@ -27,8 +27,8 @@ These were settled in discussion on 2026-10-09:
 
 | Field | Value | Where it shows |
 |---|---|---|
-| `PRODUCT_SHORTNAME`, `base_app_name` | Shade | Shortcut, Start, taskbar |
-| `PRODUCT_FULLNAME` | Shade Browser | Apps & features, installer, file properties |
+| `PRODUCT_SHORTNAME`, `base_app_name` | Shade | StartMenuInternet key, taskbar |
+| `PRODUCT_FULLNAME` | Shade | Shortcut name and Apps & features (both `IDS_PRODUCT_NAME`), file properties |
 | `COMPANY_SHORTNAME`, `kCompanyPathName`, `updater_company_short_name` | Shade | `%LOCALAPPDATA%\Shade\Browser`, `Software\Shade\{Browser,Update}` |
 | `COMPANY_FULLNAME`, `updater_company_full_name` | Shade | File properties only; becomes the legal entity's name when there is one |
 | `PRODUCT_INSTALLER_FULLNAME`, `_SHORTNAME`, `updater_metainstaller_name` | Shade Installer | UAC prompt, file properties |
@@ -85,10 +85,11 @@ The release:
 4. **Outputs:**
    - `win/shade.ico`: 16, 20, 24, 32, 40, 48, 64 and 256 px; the 256 px image stored as PNG. The browser's executable, shortcuts and taskbar, and the icon of `mini_installer`, `setup` and the updater's installer and UI.
    - `win/shade_doc.ico`, `win/shade_pdf.ico`: the logo on a stylised page, at the same sizes.
-   - `win/tiles/Logo.png` (150 px), `win/tiles/SmallLogo.png` (70 px).
-   - `default_100_percent/product_logo_16.png`, `product_logo_32.png` and their `default_200_percent` doubles.
-   - `product_logo_64.png`, `product_logo_128.png`, `product_logo_256.png`.
-   - `incognito.ico` only if the spike finds upstream's contains the Chromium logo; otherwise upstream's stays.
+   - `win/tiles/Logo.png` and `win/tiles/SmallLogo.png`, at upstream's pixel sizes and proportions: 600 px with the logo 220 px wide, and 176 px with the logo 118 px wide, centred.
+   - `default_100_percent/product_logo_16.png`, `product_logo_32.png` and their `default_200_percent` and `default_300_percent` versions (2× and 3×).
+   - `product_logo_16.png`, `_24`, `_64`, `_128`, `_256.png`: the unscaled logos and the profile shortcut badges.
+   - `product_logo.svg`: the 256 px PNG inside an SVG, for the WebUI's `IDR_PRODUCT_LOGO_SVG` and `IDR_PRODUCT_LOGO_ANIMATION_SVG` (a still logo; there's no animation to make).
+   - Upstream's incognito and app-list icons are generic (a hat and glasses, a grid), so they stay. Upstream's installer and updater icons are generic boxes; they become the Shade icon, as Chrome's installer shows Chrome's.
 5. **Contact sheet** (`--preview`, never committed): every size on a light and a dark background, at 100% and enlarged, for judging legibility at 16 px.
 
 The tool is deterministic for a given source and Pillow version.
@@ -99,8 +100,9 @@ The tool is deterministic for a given source and Pillow version.
 
 - `chrome/app/chrome_exe.rc`: the application, HTML and PDF document icons in the non-Google branch.
 - `chrome/app/chrome_dll.rc`: `IDR_MAINFRAME`.
-- `chrome/app/theme/theme_resources.grd`, `chrome_unscaled_resources.grd`: `product_logo_16`, `32`, `64`, `128` and `256` in the branches built for Windows.
-- `chrome/BUILD.gn`: the tiles and `product_logo_32`.
+- `chrome/app/theme/theme_resources.grd`: `IDR_PRODUCT_LOGO_16` and `IDR_PRODUCT_LOGO_32` on Windows. grit looks a scaled image up as `default_<scale>_percent/<file>`, so one path can't name three scales; each gets an `<if expr="context == 'default_<scale>_percent'">` branch with a path into `branding/theme/default_<scale>_percent/`.
+- `chrome/app/theme/chrome_unscaled_resources.grd`: on Windows, `IDR_PRODUCT_LOGO_64`, `128`, `256`, `IDR_PRODUCT_LOGO_SVG`, `IDR_PRODUCT_LOGO_ANIMATION_SVG` and `IDR_PRODUCT_LOGO_{16,24,64,128}_SHORTCUTS`.
+- `chrome/BUILD.gn`: the tiles. (Its other `product_logo_32` is macOS's.)
 - `chrome/installer/mini_installer/mini_installer.rc`, `chrome/installer/setup/setup.rc`, `chrome/updater/win/installer/installer.rc`, `chrome/updater/win/ui/resources/resources_en.rc`.
 
 `Why:` Chromium picks its icons by `branding_path_component`, with no argument for another brand. `Upstream:` not upstreamable: product-specific branding.
@@ -112,13 +114,13 @@ The tool is deterministic for a given source and Pillow version.
 
 ## For the spike
 
-Before the tool and the patch:
+Answered while planning (2026-10-09), by reading the sources:
 
-1. Whether grit's `chrome_scaled_image` accepts a path outside its scale directories (`default_100_percent/…`). If not, a grit define for Ghost's theme directory, built like `${branding_path_component}` but pointing into `//ghost`. The choice follows what works, recorded in `2026-10-09-shade-rebrand-spike.md`.
-2. How the resource compiler resolves a relative path from a `.rc` file into `//ghost`.
-3. Whether upstream's `incognito.ico` carries the Chromium logo.
-4. Which logo resources the Windows build actually packs; only those are replaced.
-5. Whether the update server checks the updater's name. Known so far: its fixture `tests/fixtures/captured_request.json` carries `"@updater": "ProjectGhostUpdater"`.
+- The Windows build's logo resources are the ones listed under Patch 0027; upstream's incognito and app-list icons are generic.
+- `rc` reports icon files through `/showIncludes`, so a changed icon rebuilds its binary.
+- The update server doesn't read the updater's name; its and webops' captured request fixtures (`"@updater": "ProjectGhostUpdater"`) record traffic of their time and stay.
+
+Left for the first build with patch 0027, recorded in `2026-10-09-shade-rebrand-spike.md`: whether grit's `context` branches select the right file per scale (checked in the built `.pak` files), and whether `rc` resolves the paths into `//ghost`.
 
 ## Error handling
 
@@ -132,7 +134,8 @@ Before the tool and the patch:
 
 - `brand_icons.py`: the regeneration test generates into a temporary directory and compares with `branding/theme/`: the manifest, each PNG's decoded pixels and each ICO's directory and decoded images. Pixels rather than file bytes, because Pillow's PNG compression may differ between platforms. Without Pillow the test fails; it isn't skipped. Plus tests of the background step on small synthetic images: border white removed, enclosed white kept, edge pixels un-mixed.
 - `pe_resources.py`: builds a minimal PE in memory with an icon group, on any OS.
-- `installer_strings`, `installer_smoke`, `offline_installer`, `release`, `sbom` and the updater fixtures (`test/updater/*.json`) expect the new names.
+- A branding test: no working name (`Project Ghost`, `ProjectGhost`, `projectghost`) in `branding/BRANDING`, `install_modes.h` or `updater.gni`; `kCompanyPathName` equals `updater_company_short_name`, and `app_guid` equals `browser_appid`.
+- `installer_strings`, `installer_smoke`, `update_smoke`, `release` and `sbom` expect the new names. `update_smoke` takes the updater's directory and task name from `updater.gni` instead of a literal.
 
 **`installer_smoke`, in Windows Sandbox, on a real install,** also checks:
 
@@ -141,13 +144,13 @@ Before the tool and the patch:
 - the `ShadeHTM` and `ShadePDF` ProgIDs and the `shadebrowser` scheme;
 - that every image in the installed `chrome.exe`'s main icon group equals, byte for byte, the corresponding image in `branding/theme/win/shade.ico`.
 
-On the host, the same icon check runs on the offline installer and `setup.exe`.
+The installed `setup.exe` and the installer under test are checked the same way (their first icon group).
 
 **Mutation checks**, each must fail:
 
 - M1: drop one redirection from patch 0027 (the main icon in `chrome_exe.rc`); `installer_smoke` fails on the icon.
 - M2: change the source without regenerating; the regeneration test fails.
-- M3: leave `ProjectGhost` as `kCompanyPathName`; `installer_smoke` fails on the path.
+- M3: leave `ProjectGhost` as `kCompanyPathName`; the branding test fails. (`installer_smoke` reads its expectations from `branding/`, so it would follow the mistake.)
 
 **End to end, on the development builds:**
 
@@ -155,6 +158,8 @@ On the host, the same icon check runs on the offline installer and `setup.exe`.
 - `ghost_unittests`, `ghost_browsertests`, the tooling tests and `tools/lint.py`;
 - `installer_smoke`; `update_smoke` (install, update, recovery, uninstall) with the updater's new names;
 - the egress audit: no unexpected host.
+
+**On the host,** `tools/pe_resources.py check-icon` checks the offline installer and `updater.exe`.
 
 **By the user:** the contact sheet, then an install in Windows Sandbox: taskbar, Start, Apps & features, file associations.
 
