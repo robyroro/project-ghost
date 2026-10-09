@@ -22,6 +22,8 @@ A respin rebuilds only what carries the release version, because nothing a host 
 
 ## Making a release
 
+For a security release of our milestone, start with [the security release runbook](security-release.md): it moves the pin, then comes here.
+
 1. Everything for the release is on `main`, pushed, and the tooling workflow passed on it.
 2. Tag it, `<CHROMIUM_VERSION>[-<respin>]` ([ADR 0007](../adr/0007-version-numbers.md)), and push the tag:
 

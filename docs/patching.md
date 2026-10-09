@@ -94,11 +94,13 @@ Patches that fail are left out, and the ones after them are tried on top of the 
 
 ### A new security release of the same milestone
 
-1. Update `CHROMIUM_VERSION`, and `CHROMIUM_COMMIT` to the commit that chromiumdash lists for that release (`git ls-remote origin refs/tags/<new>` must agree).
-2. Fetch the new tag (see [Shallow checkouts](#shallow-checkouts)). On a new branch named after it, run `git rebase --onto refs/tags/<new> refs/tags/<old>`. There are usually no conflicts.
-3. `patches.py export`. The diff of `patches/` should show only context changes.
-4. Re-run `tools/bootstrap.py`. It checks the tag against `CHROMIUM_COMMIT` and syncs the dependencies by hash.
-5. Build, run the full test suite, release. The SLA is in [roadmap.md](roadmap.md#security-release-sla).
+`python tools/upstream.py bump --to <new> --src <src>` does it, then `release.py` releases it: the whole procedure, with its deadlines, is [the security release runbook](build/security-release.md). `bump` automates these steps, which are also what to do by hand when it can't run:
+
+1. Update `CHROMIUM_VERSION`, `CHROMIUM_COMMIT` to the commit that chromiumdash lists for that release (`git ls-remote origin refs/tags/<new>` must agree), and the version in `build/requirements.json`.
+2. Fetch the new tag (see [Shallow checkouts](#shallow-checkouts)), and check the series with `patches.py canary --onto refs/tags/<new>`.
+3. Put the series on a branch from the new tag: `patches.py apply --base refs/tags/<new> --branch ghost/<new>` (or `git rebase --onto refs/tags/<new> refs/tags/<old>` on a new branch). There are usually no conflicts.
+4. `patches.py export --base refs/tags/<new>`. The diff of `patches/` should show only context changes.
+5. Commit, push, and release from a tag: `release.py`'s `sync` stage runs `bootstrap.py`, which checks the tag against `CHROMIUM_COMMIT` and syncs the dependencies by hash.
 
 **Rebase before syncing.** The working branch tracks no remote, so `gclient sync --revision src@<hash>` runs `git rebase <hash>` on it. That is a no-op once the branch sits on the new tag. On a shallow checkout the old and new tags share no history, and git would replay the old tag's whole tree as well as the series.
 
