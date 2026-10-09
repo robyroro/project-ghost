@@ -4,6 +4,7 @@
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 import unittest.mock
@@ -137,8 +138,8 @@ class RolloutArgumentsTest(unittest.TestCase):
 
     def test_the_run_command_carries_rollout(self):
         args = update_smoke.parser().parse_args(["run", "--payload", "p", "--results", "r",
-                                                 "--appid", "{a}", "--rollout",
-                                                 "--cup-version", "2"])
+                                                 "--appid", "{a}", "--installer", "S.exe",
+                                                 "--rollout", "--cup-version", "2"])
         self.assertTrue(args.rollout)
         self.assertEqual(args.cup_version, 2)
 
@@ -187,6 +188,23 @@ class SandboxFailureTest(unittest.TestCase):
                                                cup_version=2)
         self.assertEqual(code, 2)
         popen.assert_not_called()
+
+
+class SandboxSideTest(unittest.TestCase):
+    def test_imports_with_only_the_tools_directory(self):
+        # Windows Sandbox maps tools/ alone: a module that reads branding/ at
+        # import crashes there before writing any result, and the host waits
+        # out its whole timeout (2026-10-09, offline_installer's name).
+        tools = Path(update_smoke.__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as d:
+            copy = Path(d) / "ghost" / "tools"
+            copy.mkdir(parents=True)
+            for module in tools.glob("*.py"):
+                (copy / module.name).write_bytes(module.read_bytes())
+            done = subprocess.run(
+                [sys.executable, "-c", "import update_smoke, installer_smoke"],
+                cwd=copy, capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
 
 
 class UpdaterNameTest(unittest.TestCase):

@@ -63,7 +63,6 @@ EXPECTATIONS_FILE = smoke.EXPECTATIONS_FILE
 # log holds its scheduled task's XML definition.
 _XML_NAMESPACE_PREFIXES = ("http://schemas.microsoft.com/",)
 _URL_RE = re.compile(r"https?://[^\s\"'<>]+")
-OFFLINE_INSTALLER = offline_installer.OUTPUT_NAME
 CUP_KEY = "cup_key.json"
 CODESIGN_CERT = "codesign.cer"
 RECOVERY_CRX = "recovery.crx3"
@@ -187,11 +186,12 @@ def signature_failures(dirs: list[Path], thumb: str) -> list[str]:
 
 def run(payload: Path, results: Path, exp: smoke.Expectations, appid: str,
         update_version: str | None, server: str | None = None,
-        installer: str = OFFLINE_INSTALLER, tagged: bool = False,
+        installer: str | None = None, tagged: bool = False,
         recovery_version: str | None = None, rollout: bool = False,
         cup_version: int = 1) -> dict:
     """Without `server`, serves update_version from payload/update.crx3 on loopback.
     Without `update_version` (the online installer), installs and checks only."""
+    installer = installer or offline_installer.output_name()
     result = {"expectations": exp.__dict__, "steps": []}
     log = results / "requests.jsonl"
     final = (replace(exp, release_version=recovery_version or update_version)
@@ -464,7 +464,9 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--payload", type=Path, required=True)
     r.add_argument("--results", type=Path, required=True)
     r.add_argument("--appid", required=True)
-    r.add_argument("--installer", default=OFFLINE_INSTALLER)
+    # Always given by the host: the Sandbox maps tools/ only, so it can't
+    # read the product's name from branding/.
+    r.add_argument("--installer", required=True)
     r.add_argument("--update-version")
     r.add_argument("--server")
     r.add_argument("--tagged", action="store_true")

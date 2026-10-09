@@ -13,7 +13,7 @@ import offline_installer as oi
 
 class ManifestTest(unittest.TestCase):
     def test_the_installer_is_named_for_the_product(self):
-        self.assertEqual(oi.OUTPUT_NAME, "ShadeSetup.exe")
+        self.assertEqual(oi.output_name(), "ShadeSetup.exe")
 
     def test_manifest_runs_the_browser_installer_per_user(self):
         root = ET.fromstring(oi.MANIFEST)

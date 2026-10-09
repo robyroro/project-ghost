@@ -198,7 +198,7 @@ SHIPPED_TARGETS = ("chrome", "mini_installer", "chrome/updater/win/installer:ins
 BROWSERTESTS_OUT = Path("out") / "vanilla"
 SIGNED = "signed"
 PUBLISH = "publish"
-PUBLISHED = (offline_installer.OUTPUT_NAME, "update.crx3", sbom.DOCUMENT,
+PUBLISHED = (offline_installer.output_name(), "update.crx3", sbom.DOCUMENT,
              provenance.PROVENANCE_FILE, provenance.SUMS_FILE)
 
 
@@ -274,7 +274,7 @@ def release_notes(ctx: Context) -> str:
                   "product name.", ""]
     lines += [
         "| File | What it is |", "|---|---|",
-        f"| `{offline_installer.OUTPUT_NAME}` | The signed offline installer |",
+        f"| `{offline_installer.output_name()}` | The signed offline installer |",
         "| `update.crx3` | The update package, with Ghost's publisher proof |",
         f"| `{sbom.DOCUMENT}` | The SBOM (SPDX 2.2) |",
         f"| `{provenance.PROVENANCE_FILE}` | How it was built (SLSA Build Level 1, unsigned) |",
@@ -388,7 +388,7 @@ def sign_perform(ctx: Context, state: release_state.State, run: Runner) -> dict:
         shutil.rmtree(signed)  # this stage's own output, from an earlier run
     run(sign_command(ctx, browser_appid(ctx.webops)), cwd=ctx.src)
     return {name: provenance.sha256_file(signed / name)
-            for name in ("mini_installer.exe", "update.crx3", offline_installer.OUTPUT_NAME)}
+            for name in ("mini_installer.exe", "update.crx3", offline_installer.output_name())}
 
 
 def toolchain(ctx: Context) -> dict[str, str]:
@@ -410,7 +410,7 @@ def describe_perform(ctx: Context, state: release_state.State, run: Runner) -> d
     if publish.exists():
         shutil.rmtree(publish)  # this stage's own output, from an earlier run
     publish.mkdir(parents=True)
-    for name in (offline_installer.OUTPUT_NAME, "update.crx3"):
+    for name in (offline_installer.output_name(), "update.crx3"):
         shutil.copy2(ctx.dir / SIGNED / name, publish / name)
     sbom.build(_tool(ctx.depot_tools, "vpython3"), ctx.src, ctx.out, ctx.tag, tag_commit(ctx),
                publish / sbom.DOCUMENT, env=_env(ctx))
@@ -423,7 +423,7 @@ def describe_perform(ctx: Context, state: release_state.State, run: Runner) -> d
         tests=state.outputs("test"), started=datetime.datetime.fromisoformat(build["started"]),
         finished=datetime.datetime.fromisoformat(build["finished"]))
     provenance.write_release_files(
-        publish, [offline_installer.OUTPUT_NAME, "update.crx3", sbom.DOCUMENT], facts)
+        publish, [offline_installer.output_name(), "update.crx3", sbom.DOCUMENT], facts)
     return provenance.parse_sums((publish / provenance.SUMS_FILE).read_text(encoding="utf-8"))
 
 
@@ -511,7 +511,7 @@ def verify(directory: Path, identity: str) -> list[str]:
         if not any(hashlib.sha256(key).digest() in pinned for key in keys):
             failures.append(f"update.crx3: no valid proof by the {identity} identity's "
                             "publisher keys")
-    setup = directory / offline_installer.OUTPUT_NAME
+    setup = directory / offline_installer.output_name()
     if setup.is_file() and identity != "dev":
         if os.name != "nt":
             failures.append(f"{setup.name}: Authenticode can only be checked on Windows")

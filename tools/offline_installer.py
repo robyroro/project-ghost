@@ -51,8 +51,13 @@ MANIFEST = """<?xml version="1.0" encoding="UTF-8"?>
 </response>
 """
 
-# The download people run, named for the product: ShadeSetup.exe.
-OUTPUT_NAME = repo.read_branding()["PRODUCT_SHORTNAME"].replace(" ", "") + "Setup.exe"
+def output_name(root: Path = repo.REPO_ROOT) -> str:
+    """The download people run, named for the product: ShadeSetup.exe.
+
+    A function, not a constant read at import: update_smoke imports this
+    module inside Windows Sandbox, where only tools/ is mapped.
+    """
+    return repo.read_branding(root)["PRODUCT_SHORTNAME"].replace(" ", "") + "Setup.exe"
 DEPOT_TOOLS = Path(r"C:\src\depot_tools")
 
 

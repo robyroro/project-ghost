@@ -127,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
                 failures.append("update.crx3: the publisher proof doesn't verify")
             (products / "update.crx3").write_bytes(data)
         if args.offline_installer:
-            setup = products / offline_installer.OUTPUT_NAME
+            setup = products / offline_installer.output_name()
             code = offline_installer.build(
                 src, args.updater_out, mini, args.version, args.appid, setup,
                 offline_installer.Signing(signtool, identity.codesign_name,
