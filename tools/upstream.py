@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import re
 import subprocess
 import sys
@@ -31,6 +32,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import bootstrap
+import patches
 import repo
 
 DASH = "https://chromiumdash.appspot.com/fetch_releases"
@@ -180,6 +183,107 @@ def report(result: dict, run: Callable[[list[str]], str] = gh) -> str:
     return f"opened {url}"
 
 
+def find_release(version: str, fetch: Callable) -> Release:
+    """VERSION as chromiumdash lists it on Windows, from Extended or Stable."""
+    for channel in ("Extended", "Stable"):
+        for release in releases(channel, fetch, count=100):
+            if release.version == version:
+                return release
+    raise UpstreamError(f"chromiumdash lists no Windows release {version} on Extended or Stable")
+
+
+def _git(repo_dir: Path, *args: str, check: bool = True,
+         stdin: str | None = None) -> subprocess.CompletedProcess:
+    proc = subprocess.run(["git", "-C", str(repo_dir), *args], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", input=stdin)
+    if check and proc.returncode:
+        raise UpstreamError(f"git {' '.join(args)} in {repo_dir} failed:\n{proc.stderr.strip()}")
+    return proc
+
+
+def _move_branch(src: Path, version: str, patches_dir: Path) -> None:
+    """Puts the series on ghost/VERSION, cut from VERSION's tag. gclient sync
+    rebases the checked-out branch onto the pinned commit, and on a shallow
+    checkout the old and new tags share no history: the branch must already
+    sit on the new tag. On failure, src is back on the branch it was on."""
+    start = _git(src, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    branch = f"ghost/{version}"
+    try:
+        code = patches.apply(src, f"refs/tags/{version}", branch, patches_dir)
+    except patches.PatchError as e:
+        raise UpstreamError(str(e)) from None
+    if code:
+        _git(src, "am", "--abort", check=False)
+        _git(src, "checkout", "-q", start)
+        _git(src, "branch", "-q", "-D", branch, check=False)
+        raise UpstreamError(f"the series didn't apply to {version} although the canary passed; "
+                            f"{src} is back on {start}")
+
+
+def _write_pin(webops: Path, pinned: str, release: Release) -> None:
+    (webops / "CHROMIUM_VERSION").write_text(release.version + "\n", encoding="utf-8",
+                                             newline="\n")
+    (webops / "CHROMIUM_COMMIT").write_text(release.commit + "\n", encoding="utf-8",
+                                            newline="\n")
+    # The toolchain requirements are a milestone's: only the version moves,
+    # in chromium_version and in the links to the tag they were read from.
+    path = webops / "build" / "requirements.json"
+    text = path.read_text(encoding="utf-8").replace(pinned, release.version)
+    if json.loads(text).get("chromium_version") != release.version:
+        raise UpstreamError(f"{path} doesn't name {pinned} as its chromium_version")
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
+def bump(version: str, src: Path, webops: Path = repo.REPO_ROOT,
+         fetch: Callable | None = None) -> str:
+    """Moves the pin to VERSION, a security release of the pin's milestone.
+    Every check comes before anything is written."""
+    fetch = fetch or fetch_json
+    if _git(webops, "status", "--porcelain").stdout.strip():
+        raise UpstreamError(f"{webops} has uncommitted changes")
+    pinned = repo.read_chromium_version(webops)
+    if repo.parse_version(version) <= repo.parse_version(pinned):
+        raise UpstreamError(f"{version} is not newer than the pin, {pinned}")
+    if milestone_of(version) != milestone_of(pinned):
+        raise UpstreamError(f"{version} is milestone {milestone_of(version)}, the pin "
+                            f"{milestone_of(pinned)}: a new milestone is docs/patching.md's "
+                            "\"A new milestone\", not bump")
+    release = find_release(version, fetch)
+    tag = f"refs/tags/{version}"
+    try:
+        bootstrap.record_tag(src, tag, release.commit, dict(os.environ))
+    except bootstrap.BootstrapError as e:
+        raise UpstreamError(f"the tag doesn't match chromiumdash: {e}") from None
+
+    patches_dir = webops / "patches"
+    try:
+        results = patches.canary(src, tag, patches_dir)
+    except patches.PatchError as e:
+        raise UpstreamError(str(e)) from None
+    print(patches.format_canary(results, tag))
+    if any(r.status in ("conflict", "failed") for r in results):
+        raise UpstreamError(f"the series doesn't apply to {version}; resolve it as "
+                            "docs/patching.md says, then run bump again. Nothing changed.")
+
+    _move_branch(src, version, patches_dir)
+    try:
+        patches.export(src, tag, patches_dir)
+    except patches.PatchError as e:
+        raise UpstreamError(str(e)) from None
+    _write_pin(webops, pinned, release)
+    merged = sum(r.status == "merged" for r in results)
+    message = (f"build: move to Chromium {version}\n\n"
+               f"A security release of milestone {release.milestone}, published "
+               f"{_utc(release.published)}. Its tag is {release.commit}, as chromiumdash "
+               f"lists it. The patch series applies to it: {len(results) - merged} clean, "
+               f"{merged} with moved context; patches/ re-exported from ghost/{version}.\n")
+    _git(webops, "add", "--", "CHROMIUM_VERSION", "CHROMIUM_COMMIT",
+         "build/requirements.json", "patches")
+    _git(webops, "commit", "-q", "-F", "-", stdin=message)
+    return (f"Moved to Chromium {version}: {src} is on ghost/{version}; committed the pin in "
+            f"{webops}. Next: push, wait for CI, tag {version}-1 ({RUNBOOK}).")
+
+
 def _summary(result: dict) -> str:
     return (f"{result['verdict']}: Extended Stable is {result['version']} (milestone "
             f"{result['milestone']}, published {result['published']}); the pin is "
@@ -193,13 +297,18 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--json", action="store_true", help="print the result as JSON")
     r = sub.add_parser("report")
     r.add_argument("--check", type=Path, required=True, help="check --json's output")
+    b = sub.add_parser("bump")
+    b.add_argument("--to", required=True, help="the security release, e.g. 152.0.7977.158")
+    b.add_argument("--src", type=Path, required=True, help="the Chromium checkout (src)")
     args = parser.parse_args(argv)
     try:
         if args.command == "check":
             result = check()
             print(json.dumps(result, indent=1) if args.json else _summary(result))
-        else:
+        elif args.command == "report":
             print(report(json.loads(args.check.read_text(encoding="utf-8"))))
+        else:
+            print(bump(args.to, args.src))
     except UpstreamError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

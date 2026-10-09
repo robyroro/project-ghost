@@ -6,12 +6,15 @@ import contextlib
 import datetime
 import io
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+import patches
 import upstream
+from tests.gitutil import GitTestCase
 
 OLD = "152.0.7977.149"
 NEW = "152.0.7977.158"
@@ -126,6 +129,132 @@ class ReportTest(PinnedTestCase):
         self.assertEqual(create[create.index("--body") + 1], result["issue"]["body"])
         self.assertEqual(create[create.index("--label") + 1], "security-release")
         self.assertLess(calls.index(label), calls.index(create))
+
+
+REQUIREMENTS = """{{
+  "chromium_version": "{v}",
+  "sources": [
+    "https://chromium.googlesource.com/chromium/src/+/refs/tags/{v}/docs/windows_build_instructions.md"
+  ],
+  "windows": {{"ram_gb": {{"minimum": 8}}}}
+}}
+"""
+
+
+class BumpTest(GitTestCase):
+    def make(self, conflicting: bool = False) -> None:
+        """Upstream with two tagged releases; src on the series' branch from
+        the older; webops pinned to it with the series exported. With
+        `conflicting`, the newer release changes the line the patch changes."""
+        self.upstream = self.init_repo("upstream")
+        self.old = self.commit(self.upstream, {"a.txt": "one\ntwo\nthree\n", "b.txt": "b\n"},
+                               "149")
+        self.git(self.upstream, "tag", "-a", "-m", "149", OLD)
+        change = {"a.txt": "one\nzwei\nthree\n"} if conflicting else {"b.txt": "b2\n"}
+        self.new = self.commit(self.upstream, change, "158")
+        self.git(self.upstream, "tag", "-a", "-m", "158", NEW)
+
+        self.src = self.tmp / "src"
+        subprocess.run(["git", "clone", "-q", "--no-tags", self.upstream.as_uri(),
+                        str(self.src)], check=True)
+        self.git(self.src, "fetch", "-q", "origin", f"+refs/tags/{OLD}:refs/tags/{OLD}")
+        self.git(self.src, "checkout", "-q", "-b", f"ghost/{OLD}", f"refs/tags/{OLD}")
+        self.commit(self.src, {"a.txt": "one\nTWO\nthree\n"},
+                    "ghost: change two\n\nWhy: a test\nUpstream: not upstreamable: a test")
+
+        self.webops = self.init_repo("webops")
+        with contextlib.redirect_stdout(io.StringIO()):
+            patches.export(self.src, f"refs/tags/{OLD}", self.webops / "patches")
+        self.commit(self.webops, {"CHROMIUM_VERSION": OLD + "\n",
+                                  "CHROMIUM_COMMIT": self.old + "\n",
+                                  "build/requirements.json": REQUIREMENTS.format(v=OLD)}, "pin")
+        self.webops_head = self.head(self.webops)
+
+    def head(self, repo_dir: Path) -> str:
+        return self.git(repo_dir, "rev-parse", "HEAD").strip()
+
+    def branch(self) -> str:
+        return self.git(self.src, "rev-parse", "--abbrev-ref", "HEAD").strip()
+
+    def bump(self, version: str = NEW, commit: str | None = None) -> str:
+        fetch = fetcher(extended=[entry(version=version, commit=commit or self.new,
+                                        milestone=upstream.milestone_of(version))])
+        with contextlib.redirect_stdout(io.StringIO()):
+            return upstream.bump(version, self.src, self.webops, fetch)
+
+    def assert_nothing_changed(self) -> None:
+        self.assertEqual(self.head(self.webops), self.webops_head)
+        self.assertEqual(self.branch(), f"ghost/{OLD}")
+        self.assertEqual(self.git(self.src, "branch", "--list", f"ghost/{NEW}"), "")
+
+    def test_moves_the_pin_the_branch_and_the_series(self):
+        self.make()
+        self.bump()
+        self.assertEqual(self.branch(), f"ghost/{NEW}")
+        self.assertEqual(self.git(self.src, "rev-parse", "HEAD~1").strip(), self.new)
+        self.assertEqual(self.git(self.src, "show", "HEAD:a.txt"), "one\nTWO\nthree\n")
+        self.assertIn(f"ghost/{OLD}", self.git(self.src, "branch", "--list", f"ghost/{OLD}"))
+
+        self.assertEqual((self.webops / "CHROMIUM_VERSION").read_text(encoding="utf-8"),
+                         NEW + "\n")
+        self.assertEqual((self.webops / "CHROMIUM_COMMIT").read_text(encoding="utf-8"),
+                         self.new + "\n")
+        requirements = (self.webops / "build" / "requirements.json").read_text(encoding="utf-8")
+        self.assertEqual(json.loads(requirements)["chromium_version"], NEW)
+        self.assertIn(f"/refs/tags/{NEW}/docs/", requirements)
+        self.assertNotIn(OLD, requirements)
+
+        self.assertEqual(self.git(self.webops, "rev-parse", "HEAD~1").strip(), self.webops_head)
+        self.assertEqual(self.git(self.webops, "log", "-1", "--format=%s").strip(),
+                         f"build: move to Chromium {NEW}")
+        changed = set(self.git(self.webops, "show", "--name-only", "--format=", "HEAD").split())
+        self.assertLessEqual(changed, {"CHROMIUM_VERSION", "CHROMIUM_COMMIT",
+                                       "build/requirements.json",
+                                       *(f"patches/{p.name}" for p in
+                                         (self.webops / "patches").glob("*.patch"))})
+        self.assertEqual(self.git(self.webops, "status", "--porcelain"), "")
+        self.assertTrue(patches.series_matches(self.src, f"refs/tags/{NEW}",
+                                               self.webops / "patches"))
+
+    def test_refuses_a_dirty_repository(self):
+        self.make()
+        self.write(self.webops, "notes.txt", "x\n")
+        with self.assertRaisesRegex(upstream.UpstreamError, "uncommitted"):
+            self.bump()
+        self.assert_nothing_changed()
+
+    def test_refuses_an_older_version_and_another_milestone(self):
+        self.make()
+        with self.assertRaisesRegex(upstream.UpstreamError, "not newer"):
+            self.bump("152.0.7977.140")
+        with self.assertRaisesRegex(upstream.UpstreamError, "milestone"):
+            self.bump("154.0.8037.100")
+        self.assert_nothing_changed()
+
+    def test_a_tag_at_another_commit_stops_everything(self):
+        self.make()
+        with self.assertRaisesRegex(upstream.UpstreamError, "chromiumdash"):
+            self.bump(commit=self.old)
+        self.assert_nothing_changed()
+
+    def test_a_series_that_does_not_apply_changes_nothing(self):
+        self.make()
+        conflict = patches.CanaryResult("0001-ghost-change-two.patch", "conflict", ["a.txt"])
+        with mock.patch.object(upstream.patches, "canary", return_value=[conflict]), \
+                self.assertRaisesRegex(upstream.UpstreamError, "doesn't apply"):
+            self.bump()
+        self.assert_nothing_changed()
+
+    def test_a_failed_apply_returns_src_to_its_branch(self):
+        # The canary said clean, the real apply conflicts: bump must undo its branch.
+        self.make(conflicting=True)
+        clean = patches.CanaryResult("0001-ghost-change-two.patch", "clean", [])
+        with mock.patch.object(upstream.patches, "canary", return_value=[clean]), \
+                contextlib.redirect_stderr(io.StringIO()), \
+                self.assertRaisesRegex(upstream.UpstreamError, "apply"):
+            self.bump()
+        self.assert_nothing_changed()
+        self.assertEqual(self.git(self.src, "status", "--porcelain", "--untracked-files=no"), "")
 
 
 if __name__ == "__main__":
