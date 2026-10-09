@@ -10,13 +10,17 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import installer_smoke
+import pe_resources
 import repo
+
+ICONS = {"app": ["a16", "a256"], "doc": ["d16"], "pdf": ["p16"]}
 
 EXP = installer_smoke.Expectations(
     product_path="Browser", company_path="Shade", app_name="Shade", prog_id_prefix="ShadeHTM",
     pdf_prog_id_prefix="ShadePDF", url_scheme="shadebrowser", product_name="Shade",
     company_name="Shade", release_version="152.0.7977.14001",
-    web_version="152.0.7977.140", updater_name="ShadeUpdater")
+    web_version="152.0.7977.140", updater_name="ShadeUpdater",
+    icons=ICONS)
 LOCALAPPDATA = r"C:\Users\WDAGUtilityAccount\AppData\Local"
 CHROME = LOCALAPPDATA + r"\Shade\Browser\Application\chrome.exe"
 PROGRAMS = r"C:\Users\WDAGUtilityAccount\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
@@ -38,6 +42,8 @@ INSTALLED = {
     "shortcuts": {PROGRAMS + r"\Shade.lnk": CHROME,
                   DESKTOP + r"\Shade.lnk": CHROME},
     "version_info": {"ProductName": "Shade", "CompanyName": "Shade"},
+    "icons": {"chrome.exe": [["a16", "a256"], ["x"], ["d16"], ["p16"]],
+              "setup.exe": [["a16", "a256"]]},
 }
 UNINSTALLED = {
     "chrome_exe": CHROME,
@@ -52,6 +58,7 @@ UNINSTALLED = {
     "classes": [],
     "shortcuts": {},
     "version_info": None,
+    "icons": {"chrome.exe": None, "setup.exe": None},
 }
 
 
@@ -64,13 +71,16 @@ def changed(snapshot, **changes):
 class ExpectationsTest(unittest.TestCase):
     def test_come_from_the_branding_directory_the_pin_and_the_installer(self):
         exp = installer_smoke.expectations(repo.REPO_ROOT, release_version="152.0.7977.14901")
+        theme = repo.REPO_ROOT / "branding" / "theme" / "win"
+        icons = {kind: pe_resources.digests(pe_resources.ico_images(
+            (theme / f"{kind}.ico").read_bytes())) for kind in ("app", "doc", "pdf")}
         self.assertEqual(exp, installer_smoke.Expectations(
             product_path="Browser", company_path="Shade", app_name="Shade",
             prog_id_prefix="ShadeHTM",
             pdf_prog_id_prefix="ShadePDF", url_scheme="shadebrowser",
             product_name="Shade", company_name="Shade",
             release_version="152.0.7977.14901", web_version=repo.read_chromium_version(),
-            updater_name="ShadeUpdater"))
+            updater_name="ShadeUpdater", icons=icons))
 
     def test_round_trip_through_json(self):
         # The build machine writes them; the sandbox reads them.
@@ -130,6 +140,30 @@ class InstalledTest(unittest.TestCase):
         self.assertTrue(self.failures(classes=INSTALLED["classes"] + ["ChromiumHTM.ABC"]))
         self.assertTrue(self.failures(shortcuts=dict(INSTALLED["shortcuts"],
                                                      **{PROGRAMS + r"\Chromium.lnk": CHROME})))
+
+
+
+class IconsTest(unittest.TestCase):
+    def test_the_installed_files_carry_the_products_icons(self):
+        self.assertEqual(installer_smoke.evaluate_icons(INSTALLED["icons"], EXP), [])
+        self.assertEqual(installer_smoke.evaluate_installed(INSTALLED, EXP), [])
+
+    def test_the_first_group_is_the_one_explorer_shows(self):
+        icons = {"chrome.exe": [["x"], ["a16", "a256"], ["d16"], ["p16"]]}
+        self.assertTrue(any("chrome.exe" in f
+                            for f in installer_smoke.evaluate_icons(icons, EXP)))
+
+    def test_chromiums_icon_fails(self):
+        self.assertTrue(installer_smoke.evaluate_icons({"setup.exe": [["chromium"]]}, EXP))
+        self.assertTrue(installer_smoke.evaluate_icons({"setup.exe": []}, EXP))
+
+    def test_the_document_icons_are_in_the_browser(self):
+        icons = {"chrome.exe": [["a16", "a256"], ["d16"]]}
+        self.assertEqual([f for f in installer_smoke.evaluate_icons(icons, EXP) if "pdf" in f],
+                         ["chrome.exe has no icon equal to branding/theme/win/pdf.ico"])
+
+    def test_a_missing_file_is_reported_by_the_file_checks(self):
+        self.assertEqual(installer_smoke.evaluate_icons({"chrome.exe": None}, EXP), [])
 
 
 class UninstalledTest(unittest.TestCase):

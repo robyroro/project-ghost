@@ -18,8 +18,11 @@ file version, which is the release version (ADR 0007):
   the release version's directory; the Apps & features entry with the product name, publisher and
   release version; registration as a browser (StartMenuInternet and the HTML
   ProgID); Start menu and Desktop shortcuts named for the product and opening
-  it; the product name in chrome.exe's file properties; and nothing named
-  Chromium, so Ghost can be installed next to Chromium;
+  it; the product name in chrome.exe's file properties; nothing named
+  Chromium, so the browser can be installed next to Chromium; and the
+  installer's, chrome.exe's and setup.exe's icon (the first icon group, the
+  one Explorer shows) is branding/theme/win/app.ico, with chrome.exe also
+  carrying the document icons;
 - launch: the installed browser starts and reports CHROMIUM_VERSION, the
   version websites see;
 - after uninstall: none of the above is left.
@@ -45,6 +48,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import cdp
+import pe_resources
 import repo
 
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -73,6 +77,7 @@ class Expectations:
     release_version: str  # the installer's file version: install directory, Apps & features
     web_version: str      # CHROMIUM_VERSION: what the running browser reports
     updater_name: str     # branding/updater.gni updater_product_full_name: its directory and tasks
+    icons: dict           # {"app"|"doc"|"pdf": sha256 of each image of branding/theme/win/<kind>.ico}
 
     @property
     def install_dir_parts(self) -> tuple[str, ...]:
@@ -85,6 +90,9 @@ class Expectations:
     @property
     def uninstall_key(self) -> str:
         return " ".join(self.install_dir_parts)
+
+
+ICON_KINDS = ("app", "doc", "pdf")
 
 
 def expectations(root: Path, release_version: str) -> Expectations:
@@ -109,7 +117,10 @@ def expectations(root: Path, release_version: str) -> Expectations:
         release_version=release_version,
         web_version=repo.read_chromium_version(root),
         updater_name=repo.read_gni_string(root / "branding" / "updater.gni",
-                                          "updater_product_full_name"))
+                                          "updater_product_full_name"),
+        icons={kind: pe_resources.digests(pe_resources.ico_images(
+            (root / "branding" / "theme" / "win" / f"{kind}.ico").read_bytes()))
+            for kind in ICON_KINDS})
 
 
 # --- Checks ---------------------------------------------------------------------
@@ -124,6 +135,7 @@ def expectations(root: Path, release_version: str) -> Expectations:
 #   HKCU\Software without a company
 # shortcuts: {path of each .lnk in the Start menu and on the Desktop: target}
 # version_info: chrome.exe's ProductName and CompanyName, or None
+# icons: {"chrome.exe"|"setup.exe": icon groups as digest lists, or None}
 
 
 def _same_path(a: str, b: str) -> bool:
@@ -218,6 +230,23 @@ def evaluate_installed(snap: dict, exp: Expectations) -> list[str]:
              + [ntpath.basename(p) for p in snap["shortcuts"]])
     failures += [f"{n} is named Chromium" for n in names if "chromium" in n.lower()]
     failures += _outside_company(snap, exp)
+    failures += evaluate_icons(snap["icons"], exp)
+    return failures
+
+
+def evaluate_icons(icons: dict, exp: Expectations) -> list[str]:
+    """`icons` maps a file's name to its icon groups (each a list of image
+    digests), or to None when the file is missing, which the file checks
+    report."""
+    failures = []
+    for name, groups in icons.items():
+        if groups is None:
+            continue
+        if not groups or groups[0] != exp.icons["app"]:
+            failures.append(f"{name}'s icon is not branding/theme/win/app.ico")
+    for kind in ("doc", "pdf"):
+        if icons.get("chrome.exe") and exp.icons[kind] not in icons["chrome.exe"]:
+            failures.append(f"chrome.exe has no icon equal to branding/theme/win/{kind}.ico")
     return failures
 
 
@@ -290,6 +319,12 @@ def installer_version(installer: Path) -> str:
                             ".VersionInfo.FileVersion")
 
 
+def icon_digests(path: Path) -> list[list[str]] | None:
+    if not path.exists():
+        return None
+    return [pe_resources.digests(g.images) for g in pe_resources.icon_groups(path.read_bytes())]
+
+
 def snapshot(exp: Expectations) -> dict:
     import winreg
 
@@ -323,15 +358,14 @@ def snapshot(exp: Expectations) -> dict:
             + ",".join(f"$shell.CreateShortcut({_ps_quote(p)}).TargetPath" for p in links) + ")")
         targets = targets if isinstance(targets, list) else [targets]
     chrome = app_dir / "chrome.exe"
+    setup = app_dir / exp.release_version / "Installer" / "setup.exe"
     info = None
     if chrome.exists():
         info = _powershell_json(f"(Get-Item -LiteralPath {_ps_quote(str(chrome))}).VersionInfo"
                                 " | Select-Object ProductName, CompanyName")
     return {
         "chrome_exe": str(chrome), "start_menu": str(start_menu), "desktop": str(desktop),
-        "files": {"chrome.exe": chrome.exists(),
-                  "setup.exe": (app_dir / exp.release_version / "Installer"
-                                / "setup.exe").exists()},
+        "files": {"chrome.exe": chrome.exists(), "setup.exe": setup.exists()},
         "uninstall": values(rf"Software\Microsoft\Windows\CurrentVersion\Uninstall"
                             rf"\{exp.uninstall_key}"),
         "software": subkeys("Software"),
@@ -344,6 +378,7 @@ def snapshot(exp: Expectations) -> dict:
         "classes": subkeys(r"Software\Classes"),
         "shortcuts": dict(zip(links, targets)),
         "version_info": info,
+        "icons": {"chrome.exe": icon_digests(chrome), "setup.exe": icon_digests(setup)},
     }
 
 
@@ -408,6 +443,9 @@ def run(installer: Path, results_dir: Path, exp: Expectations) -> dict:
         if not step("clean machine", evaluate_uninstalled(snapshot(exp), exp)):
             return result
         installer = stage_installer(installer, Path(tempfile.mkdtemp(prefix="installer-")))
+        if not step("installer icon",
+                    evaluate_icons({installer.name: icon_digests(installer)}, exp)):
+            return result
         code = subprocess.run([str(installer), "--do-not-launch-chrome", "--verbose-logging"],
                               timeout=900).returncode
         installed = snapshot(exp)

@@ -148,7 +148,7 @@ class SandboxFailureTest(unittest.TestCase):
         product_path="Browser", company_path="", app_name="Ghost", prog_id_prefix="GhostHTML",
         pdf_prog_id_prefix="GhostPDF", url_scheme="ghost", product_name="Project Ghost",
         company_name="Project Ghost", release_version="1.0.0.1", web_version="1.0.0.1",
-        updater_name="GhostUpdater")
+        updater_name="GhostUpdater", icons={"app": [], "doc": [], "pdf": []})
 
     def test_a_server_that_cannot_start_is_reported(self):
         # The host waits for the result file; without one it waited its whole timeout.
