@@ -13,7 +13,7 @@ with no arguments. Without --sign, the result is unsigned and untagged, and
 the install arguments go on its command line (install_arguments()).
 
   python tools/offline_installer.py --src C:\\...\\src --out out\\vanilla
-      --version 152.0.7977.14901 --appid {...} --output ProjectGhostOfflineSetup.exe
+      --version 152.0.7977.14901 --appid {...} --output ShadeSetup.exe
       [--sign "Project Ghost Test Code Signing"]
 """
 
@@ -25,6 +25,8 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+import repo
 
 # protocol 3.0 XML, as upstream's offline example; sign.py fills in ${...}.
 MANIFEST = """<?xml version="1.0" encoding="UTF-8"?>
@@ -49,7 +51,8 @@ MANIFEST = """<?xml version="1.0" encoding="UTF-8"?>
 </response>
 """
 
-OUTPUT_NAME = "ProjectGhostOfflineSetup.exe"
+# The download people run, named for the product: ShadeSetup.exe.
+OUTPUT_NAME = repo.read_branding()["PRODUCT_SHORTNAME"].replace(" ", "") + "Setup.exe"
 DEPOT_TOOLS = Path(r"C:\src\depot_tools")
 
 

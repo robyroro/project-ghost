@@ -29,7 +29,10 @@ import repo
 DOCUMENT = "sbom.spdx.json"
 BROWSER_TARGET = "//chrome/installer/mini_installer:mini_installer"
 UPDATER_TARGET = "//chrome/updater/win/installer:installer"
-GHOST_ID = "SPDXRef-Package-Project-Ghost"
+# Ghost (the codename) is the package of this repository's code; it carries
+# the product's name.
+PRODUCT = repo.read_branding()["PRODUCT_FULLNAME"]
+GHOST_ID = f"SPDXRef-Package-{PRODUCT}"
 REPOSITORY = "https://github.com/robyroro/project-ghost"
 
 
@@ -76,13 +79,13 @@ def complete(doc: dict, version: str, tag: str, commit: str) -> dict:
     """Describes the release: Ghost's package, MPL-2.0, contains Chromium's root."""
     doc = copy.deepcopy(doc)
     chromium = doc["documentDescribes"][0]
-    doc["name"] = f"Project Ghost {version}"
+    doc["name"] = f"{PRODUCT} {version}"
     doc["documentNamespace"] = f"{REPOSITORY}/releases/{tag}/sbom"
     doc["creationInfo"] = {
         "created": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "creators": ["Tool: ghost/tools/sbom.py", *doc["creationInfo"]["creators"]]}
     doc["packages"].insert(0, {
-        "SPDXID": GHOST_ID, "name": "Project Ghost", "versionInfo": version,
+        "SPDXID": GHOST_ID, "name": PRODUCT, "versionInfo": version,
         "downloadLocation": f"git+{REPOSITORY}@{commit}", "licenseConcluded": "MPL-2.0",
         "comment": "Ghost's code (//ghost) and its Chromium patch series (patches/)."})
     doc["documentDescribes"] = [GHOST_ID]

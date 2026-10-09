@@ -51,6 +51,7 @@ SALT = Path("build") / "mojom_message_id_salt"
 DEFAULT_RELEASES = Path.home() / "ProjectGhostReleases"
 DEFAULT_DEPOT_TOOLS = Path(r"C:\src\depot_tools")
 DEFAULT_SERVER_REPO = repo.REPO_ROOT.parent / "project-ghost-update-server"
+PRODUCT = repo.read_branding()["PRODUCT_FULLNAME"]
 # Identities that never make a public release: the development keys are
 # committed, and the test identity's name isn't cleared (docs/licensing.md).
 NOT_PUBLIC = ("dev", "test")
@@ -242,7 +243,7 @@ def sign_command(ctx: Context, appid: str) -> list[str]:
 
 
 def draft_command(ctx: Context, publish: Path, notes: Path) -> list[str]:
-    title = f"Project Ghost {ctx.version}" + ("" if ctx.public else f" ({ctx.identity} identity)")
+    title = f"{PRODUCT} {ctx.version}" + ("" if ctx.public else f" ({ctx.identity} identity)")
     command = ["gh", "release", "create", ctx.tag, "--verify-tag", "--title", title,
                "--notes-file", str(notes), "--prerelease"]
     if not ctx.public:
@@ -264,7 +265,7 @@ def admin_command(host: str, action: str, appid: str, fraction: float | None = N
 
 
 def release_notes(ctx: Context) -> str:
-    lines = [f"Project Ghost {ctx.version}: Chromium {ctx.chromium_version} with Ghost's patch "
+    lines = [f"{PRODUCT} {ctx.version}: Chromium {ctx.chromium_version} with the patch "
              f"series, from the tag `{ctx.tag}`.", ""]
     if ctx.identity in NOT_PUBLIC:
         lines += ["**Test identity: not for daily use.** This build carries Phase 2's "

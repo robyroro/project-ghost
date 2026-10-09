@@ -182,7 +182,7 @@ class CommandTest(unittest.TestCase):
         publish, notes = Path(r"C:\r\p"), Path(r"C:\r\notes.md")
         draft = release.draft_command(CTX, publish, notes)
         self.assertEqual(draft[:10], ["gh", "release", "create", TAG, "--verify-tag", "--title",
-                                      "Project Ghost 152.0.7977.14901 (test identity)",
+                                      "Shade 152.0.7977.14901 (test identity)",
                                       "--notes-file", str(notes), "--prerelease"])
         self.assertIn("--draft", draft)
         self.assertEqual(draft[-5:], [str(publish / name) for name in release.PUBLISHED])

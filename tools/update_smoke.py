@@ -120,7 +120,7 @@ def _company_dir(exp: smoke.Expectations) -> Path:
 
 
 def _updater_exe(exp: smoke.Expectations) -> Path | None:
-    found = sorted(_company_dir(exp).glob("ProjectGhostUpdater/*/updater.exe"))
+    found = sorted(_company_dir(exp).glob(f"{exp.updater_name}/*/updater.exe"))
     return found[-1] if found else None
 
 
@@ -167,7 +167,7 @@ def _updater_key_tree(exp: smoke.Expectations) -> dict[str, list[str]]:
 def _updater_tasks(exp: smoke.Expectations) -> list[str]:
     out = subprocess.run(["schtasks", "/query", "/v", "/fo", "csv"], capture_output=True,
                          text=True).stdout
-    return [line for line in out.splitlines() if "ProjectGhostUpdater" in line]
+    return [line for line in out.splitlines() if exp.updater_name in line]
 
 
 def _wait(condition, seconds: int) -> bool:

@@ -71,15 +71,15 @@ class CheckFilesTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.dir = Path(tmp.name)
-        for name, data in (("ProjectGhostOfflineSetup.exe", b"setup"), ("update.crx3", b"crx")):
+        for name, data in (("ShadeSetup.exe", b"setup"), ("update.crx3", b"crx")):
             (self.dir / name).write_bytes(data)
-        provenance.write_release_files(self.dir, ["ProjectGhostOfflineSetup.exe", "update.crx3"],
+        provenance.write_release_files(self.dir, ["ShadeSetup.exe", "update.crx3"],
                                        FACTS)
 
     def test_a_complete_release_passes(self):
         self.assertEqual(provenance.check_files(self.dir), [])
         sums = provenance.parse_sums((self.dir / provenance.SUMS_FILE).read_text())
-        self.assertEqual(set(sums), {"ProjectGhostOfflineSetup.exe", "update.crx3",
+        self.assertEqual(set(sums), {"ShadeSetup.exe", "update.crx3",
                                      provenance.PROVENANCE_FILE})
         self.assertEqual(sums["update.crx3"], hashlib.sha256(b"crx").hexdigest())
 

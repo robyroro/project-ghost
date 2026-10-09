@@ -16,7 +16,7 @@ EXP = installer_smoke.Expectations(
     product_path="Browser", company_path="Shade", app_name="Shade", prog_id_prefix="ShadeHTM",
     pdf_prog_id_prefix="ShadePDF", url_scheme="shadebrowser", product_name="Shade",
     company_name="Shade", release_version="152.0.7977.14001",
-    web_version="152.0.7977.140")
+    web_version="152.0.7977.140", updater_name="ShadeUpdater")
 LOCALAPPDATA = r"C:\Users\WDAGUtilityAccount\AppData\Local"
 CHROME = LOCALAPPDATA + r"\Shade\Browser\Application\chrome.exe"
 PROGRAMS = r"C:\Users\WDAGUtilityAccount\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
@@ -69,7 +69,8 @@ class ExpectationsTest(unittest.TestCase):
             prog_id_prefix="ShadeHTM",
             pdf_prog_id_prefix="ShadePDF", url_scheme="shadebrowser",
             product_name="Shade", company_name="Shade",
-            release_version="152.0.7977.14901", web_version=repo.read_chromium_version()))
+            release_version="152.0.7977.14901", web_version=repo.read_chromium_version(),
+            updater_name="ShadeUpdater"))
 
     def test_round_trip_through_json(self):
         # The build machine writes them; the sandbox reads them.

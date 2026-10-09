@@ -66,10 +66,12 @@ class GhostTest(unittest.TestCase):
     def test_describes_the_release_with_ghosts_code(self):
         doc = sbom.complete(sbom.merge(BROWSER, UPDATER), version="152.0.7977.14901",
                             tag="152.0.7977.149-1", commit="a" * 40)
-        self.assertEqual(doc["name"], "Project Ghost 152.0.7977.14901")
+        self.assertEqual(doc["name"], "Shade 152.0.7977.14901")
         self.assertEqual(doc["documentNamespace"],
                          "https://github.com/robyroro/project-ghost/releases/152.0.7977.149-1/sbom")
         ghost = next(p for p in doc["packages"] if p["SPDXID"] == sbom.GHOST_ID)
+        self.assertEqual(ghost["name"], "Shade")
+        self.assertEqual(sbom.GHOST_ID, "SPDXRef-Package-Shade")
         self.assertEqual(ghost["licenseConcluded"], "MPL-2.0")
         self.assertEqual(ghost["versionInfo"], "152.0.7977.14901")
         self.assertEqual(ghost["downloadLocation"],

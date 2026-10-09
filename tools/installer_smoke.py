@@ -72,6 +72,7 @@ class Expectations:
     company_name: str     # BRANDING COMPANY_FULLNAME: publisher
     release_version: str  # the installer's file version: install directory, Apps & features
     web_version: str      # CHROMIUM_VERSION: what the running browser reports
+    updater_name: str     # branding/updater.gni updater_product_full_name: its directory and tasks
 
     @property
     def install_dir_parts(self) -> tuple[str, ...]:
@@ -95,11 +96,7 @@ def expectations(root: Path, release_version: str) -> Expectations:
             raise ValueError(f"branding/install_modes.h: no match for {pattern}")
         return m.group(1)
 
-    branding = {}
-    for line in (root / "branding" / "BRANDING").read_text(encoding="utf-8").splitlines():
-        key, sep, value = line.partition("=")
-        if sep:
-            branding[key.strip()] = value.strip()
+    branding = repo.read_branding(root)
     return Expectations(
         product_path=field(r'kProductPathName\[\]\s*=\s*L"([^"]*)"'),
         company_path=field(r'kCompanyPathName\[\]\s*=\s*L"([^"]*)"'),
@@ -110,7 +107,9 @@ def expectations(root: Path, release_version: str) -> Expectations:
         product_name=branding["PRODUCT_FULLNAME"],
         company_name=branding["COMPANY_FULLNAME"],
         release_version=release_version,
-        web_version=repo.read_chromium_version(root))
+        web_version=repo.read_chromium_version(root),
+        updater_name=repo.read_gni_string(root / "branding" / "updater.gni",
+                                          "updater_product_full_name"))
 
 
 # --- Checks ---------------------------------------------------------------------

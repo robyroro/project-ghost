@@ -147,7 +147,8 @@ class SandboxFailureTest(unittest.TestCase):
     EXP = installer_smoke.Expectations(
         product_path="Browser", company_path="", app_name="Ghost", prog_id_prefix="GhostHTML",
         pdf_prog_id_prefix="GhostPDF", url_scheme="ghost", product_name="Project Ghost",
-        company_name="Project Ghost", release_version="1.0.0.1", web_version="1.0.0.1")
+        company_name="Project Ghost", release_version="1.0.0.1", web_version="1.0.0.1",
+        updater_name="GhostUpdater")
 
     def test_a_server_that_cannot_start_is_reported(self):
         # The host waits for the result file; without one it waited its whole timeout.
@@ -186,6 +187,17 @@ class SandboxFailureTest(unittest.TestCase):
                                                cup_version=2)
         self.assertEqual(code, 2)
         popen.assert_not_called()
+
+
+class UpdaterNameTest(unittest.TestCase):
+    def test_tasks_are_found_by_the_updaters_name(self):
+        shade = '"HOST","ShadeUpdaterTaskUser{ABC}","Ready"'
+        other = '"HOST","OtherUpdaterTaskUser{DEF}","Ready"'
+        exp = installer_smoke.Expectations(**{**SandboxFailureTest.EXP.__dict__,
+                                              "updater_name": "ShadeUpdater"})
+        with unittest.mock.patch.object(update_smoke.subprocess, "run") as run:
+            run.return_value.stdout = "\n".join((shade, other))
+            self.assertEqual(update_smoke._updater_tasks(exp), [shade])
 
 
 if __name__ == "__main__":
