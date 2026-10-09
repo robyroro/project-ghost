@@ -69,7 +69,7 @@ The release:
 | `branding/BRANDING`, `install_modes.h`, `updater.gni` | The names above. `updater.gni` loses its "TEST IDENTITY" comment: the names are now final, the GUIDs always were. |
 | `branding/logo/source.png` | The source image, the user's WebP converted to PNG losslessly. |
 | `branding/logo/small.png` | Optional. Used for sizes up to 32 px when present. |
-| `tools/brand_icons.py` | Generates every icon from the source into `branding/theme/` (below), writes `branding/theme/manifest.json` (each file, its sizes and sha256), and with `--preview <dir>` a contact sheet. Uses Pillow. |
+| `tools/brand_icons.py` | Generates every icon from the source into `branding/theme/` (below), and with `--preview <dir>` a contact sheet. Removes generated files it no longer makes. Uses Pillow. |
 | `branding/theme/` | The generated icons, committed. |
 | `tools/pe_resources.py` | Reads the icon groups out of a PE file (`RT_GROUP_ICON` and its `RT_ICON` entries), standard library only. |
 | `tools/installer_smoke.py` | Also checks the new names and the icons (Testing). |
@@ -83,8 +83,8 @@ The release:
 2. **Framing.** Crop to the logo, centre it on a square, add a small margin.
 3. **Resizing.** Always from the full-resolution image, with Lanczos.
 4. **Outputs:**
-   - `win/shade.ico`: 16, 20, 24, 32, 40, 48, 64 and 256 px; the 256 px image stored as PNG. The browser's executable, shortcuts and taskbar, and the icon of `mini_installer`, `setup` and the updater's installer and UI.
-   - `win/shade_doc.ico`, `win/shade_pdf.ico`: the logo on a stylised page, at the same sizes.
+   - `win/app.ico`: 16, 20, 24, 32, 40, 48, 64 and 256 px; the 256 px image stored as PNG. The browser's executable, shortcuts and taskbar, and the icon of `mini_installer`, `setup` and the updater's installer and UI.
+   - `win/doc.ico`, `win/pdf.ico`: the logo on a stylised page, at the same sizes.
    - `win/tiles/Logo.png` and `win/tiles/SmallLogo.png`, at upstream's pixel sizes and proportions: 600 px with the logo 220 px wide, and 176 px with the logo 118 px wide, centred.
    - `default_100_percent/product_logo_16.png`, `product_logo_32.png` and their `default_200_percent` and `default_300_percent` versions (2× and 3×).
    - `product_logo_16.png`, `_24`, `_64`, `_128`, `_256.png`: the unscaled logos and the profile shortcut badges.
@@ -92,7 +92,7 @@ The release:
    - Upstream's incognito and app-list icons are generic (a hat and glasses, a grid), so they stay. Upstream's installer and updater icons are generic boxes; they become the Shade icon, as Chrome's installer shows Chrome's.
 5. **Contact sheet** (`--preview`, never committed): every size on a light and a dark background, at 100% and enlarged, for judging legibility at 16 px.
 
-The tool is deterministic for a given source and Pillow version.
+File names are product-neutral (`app.ico`, not `shade.ico`), so a later rename touches none of them. The tool is deterministic for a given source and Pillow version.
 
 ### Patch 0027
 
@@ -132,7 +132,7 @@ Left for the first build with patch 0027, recorded in `2026-10-09-shade-rebrand-
 
 **Unit tests:**
 
-- `brand_icons.py`: the regeneration test generates into a temporary directory and compares with `branding/theme/`: the manifest, each PNG's decoded pixels and each ICO's directory and decoded images. Pixels rather than file bytes, because Pillow's PNG compression may differ between platforms. Without Pillow the test fails; it isn't skipped. Plus tests of the background step on small synthetic images: border white removed, enclosed white kept, edge pixels un-mixed.
+- `brand_icons.py`: the regeneration test generates in memory and compares with `branding/theme/`: the same set of files, each PNG's decoded pixels, each ICO's images (BMP entries byte for byte, PNG entries decoded) and the SVG's embedded PNG, decoded. Pixels rather than file bytes, because Pillow's PNG compression may differ between platforms. Without Pillow the test fails; it isn't skipped. Plus tests of the background step on small synthetic images: border white removed, enclosed white kept, edge pixels un-mixed.
 - `pe_resources.py`: builds a minimal PE in memory with an icon group, on any OS.
 - A branding test: no working name (`Project Ghost`, `ProjectGhost`, `projectghost`) in `branding/BRANDING`, `install_modes.h` or `updater.gni`; `kCompanyPathName` equals `updater_company_short_name`, and `app_guid` equals `browser_appid`.
 - `installer_strings`, `installer_smoke`, `update_smoke`, `release` and `sbom` expect the new names. `update_smoke` takes the updater's directory and task name from `updater.gni` instead of a literal.
@@ -142,7 +142,7 @@ Left for the first build with patch 0027, recorded in `2026-10-09-shade-rebrand-
 - the install path `%LOCALAPPDATA%\Shade\Browser` and the keys `Software\Shade\{Browser,Update}`;
 - the "Shade" shortcut and the "Shade Browser" entry in Apps & features;
 - the `ShadeHTM` and `ShadePDF` ProgIDs and the `shadebrowser` scheme;
-- that every image in the installed `chrome.exe`'s main icon group equals, byte for byte, the corresponding image in `branding/theme/win/shade.ico`.
+- that every image in the installed `chrome.exe`'s main icon group equals, byte for byte, the corresponding image in `branding/theme/win/app.ico`, and that `chrome.exe` also carries `doc.ico` and `pdf.ico`.
 
 The installed `setup.exe` and the installer under test are checked the same way (their first icon group).
 
