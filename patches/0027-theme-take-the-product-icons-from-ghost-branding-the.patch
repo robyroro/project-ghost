@@ -1,11 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: robyroro <41092915+robyroro@users.noreply.github.com>
 Date: Fri, 9 Oct 2026 08:31:43 +0300
-Subject: [PATCH] =?UTF-8?q?=EF=BB=BFtheme:=20take=20the=20product=20icons?=
- =?UTF-8?q?=20from=20//ghost/branding/theme?=
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH] theme: take the product icons from //ghost/branding/theme
 
 Points the browser's, the installers' and the updater's icons, the Start
 tiles, and the product logos packed for the UI and WebUI at the files
