@@ -263,6 +263,9 @@ def check(patches_dir: Path) -> list[Issue]:
             issues.append(Issue(name, "missing zero-hash From line; regenerate with patches.py export"))
         if b"\r" in p.mail:
             issues.append(Issue(name, "commit message or headers contain CR characters"))
+        if "﻿" in p.subject or "﻿" in p.message:
+            issues.append(Issue(name, "commit message contains a byte-order mark; "
+                                      "rewrite it without one"))
         if not p.subject.startswith("[PATCH] ") or not p.subject[8:].strip():
             issues.append(Issue(name, "subject must be '[PATCH] area: summary'"))
         found = {k for k, _ in TRAILER_RE.findall(p.message)}

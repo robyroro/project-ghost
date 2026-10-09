@@ -169,6 +169,14 @@ class CheckTest(SeriesTestCase):
                      b"Hook for Ghost defaults.\r\n")
         self.assertEqual(self.errors(), ["commit message or headers contain CR characters"])
 
+    def test_byte_order_mark_in_subject(self):
+        # Windows PowerShell 5.1 prefixes text it pipes to git with a UTF-8
+        # BOM; format-patch then encodes it into the subject (2026-10-09).
+        self.rewrite("0001-prefs-call-into-ghost.patch", b"Subject: [PATCH] ",
+                     b"Subject: [PATCH] =?UTF-8?q?=EF=BB=BF?= ")
+        self.assertEqual(self.errors(), ["commit message contains a byte-order mark; "
+                                         "rewrite it without one"])
+
     def test_non_contiguous_numbering(self):
         (self.patches_dir / "0002-net-change-connect.patch").rename(
             self.patches_dir / "0003-net-change-connect.patch")
