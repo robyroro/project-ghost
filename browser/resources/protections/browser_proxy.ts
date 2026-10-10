@@ -3,13 +3,19 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import type {PageHandlerInterface} from './protections.mojom-webui.js';
-import {PageHandler} from './protections.mojom-webui.js';
+import {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from './protections.mojom-webui.js';
 
 export class ProtectionsBrowserProxy {
   handler: PageHandlerInterface;
+  callbackRouter: PageCallbackRouter;
 
   constructor() {
-    this.handler = PageHandler.getRemote();
+    this.callbackRouter = new PageCallbackRouter();
+    const handler = new PageHandlerRemote();
+    PageHandlerFactory.getRemote().createPageHandler(
+        this.callbackRouter.$.bindNewPipeAndPassRemote(),
+        handler.$.bindNewPipeAndPassReceiver());
+    this.handler = handler;
   }
 
   static getInstance(): ProtectionsBrowserProxy {

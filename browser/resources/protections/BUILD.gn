@@ -12,6 +12,8 @@ build_webui("resources") {
 
   static_files = [ "protections.html" ]
 
+  css_files = [ "app.css" ]
+
   ts_files = [
     "app.html.ts",
     "app.ts",

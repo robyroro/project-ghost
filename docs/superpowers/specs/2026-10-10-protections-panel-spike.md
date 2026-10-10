@@ -29,3 +29,12 @@ What the wiring took, beyond the plan:
 
 - `GetPanelState` and `ChooseLevel` as planned; 7 unit tests. Real WebUI pages (`chrome://settings`) don't load under `ChromeRenderViewHostTestHarness` (the controller's constructor crashes), so the tests use `chrome://no-such-page/` for a chrome: page; the browser tests (Task 8) use the real one.
 - M3 (`ChooseLevel` writes the default instead of clearing it) checked now: `ChoosingTheDefaultClearsTheSitesChoice` fails. A first try with `if (false)` didn't compile (`-Wunreachable-code` under `/WX`) and the old binary ran green: a mutant's build result must be checked before its tests are read.
+
+## Tasks 5 and 6: the page handler and the page, 2026-10-10
+
+One commit: the page and its Mojo interface only work together.
+
+- The handler follows the browser's active tab, chosen again at each `GetState` (the page asks on load and each time it becomes visible: `WebUIBubbleManager` keeps a preloaded page for the next opening, maybe on another tab). It observes the tab's `PageProtections`, whose reset on a new page also sends the state, and stops before the tab's user data goes (`WebContentsDestroyed`).
+- `build_webui` runs WebUI's ESLint: an HTML template may hold no local variables or `if` (logic goes to the class), and a Lit lifecycle override must call `super`.
+- The levels are native radio inputs styled as a segmented control: radio-group semantics and arrow keys come with them, without `cr_elements` (another dependency to allow).
+- Colours come from `chrome://theme/colors.css` (`--color-sys-*`), loaded by the page; nothing is hard-coded.

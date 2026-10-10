@@ -34,8 +34,10 @@ class ProtectionsUIConfig : public DefaultTopChromeWebUIConfig<ProtectionsUI> {
   bool ShouldAutoResizeHost() override;
 };
 
+class ProtectionsPageHandler;
+
 // The protections panel, shown in a bubble from the toolbar's shield.
-class ProtectionsUI : public TopChromeWebUIController, public mojom::PageHandler {
+class ProtectionsUI : public TopChromeWebUIController, public mojom::PageHandlerFactory {
  public:
   explicit ProtectionsUI(content::WebUI* web_ui);
   ProtectionsUI(const ProtectionsUI&) = delete;
@@ -44,13 +46,18 @@ class ProtectionsUI : public TopChromeWebUIController, public mojom::PageHandler
 
   static constexpr std::string_view GetWebUIName() { return "Protections"; }
 
-  void BindInterface(mojo::PendingReceiver<mojom::PageHandler> receiver);
+  void BindInterface(mojo::PendingReceiver<mojom::PageHandlerFactory> receiver);
 
-  // mojom::PageHandler:
-  void ShowUI() override;
+  // The page has rendered: the bubble can show.
+  void ShowUI();
 
  private:
-  mojo::Receiver<mojom::PageHandler> receiver_{this};
+  // mojom::PageHandlerFactory:
+  void CreatePageHandler(mojo::PendingRemote<mojom::Page> page,
+                         mojo::PendingReceiver<mojom::PageHandler> receiver) override;
+
+  mojo::Receiver<mojom::PageHandlerFactory> factory_receiver_{this};
+  std::unique_ptr<ProtectionsPageHandler> page_handler_;
 
   WEB_UI_CONTROLLER_TYPE_DECL();
 };

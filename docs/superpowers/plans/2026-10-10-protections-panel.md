@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Tasks 1–4 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** Tasks 1–6 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -339,7 +339,7 @@ void ChooseLevel(content::WebContents& contents, privacy_policy::ProtectionLevel
 - Modify: `browser/ui/protections/protections.mojom`, `protections_ui.{h,cc}`
 - Create: `browser/ui/protections/protections_page_handler.{h,cc}`, `protections_strings.{h,cc}`
 
-- [ ] **Step 1:** Write the full `protections.mojom`:
+- [x] **Step 1:** Write the full `protections.mojom`:
 
 ```
 module ghost.protections.mojom;
@@ -374,21 +374,21 @@ interface Page {
 };
 ```
 
-- [ ] **Step 2:** Write `ProtectionsPageHandler(mojo::PendingReceiver<PageHandler>, mojo::PendingRemote<Page>, content::WebUI*, ProtectionsUI*)`.
+- [x] **Step 2:** Write `ProtectionsPageHandler(mojo::PendingReceiver<PageHandler>, mojo::PendingRemote<Page>, content::WebUI*, ProtectionsUI*)`.
   - It finds the tab with `webui::GetBrowserWindowInterface(web_ui->GetWebContents())->GetTabStripModel()->GetActiveWebContents()` and observes its `PageProtections` (creating it).
   - On `OnBlockedCountChanged` and on the tab's `DidFinishNavigation`, it sends `page_->OnStateChanged(ToMojo(GetPanelState(*tab)))`.
   - `SetLevel` calls `ChooseLevel`; `ShowUI` calls `ui->embedder()->ShowUI()` when there is an embedder.
-- [ ] **Step 3:** Fill `protections_strings.cc`: `kTitleBlocked` ("requests blocked on this page"), `kOffTitle` ("nothing is blocked on this site"), the three level names, the three sentences of the spec, `kDefault` ("default"), `kIncognitoNote`, `kNotApplicable` ("Protections don't apply to this page"), and the accessible-name format "Protections: $1, $2 requests blocked". `ProtectionsUI`'s constructor adds them to the `WebUIDataSource` with `AddString`.
-- [ ] **Step 4:** Build. Expected: compiles; the spike's page still opens.
-- [ ] **Step 5: Commit.** `protections: the page handler`.
+- [x] **Step 3:** Fill `protections_strings.cc`: `kTitleBlocked` ("requests blocked on this page"), `kOffTitle` ("nothing is blocked on this site"), the three level names, the three sentences of the spec, `kDefault` ("default"), `kIncognitoNote`, `kNotApplicable` ("Protections don't apply to this page"), and the accessible-name format "Protections: $1, $2 requests blocked". `ProtectionsUI`'s constructor adds them to the `WebUIDataSource` with `AddString`.
+- [x] **Step 4:** Build. Expected: compiles; the spike's page still opens.
+- [x] **Step 5: Commit.** `protections: the page handler`.
 
 ### Task 6: The page
 
 **Files:**
 - Modify: `browser/resources/protections/app.ts`, `app.html.ts`, `browser_proxy.ts`, `protections.html`; add `app.css` (`css_files` in `BUILD.gn`)
 
-- [ ] **Step 1:** `browser_proxy.ts`: a singleton that makes the `PageHandlerFactory` remote, creates a `PageCallbackRouter`, and exposes `handler` and `callbackRouter` (as personal-context-notice's `browser_proxy.ts` does).
-- [ ] **Step 2:** `app.ts`: `ProtectionsAppElement` (LitElement, tag `protections-app`).
+- [x] **Step 1:** `browser_proxy.ts`: a singleton that makes the `PageHandlerFactory` remote, creates a `PageCallbackRouter`, and exposes `handler` and `callbackRouter` (as personal-context-notice's `browser_proxy.ts` does).
+- [x] **Step 2:** `app.ts`: `ProtectionsAppElement` (LitElement, tag `protections-app`).
   - On `connectedCallback`: `await handler.getState()`, listen to `onStateChanged`, then `handler.showUI()` after the first render.
   - It renders the header (the site), and then:
     - if `level !== kOff`: the count and `kTitleBlocked`;
@@ -398,12 +398,12 @@ interface Page {
     - the level's sentence;
     - the Incognito note when `offTheRecord`.
   - `selected-changed` calls `handler.setLevel(level)`.
-- [ ] **Step 3:** Style `app.css` with the colour variables of `//ui/webui/resources/cr_elements/cr_shared_vars.css` only, no literal colours. Width 300 px; spacing as in the approved mockup (`.superpowers/brainstorm/.../panel-states.html`).
-- [ ] **Step 4:** Build and open the bubble on a tracker page (`test/egress/site`). Expected:
+- [x] **Step 3:** Style `app.css` with the colour variables of `//ui/webui/resources/cr_elements/cr_shared_vars.css` only, no literal colours. Width 300 px; spacing as in the approved mockup (`.superpowers/brainstorm/.../panel-states.html`).
+- [x] **Step 4:** Build and open the bubble on a tracker page (`test/egress/site`). Expected:
   - the count rises while the page loads;
   - Off reloads the page and shows "Off";
   - Standard (the default) clears the choice: check `chrome://prefs-internals` for `ghost.privacy_policy.site_levels`.
-- [ ] **Step 5: Commit.** `protections: the panel page`.
+- [x] **Step 5: Commit.** `protections: the panel page`.
 
 ### Task 7: The button
 

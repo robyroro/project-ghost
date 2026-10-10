@@ -1,0 +1,111 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+/* Colours are the theme's (chrome://theme/colors.css, loaded by the page):
+   light, dark and high contrast follow the browser. */
+:host {
+  display: block;
+  width: 300px;
+  box-sizing: border-box;
+  color: var(--color-sys-on-surface);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#header {
+  padding: 14px 16px 6px;
+}
+
+#site {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  padding: 2px 16px 12px;
+}
+
+.big {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.big.off {
+  color: var(--color-sys-on-surface-subtle);
+}
+
+.label {
+  color: var(--color-sys-on-surface-subtle);
+  font-size: 12px;
+}
+
+#levels {
+  border: 1px solid var(--color-sys-tonal-outline);
+  border-radius: 8px;
+  display: flex;
+  margin: 0 16px;
+  overflow: hidden;
+  padding: 0;
+}
+
+#levels label {
+  border-inline-end: 1px solid var(--color-sys-tonal-outline);
+  cursor: pointer;
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 0;
+  position: relative;
+  text-align: center;
+}
+
+#levels label:last-of-type {
+  border-inline-end: 0;
+}
+
+/* The radio itself is invisible but keeps focus and keyboard behaviour. */
+#levels input {
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+}
+
+#levels label:has(input:checked) {
+  background: var(--color-sys-primary);
+  color: var(--color-sys-on-primary);
+  font-weight: 600;
+}
+
+#levels label:has(input:focus-visible) {
+  outline: 2px solid var(--color-sys-state-focus-ring);
+  outline-offset: -3px;
+}
+
+.default-mark {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+#about {
+  color: var(--color-sys-on-surface-subtle);
+  font-size: 12px;
+  margin: 8px 16px 14px;
+}
+
+#note {
+  border-top: 1px solid var(--color-sys-divider);
+  color: var(--color-sys-on-surface-subtle);
+  font-size: 11.5px;
+  padding: 8px 16px;
+}

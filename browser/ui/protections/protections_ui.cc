@@ -11,6 +11,8 @@
 #include "content/public/browser/web_ui_controller_interface_binder.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/url_constants.h"
+#include "ghost/browser/ui/protections/protections_page_handler.h"
+#include "ghost/browser/ui/protections/protections_strings.h"
 #include "ghost/grit/protections_resources.h"
 #include "ghost/grit/protections_resources_map.h"
 #include "ui/webui/webui_util.h"
@@ -28,13 +30,20 @@ ProtectionsUI::ProtectionsUI(content::WebUI* web_ui) : TopChromeWebUIController(
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(), kProtectionsHost);
   webui::SetupWebUIDataSource(source, kProtectionsResources, IDR_PROTECTIONS_PROTECTIONS_HTML);
+  strings::AddToDataSource(*source);
 }
 
 ProtectionsUI::~ProtectionsUI() = default;
 
-void ProtectionsUI::BindInterface(mojo::PendingReceiver<mojom::PageHandler> receiver) {
-  receiver_.reset();
-  receiver_.Bind(std::move(receiver));
+void ProtectionsUI::BindInterface(mojo::PendingReceiver<mojom::PageHandlerFactory> receiver) {
+  factory_receiver_.reset();
+  factory_receiver_.Bind(std::move(receiver));
+}
+
+void ProtectionsUI::CreatePageHandler(mojo::PendingRemote<mojom::Page> page,
+                                      mojo::PendingReceiver<mojom::PageHandler> receiver) {
+  page_handler_ = std::make_unique<ProtectionsPageHandler>(std::move(receiver), std::move(page),
+                                                           web_ui(), this);
 }
 
 void ProtectionsUI::ShowUI() {
@@ -46,7 +55,7 @@ void ProtectionsUI::ShowUI() {
 WEB_UI_CONTROLLER_TYPE_IMPL(ProtectionsUI)
 
 void PopulateWebUIFrameBinders(mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {
-  content::RegisterWebUIControllerInterfaceBinder<mojom::PageHandler, ProtectionsUI>(map);
+  content::RegisterWebUIControllerInterfaceBinder<mojom::PageHandlerFactory, ProtectionsUI>(map);
 }
 
 }  // namespace ghost::protections

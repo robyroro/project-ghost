@@ -4,8 +4,44 @@
 
 module ghost.protections.mojom;
 
-// Browser side of chrome://protections.top-chrome, the protections panel.
+// A site's protection level (docs/privacy-model.md#blocking).
+enum Level {
+  kOff,
+  kStandard,
+  kStrict,
+};
+
+// What the panel shows for the tab it was opened from.
+struct State {
+  // Whether protections apply: an http(s) page.
+  bool applies;
+  // The page's registrable domain.
+  string site;
+  Level level;
+  // The profile's mode's level: Strict off the record, Standard otherwise.
+  Level mode_default;
+  // Requests and connections blocked on the page.
+  int32 blocked_count;
+  bool off_the_record;
+};
+
+// Made by the page once it has loaded.
+interface PageHandlerFactory {
+  CreatePageHandler(pending_remote<Page> page, pending_receiver<PageHandler> handler);
+};
+
+// Browser side of chrome://protections.top-chrome.
 interface PageHandler {
+  // The state for the browser's active tab, which the panel follows from now.
+  GetState() => (State state);
+  // Chooses the site's level and reloads its page.
+  SetLevel(Level level);
   // The page has rendered: the bubble can show.
   ShowUI();
+};
+
+// Page side.
+interface Page {
+  // The followed tab's state changed: a block, a navigation, a level.
+  OnStateChanged(State state);
 };

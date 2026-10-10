@@ -11,9 +11,12 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ghost/browser/ui/protections/protections_button.h"
+#include "net/dns/mock_host_resolver.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -26,6 +29,8 @@ namespace {
 
 class ProtectionsPanelBrowserTest : public InProcessBrowserTest {
  protected:
+  void SetUpOnMainThread() override { host_resolver()->AddRule("*", "127.0.0.1"); }
+
   ProtectionsButton* Button() {
     return views::ElementTrackerViews::GetInstance()->GetFirstMatchingViewAs<ProtectionsButton>(
         kProtectionsButtonElementId,
@@ -53,13 +58,16 @@ class ProtectionsPanelBrowserTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, TheButtonOpensThePanel) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("www.news.test", "/empty.html")));
   ASSERT_TRUE(Button());
   content::WebContents* panel = OpenPanel();
   ASSERT_TRUE(panel);
   EXPECT_EQ(panel->GetLastCommittedURL(), GURL("chrome://protections.top-chrome/"));
   EXPECT_EQ(content::EvalJs(panel, "document.querySelector('protections-app')"
-                                   ".shadowRoot.textContent.trim()"),
-            "Protections");
+                                   ".shadowRoot.querySelector('#site').textContent"),
+            "news.test");
 }
 
 }  // namespace
