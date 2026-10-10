@@ -31,6 +31,7 @@ INSTALLED = {
     "start_menu": PROGRAMS,
     "desktop": DESKTOP,
     "files": {"chrome.exe": True, "setup.exe": True},
+    "filter_lists": ["easylist.txt", "easyprivacy.txt"],
     "uninstall": {"DisplayName": "Shade", "Publisher": "Shade",
                   "DisplayVersion": "152.0.7977.14001"},
     "software": ["Clients", "Microsoft", "Shade"],
@@ -50,6 +51,7 @@ UNINSTALLED = {
     "start_menu": PROGRAMS,
     "desktop": DESKTOP,
     "files": {"chrome.exe": False, "setup.exe": False},
+    "filter_lists": [],
     "uninstall": None,
     "software": ["Clients", "Microsoft", "Shade"],
     "product_parent_keys": [],
@@ -94,6 +96,12 @@ class InstalledTest(unittest.TestCase):
 
     def test_a_complete_install_passes(self):
         self.assertEqual(installer_smoke.evaluate_installed(INSTALLED, EXP), [])
+
+    def test_the_filter_lists_are_installed_beside_the_browser(self):
+        # patches/0030 packs them; without them the browser blocks nothing.
+        failures = self.failures(filter_lists=["easylist.txt"])
+        self.assertEqual(failures, ["filter list easyprivacy.txt is not in "
+                                    "152.0.7977.14001\\blocking"])
 
     def test_missing_browser(self):
         self.assertTrue(self.failures(files={"chrome.exe": False, "setup.exe": True}))

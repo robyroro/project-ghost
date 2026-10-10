@@ -93,6 +93,9 @@ class Expectations:
 
 
 ICON_KINDS = ("app", "doc", "pdf")
+# The blocking engine's lists (components/blocking/data), installed in the
+# version directory's blocking\ folder (patches/0030).
+FILTER_LISTS = ("easylist.txt", "easyprivacy.txt")
 
 
 def expectations(root: Path, release_version: str) -> Expectations:
@@ -199,6 +202,8 @@ def evaluate_installed(snap: dict, exp: Expectations) -> list[str]:
         failures.append(f"chrome.exe is not at {snap['chrome_exe']}")
     if not snap["files"]["setup.exe"]:
         failures.append(f"setup.exe is not in {exp.release_version}\\Installer")
+    failures += [f"filter list {name} is not in {exp.release_version}\\blocking"
+                 for name in FILTER_LISTS if name not in snap["filter_lists"]]
 
     entry = snap["uninstall"]
     if entry is None:
@@ -366,6 +371,8 @@ def snapshot(exp: Expectations) -> dict:
     return {
         "chrome_exe": str(chrome), "start_menu": str(start_menu), "desktop": str(desktop),
         "files": {"chrome.exe": chrome.exists(), "setup.exe": setup.exists()},
+        "filter_lists": sorted(p.name for p in
+                               (app_dir / exp.release_version / "blocking").glob("*.txt")),
         "uninstall": values(rf"Software\Microsoft\Windows\CurrentVersion\Uninstall"
                             rf"\{exp.uninstall_key}"),
         "software": subkeys("Software"),

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 09:53:26 +0300
+Subject: [PATCH] mini_installer: pack Shade's filter lists beside the browser
+
+The blocking engine reads EasyList and EasyPrivacy from blocking\ in the
+version directory (base::DIR_ASSETS). //ghost/components/blocking:filter_lists
+copies them beside the binaries; chrome.release puts them in the installer,
+and the archiving action depends on the copy so it never packs a build
+without them. They stay separate data files, never compiled into a binary,
+as their licenses ask.
+
+Why: the installer packs only the files chrome.release names.
+Upstream: not upstreamable: product-specific data
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/installer/mini_installer/BUILD.gn b/chrome/installer/mini_installer/BUILD.gn
+index ce1f5a5711eeba1109bef0169a80cbe29373a843..46c8a5ac28b9b3e64480bddb9a0bebd23d713fd3 100644
+--- a/chrome/installer/mini_installer/BUILD.gn
++++ b/chrome/installer/mini_installer/BUILD.gn
+@@ -197,6 +197,7 @@ action("mini_installer_archive") {
+     "//chrome/chrome_elf",
+     "//chrome/common/win:eventlog_provider",
+     "//chrome/installer/setup",
++    "//ghost/components/blocking:filter_lists",
+     "//third_party/icu:icudata",
+   ]
+ 
+diff --git a/chrome/installer/mini_installer/chrome.release b/chrome/installer/mini_installer/chrome.release
+index cf4c3fa1816ed500b7f2168abc105fcec5f18a84..e84916d91715c61771f37d0db8a32fa897d36f6b 100644
+--- a/chrome/installer/mini_installer/chrome.release
++++ b/chrome/installer/mini_installer/chrome.release
+@@ -68,6 +68,13 @@ MEIPreload\preloaded_data.pb: %(VersionDir)s\MEIPreload\
+ # IWA Key Distribution
+ #
+ IwaKeyDistribution\iwa-key-distribution.pb: %(VersionDir)s\IwaKeyDistribution\
++
++#
++# Shade's filter lists: //ghost/components/blocking/data, copied beside the
++# binaries by //ghost/components/blocking:filter_lists.
++#
++blocking\easylist.txt: %(VersionDir)s\blocking\
++blocking\easyprivacy.txt: %(VersionDir)s\blocking\
+ IwaKeyDistribution\manifest.json: %(VersionDir)s\IwaKeyDistribution\
+ 
+ [HIDPI]
