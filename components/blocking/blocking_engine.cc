@@ -65,10 +65,7 @@ class BlockingEngine::Core {
       const std::string& page =
           request.source_url.is_valid() ? request.source_url.spec() : base::EmptyString();
       Verdict verdict = (*engine_)->check(request.url.spec(), page,
-                                          request.adblock_type
-                                              ? *request.adblock_type
-                                              : ToAdblockType(request.destination),
-                                          request.method);
+                                          ToAdblockType(request.destination), request.method);
       decision.blocked = verdict.blocked;
       decision.filter = std::string(verdict.filter);
     }

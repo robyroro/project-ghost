@@ -76,17 +76,18 @@ TEST_F(BlockingEngineTest, SeveralListsAreOneEngine) {
                   .blocked);
 }
 
-// A WebSocket has no request destination of its own: the check names its type.
-TEST_F(BlockingEngineTest, ACheckCanNameItsRequestType) {
+// A WebSocket has no request destination of its own: adblock-rust reads its
+// type from the ws: or wss: scheme, which the connection filter relies on.
+TEST_F(BlockingEngineTest, AWebSocketUrlIsCheckedAsAWebSocket) {
   BlockingEngine engine;
   engine.Load({"||sockets.test^$websocket\n"});
-  CheckRequest socket = {GURL("wss://sockets.test/s"), GURL("https://a.test/"),
-                         network::mojom::RequestDestination::kEmpty, "GET"};
-  socket.adblock_type = "websocket";
-  EXPECT_TRUE(Check(engine, socket).blocked);
-  CheckRequest script = {GURL("wss://sockets.test/s"), GURL("https://a.test/"),
-                         network::mojom::RequestDestination::kScript, "GET"};
-  EXPECT_FALSE(Check(engine, script).blocked);
+  EXPECT_TRUE(Check(engine, {GURL("wss://sockets.test/s"), GURL("https://a.test/"),
+                             network::mojom::RequestDestination::kEmpty, "GET"})
+                  .blocked);
+  // The control: the same host's script is no WebSocket.
+  EXPECT_FALSE(Check(engine, {GURL("https://sockets.test/s.js"), GURL("https://a.test/"),
+                              network::mojom::RequestDestination::kScript, "GET"})
+                   .blocked);
 }
 
 // The bridge takes Rust strings, which must be UTF-8: cxx aborts the process
