@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Task 1 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** Tasks 1–2 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -95,7 +95,7 @@ build_webui("resources") {
 - Create: `browser/protections/BUILD.gn`, `browser/protections/page_protections.{h,cc}`
 - Test: `browser/protections/page_protections_unittest.cc` (add to `ghost_unittests` in `BUILD.gn`)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```cpp
 class PageProtectionsTest : public ChromeRenderViewHostTestHarness {
@@ -151,8 +151,8 @@ TEST_F(PageProtectionsTest, TellsItsObservers) {
 }
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Run `autoninja -C out\vanilla ghost_unittests && out\vanilla\ghost_unittests --gtest_filter=PageProtections*`. Expected: a compile failure (no `page_protections.h`).
-- [ ] **Step 3: Implement.** `page_protections.h`:
+- [x] **Step 2: Run them to see them fail.** Run `autoninja -C out\vanilla ghost_unittests && out\vanilla\ghost_unittests --gtest_filter=PageProtections*`. Expected: a compile failure (no `page_protections.h`).
+- [x] **Step 3: Implement.** `page_protections.h`:
 
 ```cpp
 namespace ghost::protections {
@@ -228,8 +228,8 @@ void PageProtections::SetCount(int count) {
 ```
 
   `BUILD.gn`: `source_set("protections")` with `deps = [ "//base", "//content/public/browser" ]`. Header comment: "Linked into //chrome/browser:core through //ghost/browser/blocking: must not depend on //chrome/browser."
-- [ ] **Step 4: Run the tests.** Same command as Step 2. Expected: 4 passed.
-- [ ] **Step 5: Commit.** `protections: count a tab's blocked requests`.
+- [x] **Step 4: Run the tests.** Same command as Step 2. Expected: 4 passed.
+- [x] **Step 5: Commit.** `protections: count a tab's blocked requests`.
 
 ### Task 3: The filters report their blocks (patch 0037)
 
