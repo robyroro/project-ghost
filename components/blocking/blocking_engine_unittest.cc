@@ -76,6 +76,19 @@ TEST_F(BlockingEngineTest, SeveralListsAreOneEngine) {
                   .blocked);
 }
 
+// A WebSocket has no request destination of its own: the check names its type.
+TEST_F(BlockingEngineTest, ACheckCanNameItsRequestType) {
+  BlockingEngine engine;
+  engine.Load({"||sockets.test^$websocket\n"});
+  CheckRequest socket = {GURL("wss://sockets.test/s"), GURL("https://a.test/"),
+                         network::mojom::RequestDestination::kEmpty, "GET"};
+  socket.adblock_type = "websocket";
+  EXPECT_TRUE(Check(engine, socket).blocked);
+  CheckRequest script = {GURL("wss://sockets.test/s"), GURL("https://a.test/"),
+                         network::mojom::RequestDestination::kScript, "GET"};
+  EXPECT_FALSE(Check(engine, script).blocked);
+}
+
 // The bridge takes Rust strings, which must be UTF-8: cxx aborts the process
 // on anything else, so nothing that isn't may reach it.
 TEST_F(BlockingEngineTest, AListThatIsNotUtf8IsLeftOut) {

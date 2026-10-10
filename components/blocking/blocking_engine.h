@@ -5,6 +5,7 @@
 #ifndef GHOST_COMPONENTS_BLOCKING_BLOCKING_ENGINE_H_
 #define GHOST_COMPONENTS_BLOCKING_BLOCKING_ENGINE_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,9 @@ struct CheckRequest {
   GURL source_url;
   network::mojom::RequestDestination destination;
   std::string method;
+  // The engine's request type, when the destination has none of its own (a
+  // WebSocket, "websocket"; WebTransport, "other").
+  std::optional<std::string> adblock_type;
 };
 
 struct Decision {
