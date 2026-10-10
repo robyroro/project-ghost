@@ -32,13 +32,13 @@ Note each step's time in the issue as a comment as you go (`gh issue comment <n>
 | Step | Who | What | Expected time |
 |---|---|---|---|
 | 0 | GitHub | The issue opens. | within 3 h of T₀ |
-| 1 | maintainer | **Triage.** Read the release notes from the issue's link. Exploited in the wild? Then the shorter deadline. | 10 min |
+| 1 | maintainer | **Triage.** Read the release notes from the issue's link. Extended Stable's post lists no fixes; they're in the Stable post of the same week, whose CVEs Extended takes when they apply to its milestone. Exploited in the wild? Then the shorter deadline. | 10 min |
 | 2 | engineer | **Move the pin**, from this repository: `python tools/upstream.py bump --to <version> --src <src>`. Never while a build runs in `<src>`. Then push `main`. | 5–15 min |
 | 3 | GitHub | The tooling workflow passes on the commit. | 5 min |
 | 4 | maintainer approves, engineer runs | **Tag** `<version>-1` and push it: `git tag -a -m "Release <version>-1" <version>-1`, `git push origin <version>-1`. Then `git -C <src>\ghost pull --ff-only`. | 2 min |
-| 5 | engineer | **Release**: `python tools\release.py run --tag <version>-1 --src <src>`, with depot_tools first on `PATH`, started so it outlives the terminal ([release.md](release.md#making-a-release)). | hours: the measured times are in the drill records |
-| 6 | maintainer | The publisher key's PIN, when `release.py` reaches `sign`. | 2 min |
-| 7 | engineer | **Verify**: `python tools\release.py verify --tag <version>-1`: the release on GitHub is the files on disk. | 5 min |
+| 5 | engineer | **Release**: `python tools\release.py run --tag <version>-1 --src <src>`, with depot_tools first on `PATH`, started so it outlives the terminal ([release.md](release.md#making-a-release)). | about 16 h on the reference machine: [the first drill](../security/drills/2026-10-09-152.0.7977.158.md) |
+| 6 | maintainer | The publisher key's PIN, when `release.py` reaches `sign`. `sign` comes after the tests; be at the machine when they end, or the release waits. | 2 min |
+| 7 | engineer | **Verify** what people download: `gh release download <version>-1 --dir <empty dir>`, then `python tools\release.py verify <that dir>`. | 5 min |
 | 8 | maintainer | Close the issue: shipped. | |
 
 **What `bump` does**, in order, writing nothing until its checks pass:

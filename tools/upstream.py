@@ -114,13 +114,15 @@ def issue(latest: Release, kind: str, detected: datetime.datetime) -> dict:
         title = f"Security release: Chromium {latest.version}"
         steps = [
             "- [ ] Triage: does the release fix a bug exploited in the wild? Then the "
-            "deadline is 24–48 h.",
+            "deadline is 24–48 h. Extended Stable's post lists no fixes: read the Stable "
+            "post of the same week too.",
             f"- [ ] `python tools/upstream.py bump --to {latest.version} --src <src>`, push",
             "- [ ] Tooling CI green",
             f"- [ ] Tag `{latest.version}-1`, push it",
             f"- [ ] `python tools/release.py run --tag {latest.version}-1 --src <src>`",
             "- [ ] The publisher key's PIN at `sign`",
-            f"- [ ] `python tools/release.py verify --tag {latest.version}-1`",
+            f"- [ ] `gh release download {latest.version}-1 --dir <empty dir>`, then "
+            "`python tools/release.py verify <that dir>`",
         ]
     else:
         title = f"Milestone: Chromium {latest.milestone} on Extended"
