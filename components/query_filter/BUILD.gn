@@ -27,18 +27,27 @@ source_set("query_filter") {
   sources = [
     "parameter_list.cc",
     "parameter_list.h",
+    "query_filter.cc",
+    "query_filter.h",
   ]
+  public_deps = [ "//url" ]
   deps = [
     ":parameter_list_data",
     "//base",
+    "//ghost/components/site",
   ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "parameter_list_unittest.cc" ]
+  sources = [
+    "parameter_list_unittest.cc",
+    "query_filter_unittest.cc",
+  ]
   deps = [
     ":query_filter",
+    "//base",
     "//testing/gtest",
+    "//url",
   ]
 }
