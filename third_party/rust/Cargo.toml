@@ -1,0 +1,18 @@
+# The Rust crates //ghost uses that Chromium doesn't vendor. Never built:
+# tools/rust_vendor.py resolves this manifest with cargo, pins every crate
+# Chromium also has to Chromium's version (`pin`), and vendors the rest
+# with generated BUILD.gn files (`vendor`).
+[package]
+name = "ghost_rust_deps"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+# The blocking engine (docs/adr/0006-blocking-engine-adblock-rust.md). No
+# public-suffix crates (Chromium resolves registrable domains) and no CSS
+# validation (cosmetic filtering is Phase 4).
+adblock = { version = "=0.13.3", default-features = false, features = ["full-regex-handling"] }
