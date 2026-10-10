@@ -49,6 +49,11 @@ void MaybeProxyURLLoaderFactory(content::BrowserContext* context,
 bool NeedsVerdict(const network::ResourceRequest& request, const GURL& url,
                   const GURL& source, bool check_same_site);
 
+// The level's same-site rule, shared with the connection filter: whether
+// |url| is checked for |page|: always when |check_same_site| or the page is
+// unknown, else only when it's another site.
+bool ChecksAgainst(const GURL& url, const GURL& page, bool check_same_site);
+
 // The protection policy of a page (its site's level), for each request.
 using PolicyCallback = base::RepeatingCallback<privacy_policy::EffectivePolicy(const GURL& page)>;
 

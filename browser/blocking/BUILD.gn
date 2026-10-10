@@ -9,6 +9,8 @@ source_set("blocking") {
   sources = [
     "blocking_service.cc",
     "blocking_service.h",
+    "connection_filter.cc",
+    "connection_filter.h",
     "request_filter.cc",
     "request_filter.h",
   ]

@@ -1,0 +1,176 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 19:39:10 +0300
+Subject: [PATCH] chrome_content_browser_client: WebSocket and WebTransport
+ through Shade's filter
+
+WebSocket and WebTransport connections don't go through a
+URLLoaderFactory, so Shade's request filter never saw them. Now
+WillInterceptWebSocket routes every WebSocket through CreateWebSocket once
+Shade's blocking has started, and CreateWebSocket and
+WillCreateWebTransport ask ghost::blocking's connection filter first: the
+blocking engine judges the connection at its page's protection level. A
+blocked WebSocket is dropped with its handshake client; a blocked
+WebTransport is refused with ERR_BLOCKED_BY_CLIENT. An allowed WebSocket
+takes the extensions' proxy when one may want its frame, else the path
+upstream takes for a WebSocket nobody intercepts (the User-Agent header,
+the factory); an allowed WebTransport takes upstream's path unchanged.
+
+Why: these hooks are Chromium's only way for the embedder to see a page's WebSocket and WebTransport connections.
+Upstream: not upstreamable: product-specific blocking
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index a2bb57ff9274fa653e82cca5c7b8352c3e23ef90..e58877aa6d401abbe386ad643da5584ec3be3184 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -385,6 +385,7 @@
+ #include "extensions/buildflags/buildflags.h"
+ #include "extensions/common/extension_features.h"
+ #include "extensions/common/switches.h"
++#include "ghost/browser/blocking/connection_filter.h"
+ #include "ghost/browser/blocking/request_filter.h"
+ #include "ghost/browser/query_filter/query_filter_throttle.h"
+ #include "google_apis/gaia/gaia_urls.h"
+@@ -6810,6 +6811,11 @@ ChromeContentBrowserClient::
+ 
+ bool ChromeContentBrowserClient::WillInterceptWebSocket(
+     content::RenderFrameHost* frame) {
++  // Shade: every WebSocket goes through CreateWebSocket, where the blocking
++  // engine judges it.
++  if (ghost::blocking::ShouldInterceptWebSocket()) {
++    return true;
++  }
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   if (!frame) {
+     return false;
+@@ -6846,39 +6852,88 @@ ChromeContentBrowserClient::GetWebSocketOptions(
+   return options;
+ }
+ 
+-void ChromeContentBrowserClient::CreateWebSocket(
+-    content::RenderFrameHost* frame,
+-    WebSocketFactory factory,
++namespace {
++
++// After Shade's check: a blocked WebSocket is dropped with its handshake
++// client; an allowed one takes the extensions' proxy when one may want it,
++// else upstream's path for a WebSocket nobody intercepts.
++void ContinueWebSocket(
++    content::GlobalRenderFrameHostId frame_id,
++    content::ContentBrowserClient::WebSocketFactory factory,
+     const GURL& url,
+     const net::SiteForCookies& site_for_cookies,
+     const std::optional<std::string>& user_agent,
+     mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
+         handshake_client,
+-    content::ContentBrowserClient::WebSocketOptions options) {
+-#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+-  // TODO(crbug.com/40195467): Request w/o a frame also should be proxied.
+-  if (!frame) {
++    content::ContentBrowserClient::WebSocketOptions options,
++    bool blocked) {
++  if (blocked) {
+     return;
+   }
++  content::RenderFrameHost* frame = content::RenderFrameHost::FromID(frame_id);
++#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   auto* web_request_api =
+-      extensions::BrowserContextKeyedAPIFactory<extensions::WebRequestAPI>::Get(
+-          frame->GetBrowserContext());
+-
+-  DCHECK(web_request_api);
+-  web_request_api->ProxyWebSocket(
+-      frame, std::move(factory), url, site_for_cookies, user_agent,
+-      std::move(handshake_client), std::move(options.header_client));
++      frame ? extensions::BrowserContextKeyedAPIFactory<
++                  extensions::WebRequestAPI>::Get(frame->GetBrowserContext())
++            : nullptr;
++  if (web_request_api && web_request_api->MayHaveProxiesForFrame(frame)) {
++    web_request_api->ProxyWebSocket(
++        frame, std::move(factory), url, site_for_cookies, user_agent,
++        std::move(handshake_client), std::move(options.header_client));
++    return;
++  }
+ #endif
++  std::vector<network::mojom::HttpHeaderPtr> headers;
++  if (user_agent) {
++    headers.push_back(network::mojom::HttpHeader::New(
++        net::HttpRequestHeaders::kUserAgent, *user_agent));
++  }
++  std::move(factory).Run(url, std::move(headers), std::move(handshake_client),
++                         mojo::NullRemote(), std::move(options.header_client));
+ }
+ 
+-void ChromeContentBrowserClient::WillCreateWebTransport(
++}  // namespace
++
++void ChromeContentBrowserClient::CreateWebSocket(
++    content::RenderFrameHost* frame,
++    WebSocketFactory factory,
++    const GURL& url,
++    const net::SiteForCookies& site_for_cookies,
++    const std::optional<std::string>& user_agent,
++    mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
++        handshake_client,
++    content::ContentBrowserClient::WebSocketOptions options) {
++  // Shade: the blocking engine judges the connection first (patches/0034).
++  ghost::blocking::FilterWebSocket(
++      frame, url, site_for_cookies,
++      base::BindOnce(&ContinueWebSocket,
++                     frame ? frame->GetGlobalId()
++                           : content::GlobalRenderFrameHostId(),
++                     std::move(factory), url, site_for_cookies, user_agent,
++                     std::move(handshake_client), std::move(options)));
++}
++
++namespace {
++
++// After Shade's check: a blocked connection is refused; an allowed one
++// takes upstream's path.
++void ContinueWebTransport(
+     int process_id,
+     int frame_routing_id,
+     const GURL& url,
+     const url::Origin& initiator_origin,
+     mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
+         handshake_client,
+-    WillCreateWebTransportCallback callback) {
++    content::ContentBrowserClient::WillCreateWebTransportCallback callback,
++    bool blocked) {
++  if (blocked) {
++    std::move(callback).Run(
++        std::move(handshake_client),
++        network::mojom::WebTransportError::New(
++            net::ERR_BLOCKED_BY_CLIENT, /*quic_error=*/0,
++            "Blocked by the browser", /*safe_to_report_details=*/true));
++    return;
++  }
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+   // TODO(crbug.com/40195467): Add a unit test which calls
+@@ -6908,6 +6963,24 @@ void ChromeContentBrowserClient::WillCreateWebTransport(
+ #endif
+ }
+ 
++}  // namespace
++
++void ChromeContentBrowserClient::WillCreateWebTransport(
++    int process_id,
++    int frame_routing_id,
++    const GURL& url,
++    const url::Origin& initiator_origin,
++    mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
++        handshake_client,
++    WillCreateWebTransportCallback callback) {
++  // Shade: the blocking engine judges the connection first (patches/0034).
++  ghost::blocking::FilterWebTransport(
++      process_id, frame_routing_id, url, initiator_origin,
++      base::BindOnce(&ContinueWebTransport, process_id, frame_routing_id, url,
++                     initiator_origin, std::move(handshake_client),
++                     std::move(callback)));
++}
++
+ bool ChromeContentBrowserClient::WillCreateRestrictedCookieManager(
+     network::mojom::RestrictedCookieManagerRole role,
+     content::BrowserContext* browser_context,

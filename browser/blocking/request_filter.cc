@@ -69,11 +69,14 @@ bool NeedsVerdict(const network::ResourceRequest& request, const GURL& url,
   if (request.destination == network::mojom::RequestDestination::kDocument) {
     return false;
   }
-  if (!check_same_site && source.is_valid() && source.has_host() &&
-      RegistrableDomain(url.host()) == RegistrableDomain(source.host())) {
-    return false;
+  return ChecksAgainst(url, source, check_same_site);
+}
+
+bool ChecksAgainst(const GURL& url, const GURL& page, bool check_same_site) {
+  if (check_same_site || !page.is_valid() || !page.has_host()) {
+    return true;
   }
-  return true;
+  return RegistrableDomain(url.host()) != RegistrableDomain(page.host());
 }
 
 class RequestFilter::InFlight : public network::mojom::URLLoader,

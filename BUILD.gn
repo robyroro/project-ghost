@@ -85,6 +85,7 @@ test("ghost_unittests") {
 # profile creation). Modelled on upstream's browser_tests.
 test("ghost_browsertests") {
   sources = [
+    "browser/blocking/connection_filter_browsertest.cc",
     "browser/blocking/request_filter_browsertest.cc",
     "browser/query_filter/query_filter_browsertest.cc",
     "browser/features/feature_overrides_browsertest.cc",
@@ -124,6 +125,7 @@ test("ghost_browsertests") {
     "//components/autofill/core/browser",
     "//components/gcm_driver",
     "//components/gcm_driver:test_support",
+    "//components/network_session_configurator/common",
     "//components/network_time",
     "//components/omnibox/browser",
     "//components/privacy_sandbox:privacy_sandbox_settings_headers",
