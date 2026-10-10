@@ -46,7 +46,7 @@ The button's accessible name gives the level and the count ("Protections: Standa
 
 | Unit | What it does |
 |---|---|
-| **Patch 0035** (`chrome_content_browser_client.cc`) | `WillCreateURLLoaderFactory` passes its `frame` to `MaybeProxyURLLoaderFactory`. It changes only the line 0029 added: 0029 stays as it is, so nothing after it is replayed. |
+| **Patch 0037** (`chrome_content_browser_client.cc`) | `WillCreateURLLoaderFactory` passes its `frame` to `MaybeProxyURLLoaderFactory`. It changes only the line 0029 added: 0029 stays as it is, so nothing after it is replayed. |
 | `//ghost/browser/blocking/request_filter` | `MaybeProxyURLLoaderFactory` takes the frame; `RequestFilter` keeps its `GlobalRenderFrameHostId` and reports each blocked request against it. |
 | `//ghost/browser/blocking/connection_filter` | `FilterWebSocket` and `FilterWebTransport` already have the frame (0034); they report a blocked connection against it. |
 | `//ghost/browser/protections/page_protections` | `PageProtections`, a `WebContentsUserData`: `RecordBlocked(GlobalRenderFrameHostId)` finds the frame's outermost main frame and counts it only when that frame's page is the tab's primary page (not a page being left, not a prerendered one); `PrimaryPageChanged` resets the count; observers hear each change. |
@@ -55,7 +55,7 @@ The button's accessible name gives the level and the count ("Protections: Standa
 
 | Unit | What it does |
 |---|---|
-| **Patch 0036** (`toolbar_view.cc`, `chrome/browser/ui/BUILD.gn`) | `ToolbarView::Init` adds Shade's button after the location bar; `//chrome/browser/ui` links `//ghost/browser/ui/protections` and allows its circular includes (Chromium's pattern for code that both uses and is used by `//chrome/browser/ui`). |
+| **Patch 0035** (`toolbar_view.cc`, the toolbar's `BUILD.gn`) | `ToolbarView::Init` adds Shade's button after the location bar; `//chrome/browser/ui/views/toolbar:impl` links `//ghost/browser/ui/protections`, which depends only on the toolbar's and the bubble's header targets (no cycle). |
 | `//ghost/browser/ui/views/protections/protections_button` | A `ToolbarButton`: the shield in its three looks (on, Off, disabled), the badge, the accessible name. Follows the active tab's `PageProtections` and level; a click shows the bubble through a `WebUIBubbleManager`, which preloads the page. |
 
 ### The panel
@@ -66,7 +66,7 @@ The button's accessible name gives the level and the count ("Protections: Standa
 | `//ghost/browser/ui/webui/protections/protections_ui`, `protections_page_handler` | A `TopChromeWebUIController` and its config for `chrome://protections.top-chrome`. The handler builds `State` from `site_levels` and `PageProtections` for the tab the bubble belongs to; `SetLevel` writes the level (or clears it at the default) and reloads the tab. |
 | `//ghost/browser/resources/protections/` | The page: TypeScript and Lit, built by `build_webui`; header, count, radio group, sentence, Incognito note. |
 | `//ghost/browser/ui/protections/protections_strings` | Shade's strings, English only, in one C++ file: the page reads them through `loadTimeData`. A grd would need its own locale paks (another patch) for no translation yet; it replaces this file when translations come (amended while planning). |
-| **Patch 0037** (`chrome_web_ui_configs.cc`, `chrome_browser_interface_binders_webui.cc`, `chrome_paks.gni`) | Registers the page's config, its Mojo binder and its pak in Chromium's lists, which have no hook. Amended while planning: the spec first had the config registered from `//ghost/browser/startup`, which can't depend on UI code. |
+| **Patch 0036** (`chrome_web_ui_configs.cc`, `chrome_browser_interface_binders_webui.cc`, `chrome_paks.gni`, `resource_ids.spec`, `histograms.xml`, Lit's `BUILD.gn`) | Registers the page in Chromium's lists, which have no hook: its config, Mojo binder, pak, resource ids, its name on the top-chrome allow-list, and Lit's visibility list. Amended while planning: the spec first had the config registered from `//ghost/browser/startup`, which can't depend on UI code. |
 
 ## For the spike
 

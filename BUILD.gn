@@ -90,6 +90,7 @@ test("ghost_browsertests") {
     "browser/query_filter/query_filter_browsertest.cc",
     "browser/features/feature_overrides_browsertest.cc",
     "browser/privacy_policy/protection_levels_browsertest.cc",
+    "browser/ui/protections/protections_panel_browsertest.cc",
     "test/egress/omnibox_browsertest.cc",
     "test/etw_logging_browsertest.cc",
     "test/google_services_browsertest.cc",
@@ -136,10 +137,14 @@ test("ghost_browsertests") {
     "//ghost/browser/privacy_policy",
     "//ghost/browser/query_filter",
     "//ghost/browser/query_filter:prefs",
+    "//ghost/browser/ui/protections",
     "//ghost/version",
     "//net:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/events",
+    "//ui/views",
+    "//ui/views:test_support",
     "//url",
   ]
 

@@ -1,0 +1,41 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+
+mojom("mojo_bindings") {
+  sources = [ "protections.mojom" ]
+  webui_module_path = "/"
+}
+
+# The protections panel: the toolbar's shield and the page it opens. Linked
+# into //chrome/browser/ui/views/toolbar:impl, whose ToolbarView adds the
+# button (patches/0035): so it depends on the toolbar's header target only.
+source_set("protections") {
+  sources = [
+    "protections_button.cc",
+    "protections_button.h",
+    "protections_ui.cc",
+    "protections_ui.h",
+  ]
+
+  public_deps = [ ":mojo_bindings" ]
+
+  deps = [
+    "//base",
+    "//chrome/app:generated_resources",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/views/bubble",
+    "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/ui/webui/top_chrome",
+    "//components/vector_icons",
+    "//content/public/browser",
+    "//ghost/browser/resources/protections:resources",
+    "//mojo/public/cpp/bindings",
+    "//ui/base",
+    "//ui/views",
+    "//ui/webui",
+    "//url",
+  ]
+}

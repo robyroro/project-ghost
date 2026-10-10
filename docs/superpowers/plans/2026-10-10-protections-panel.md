@@ -4,14 +4,14 @@
 
 **Goal:** A toolbar shield shows how many requests Shade blocked on the current page and opens a WebUI bubble that sets the site's level ([spec](../specs/2026-10-10-protections-panel-design.md)).
 
-**Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0036, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0035 gives the request filter its frame; patch 0037 registers the page (config, Mojo binder, pak).
+**Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** not started.
+**Status:** Task 1 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
 **Settled while planning** (each confirmed in the source at the pin; the spec is amended to match):
-- **A third patch, 0037**, is needed. Three registrations live in Chromium's lists, with no hook:
+- **A third patch, 0036**, is needed. Three registrations live in Chromium's lists, with no hook:
   - the WebUI config in `chrome/browser/ui/webui/chrome_web_ui_configs.cc`;
   - the Mojo binder in `chrome/browser/chrome_browser_interface_binders_webui.cc`;
   - the page's pak in `chrome/chrome_paks.gni`, beside `tab_search_resources.pak`.
@@ -19,8 +19,8 @@
   The spec said the config needs no patch, but `//ghost/browser/startup` can't depend on UI code: `//chrome/browser/ui` depends on it.
 - **Strings live in one C++ file**, `browser/ui/protections/protections_strings.{h,cc}`, English only. The page reads them through `loadTimeData`; the button uses them directly. A grd of messages would need its own locale paks, which means another patch to `chrome_repack_locales.gni`, for no translation yet. When translations come, the grd replaces this file.
 - **UI code links into `//chrome/browser/ui`**:
-  - `//ghost/browser/ui/protections` needs `ToolbarButton`, `WebUIBubbleManager` and `TopChromeWebUIController`, all in `//chrome/browser/ui`, which will depend on it (patch 0036).
-  - It therefore lists only lower targets in `deps`, and patch 0036 adds it to `//chrome/browser/ui`'s `deps` and `allow_circular_includes_from`. This is Chromium's own pattern (`chrome/browser/ui/BUILD.gn:995`).
+  - `//ghost/browser/ui/protections` needs `ToolbarButton`, `WebUIBubbleManager` and `TopChromeWebUIController`, all in `//chrome/browser/ui`, which will depend on it (patch 0035).
+  - It therefore lists only lower targets in `deps`, and patch 0035 adds it to `//chrome/browser/ui`'s `deps` and `allow_circular_includes_from`. This is Chromium's own pattern (`chrome/browser/ui/BUILD.gn:995`).
   - The counter, `//ghost/browser/protections`, depends on `//content` only, so the filters in `//chrome/browser:core` can use it.
 - **The badge** comes from `IconWithBadgeImageSource` (`chrome/browser/ui/extensions`), the extensions' badge painter: the icon plus `Badge{text, text_color, background_color}`.
 - **The icon** is `vector_icons::kShieldIcon` (`components/vector_icons/shield.icon`), plus our own `shield_off.icon`, the same shield with a slash.
@@ -38,10 +38,10 @@ The wiring is the uncertain part; prove all of it with a page that only says "Pr
 **Files:**
 - Create: `browser/ui/protections/BUILD.gn`, `protections_ui.{h,cc}`, `protections.mojom` (with only `PageHandler.ShowUI()`), `protections_button.{h,cc}` (a plain `ToolbarButton` with `kShieldIcon` that calls `ShowBubble`)
 - Create: `browser/resources/protections/BUILD.gn`, `protections.html`, `app.ts`, `app.html.ts`, `browser_proxy.ts`
-- Create: patches 0036 (toolbar) and 0037 (config, binder, pak) in `chromium/src`, `git commit -s` with `Why:` and `Upstream:` trailers
+- Create: patches 0035 (toolbar) and 0036 (config, binder, pak) in `chromium/src`, `git commit -s` with `Why:` and `Upstream:` trailers
 - Create: `docs/superpowers/specs/2026-10-10-protections-panel-spike.md` (progress notes)
 
-- [ ] **Step 1:** Write the targets on the personal-context-notice model. In `browser/resources/protections/BUILD.gn`:
+- [x] **Step 1:** Write the targets on the personal-context-notice model. In `browser/resources/protections/BUILD.gn`:
 
 ```gn
 import("//ui/webui/resources/tools/build_webui.gni")
@@ -63,31 +63,31 @@ build_webui("resources") {
 }
 ```
 
-  Find out where the pak lands (`$root_gen_dir/ghost/browser/resources/protections/protections_resources.pak` or `$root_gen_dir/chrome/...`); record the path for patch 0037.
-- [ ] **Step 2:** In `browser/ui/protections/BUILD.gn`, add `mojom("mojo_bindings") { sources = [ "protections.mojom" ]; webui_module_path = "/" }` and `source_set("protections")`.
+  Find out where the pak lands (`$root_gen_dir/ghost/browser/resources/protections/protections_resources.pak` or `$root_gen_dir/chrome/...`); record the path for patch 0036.
+- [x] **Step 2:** In `browser/ui/protections/BUILD.gn`, add `mojom("mojo_bindings") { sources = [ "protections.mojom" ]; webui_module_path = "/" }` and `source_set("protections")`.
   - Its `deps`: `//chrome/browser/ui/webui/top_chrome`, `//chrome/browser/ui/browser_window`, `//chrome/browser/profiles:profile`, `//ghost/browser/resources/protections:resources`, `//content/public/browser`, `//ui/views`, `//components/vector_icons`.
   - It has no dep on `//chrome/browser/ui`.
-- [ ] **Step 3:** Write patch 0036 in `chrome/browser/ui/views/toolbar/toolbar_view.cc`, right after the `if (location_bar_view) { ... } else { ... }` block in `Init()`:
+- [x] **Step 3:** Write patch 0035 in `chrome/browser/ui/views/toolbar/toolbar_view.cc`, right after the `if (location_bar_view) { ... } else { ... }` block in `Init()`:
 
 ```cpp
-  // Shade: the protections button, right of the omnibox (patches/0036).
+  // Shade: the protections button, right of the omnibox (patches/0035).
   if (display_mode_ == DisplayMode::kNormal) {
     AddChildView(ghost::protections::CreateProtectionsButton(browser_));
   }
 ```
 
-  Also in patch 0036: `chrome/browser/ui/BUILD.gn` adds `"//ghost/browser/ui/protections"` to the `deps` of `source_set("ui")` and to its `allow_circular_includes_from`.
-- [ ] **Step 4:** Write patch 0037, with three changes:
+  Also in patch 0035: `chrome/browser/ui/BUILD.gn` adds `"//ghost/browser/ui/protections"` to the `deps` of `source_set("ui")` and to its `allow_circular_includes_from`.
+- [x] **Step 4:** Write patch 0036, with three changes:
   - `chrome_web_ui_configs.cc`: `map.AddWebUIConfig(std::make_unique<ghost::protections::ProtectionsUIConfig>());`.
   - `chrome_browser_interface_binders_webui.cc`, inside `PopulateChromeWebUIFrameBinders` under `#if !BUILDFLAG(IS_ANDROID)`: `ghost::protections::PopulateWebUIFrameBinders(map);`. That function lives in `protections_ui.cc` and calls `content::RegisterWebUIControllerInterfaceBinder<mojom::PageHandlerFactory, ProtectionsUI>(map)`.
   - `chrome_paks.gni`: the pak from Step 1 next to `tab_search_resources.pak`, with its `deps`.
-- [ ] **Step 5:** Sync and build (`sync.py`, then `autoninja -C out\vanilla -j 10 chrome`). Run `out\vanilla\chrome.exe`. Expected:
+- [x] **Step 5:** Sync and build (`sync.py`, then `autoninja -C out\vanilla -j 10 chrome`). Run `out\vanilla\chrome.exe`. Expected:
   - a shield right of the omnibox;
   - a click opens a bubble that says "Protections";
   - the second click opens it instantly (preloaded).
-- [ ] **Step 6:** `WebUIBubbleManager::Create` takes a string resource id: the task manager's name for the bubble's process (`IDS_ACCNAME_TAB_SEARCH` for Tab Search). Shade has no string resources. Find an upstream string that reads right ("Protections" or a neutral one); if none does, use the closest one and record it as a known wording issue in the progress notes, to fix when Shade's strings get a grd (with translations). Record the id chosen.
-- [ ] **Step 6b:** Check how a worker's factory arrives. Breakpoint or `LOG` in `WillCreateURLLoaderFactory` on a page that starts a dedicated worker. Record in the progress notes whether `frame` is the creator document or null, and the same for WebTransport's `frame_routing_id` from a worker.
-- [ ] **Step 7:** Record the build time, every surprise, and the pak path in the progress notes. Commit in webops: `protections: an empty panel end to end (patches 0036, 0037): spike`. Re-export the patches with `patches.py export`; `patches.py check` must pass.
+- [x] **Step 6:** `WebUIBubbleManager::Create` takes a string resource id: the task manager's name for the bubble's process (`IDS_ACCNAME_TAB_SEARCH` for Tab Search). Shade has no string resources. Find an upstream string that reads right ("Protections" or a neutral one); if none does, use the closest one and record it as a known wording issue in the progress notes, to fix when Shade's strings get a grd (with translations). Record the id chosen.
+- [x] **Step 6b:** Check how a worker's factory arrives. Breakpoint or `LOG` in `WillCreateURLLoaderFactory` on a page that starts a dedicated worker. Record in the progress notes whether `frame` is the creator document or null, and the same for WebTransport's `frame_routing_id` from a worker.
+- [x] **Step 7:** Record the build time, every surprise, and the pak path in the progress notes. Commit in webops: `protections: an empty panel end to end (patches 0035, 0036): spike`. Re-export the patches with `patches.py export`; `patches.py check` must pass.
 
 ### Task 2: `PageProtections`, the per-tab count
 
@@ -231,11 +231,11 @@ void PageProtections::SetCount(int count) {
 - [ ] **Step 4: Run the tests.** Same command as Step 2. Expected: 4 passed.
 - [ ] **Step 5: Commit.** `protections: count a tab's blocked requests`.
 
-### Task 3: The filters report their blocks (patch 0035)
+### Task 3: The filters report their blocks (patch 0037)
 
 **Files:**
 - Modify: `browser/blocking/request_filter.{h,cc}`, `browser/blocking/connection_filter.cc`, `browser/blocking/BUILD.gn` (dep `//ghost/browser/protections`)
-- Create: patch 0035 in `chromium/src` (`chrome/browser/chrome_content_browser_client.cc`)
+- Create: patch 0037 in `chromium/src` (`chrome/browser/chrome_content_browser_client.cc`)
 - Test: `browser/protections/blocked_count_browsertest.cc` (add to `ghost_browsertests`)
 
 - [ ] **Step 1: Write the failing browser tests.** Reuse the fixtures of `request_filter_browsertest.cc` and `connection_filter_browsertest.cc`: the list `||tracker.test^$third-party`, `tracker.test` resolving to the test server, and the WebSocket server. Cases:
@@ -245,7 +245,7 @@ void PageProtections::SetCount(int count) {
   - a navigation to a page with no tracker gives 0;
   - a tracker page loaded in a background tab leaves the active tab's count unchanged.
 - [ ] **Step 2: Run them to see them fail.** Run `autoninja -C out\vanilla ghost_browsertests && out\vanilla\ghost_browsertests --gtest_filter=BlockedCount*`. Expected: the counts stay 0.
-- [ ] **Step 3: Patch 0035.** In `ChromeContentBrowserClient::WillCreateURLLoaderFactory`, change the call that 0029 added:
+- [ ] **Step 3: Patch 0037.** In `ChromeContentBrowserClient::WillCreateURLLoaderFactory`, change the call that 0029 added:
 
 ```cpp
   // First, so that blocked requests reach no other interceptor.
@@ -262,7 +262,7 @@ void PageProtections::SetCount(int count) {
     - WebSocket: `RecordBlocked(frame ? frame->GetGlobalId() : content::GlobalRenderFrameHostId())`;
     - WebTransport: `RecordBlocked(content::GlobalRenderFrameHostId(process_id, frame_routing_id))`.
 - [ ] **Step 5: Run the tests.** Same command as Step 2, then the whole `ghost_browsertests` and `ghost_unittests`. Expected: all pass, no retry.
-- [ ] **Step 6: Commit.** In webops: `blocking: report each block against its frame (patch 0035)`. Re-export the series; `patches.py check`.
+- [ ] **Step 6: Commit.** In webops: `blocking: report each block against its frame (patch 0037)`. Re-export the series; `patches.py check`.
 
 ### Task 4: The panel's state and the level choice
 

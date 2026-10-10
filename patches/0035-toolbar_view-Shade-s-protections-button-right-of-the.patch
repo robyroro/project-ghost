@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 23:11:09 +0300
+Subject: [PATCH] toolbar_view: Shade's protections button right of the omnibox
+
+ToolbarView::Init adds ghost::protections' button after the location bar
+in the normal display mode. It shows how many requests Shade blocked on
+the page and opens the protections panel. //chrome/browser/ui/views/
+toolbar:impl links //ghost/browser/ui/protections, which depends only on
+the toolbar's and the bubble's header targets, so there is no cycle.
+
+Why: the toolbar has no hook for an embedder's button that isn't a pinned action.
+Upstream: not upstreamable: product-specific UI
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/ui/views/toolbar/BUILD.gn b/chrome/browser/ui/views/toolbar/BUILD.gn
+index 1514298328f544b4517850940564fce3d3a569eb..fcadc561c46c798a1251b6648bdacb8b9c03e3ec 100644
+--- a/chrome/browser/ui/views/toolbar/BUILD.gn
++++ b/chrome/browser/ui/views/toolbar/BUILD.gn
+@@ -265,6 +265,7 @@ source_set("impl") {
+     "//content/public/browser",
+     "//extensions/browser/api/feedback_private",
+     "//extensions/common",
++    "//ghost/browser/ui/protections",
+     "//media",
+     "//media/capture/mojom:video_capture",
+     "//media/capture/mojom:video_capture_buffer",
+diff --git a/chrome/browser/ui/views/toolbar/toolbar_view.cc b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+index 03aedd9edd72435185dca70e8b89574cd387cd3e..db38250195f7ff3d7c6d34b4b821e9a448a68a35 100644
+--- a/chrome/browser/ui/views/toolbar/toolbar_view.cc
++++ b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+@@ -130,6 +130,7 @@
+ #include "components/strings/grit/components_strings.h"
+ #include "content/public/browser/render_view_host.h"
+ #include "content/public/browser/web_contents.h"
++#include "ghost/browser/ui/protections/protections_button.h"
+ #include "third_party/skia/include/core/SkPath.h"
+ #include "third_party/skia/include/core/SkPathBuilder.h"
+ #include "ui/accessibility/ax_node_data.h"
+@@ -460,6 +461,11 @@ void ToolbarView::Init() {
+     location_bar_ = toolbar_webview_->GetLocationBar();
+   }
+ 
++  // Shade: the protections button, right of the omnibox.
++  if (display_mode_ == DisplayMode::kNormal) {
++    AddChildView(ghost::protections::CreateProtectionsButton(browser_));
++  }
++
+   bool is_glic_left_of_profile =
+       features::kGlicToolbarButtonLocationParam.Get() ==
+           features::GlicToolbarButtonLocation::kLeftOfProfileChip ||

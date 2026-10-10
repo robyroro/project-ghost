@@ -1,0 +1,151 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 23:11:13 +0300
+Subject: [PATCH] webui: register Shade's protections page
+
+chrome://protections.top-chrome is Shade's protections panel. Chromium
+registers each WebUI page in lists with no hook, so this adds it to them:
+its config (chrome_web_ui_configs.cc), its Mojo binder
+(chrome_browser_interface_binders_webui.cc, through
+ghost::protections::PopulateWebUIFrameBinders), its pak
+(chrome_paks.gni), its grd's resource ids (resource_ids.spec), its name
+on the top-chrome allow-list (the .Protections variant in
+histograms.xml, read at compile time by WebUIContentsWrapperT; Shade
+sends no metrics), and Lit's visibility list for Shade's pages.
+
+Why: WebUI pages are registered in Chromium's own lists only.
+Upstream: not upstreamable: product-specific UI
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index 314ca5155ad9d472126264c9612e0789bff85531..7f6a45f41d29ca53c2eff211e58ab04e0422b14a 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1376,6 +1376,7 @@ source_set("core") {
+ 
+   if (!is_android || is_desktop_android) {
+     deps += [ "//chrome/browser/ui/webui/discards" ]
++    deps += [ "//ghost/browser/ui/protections" ]
+   }
+ 
+   if (enable_dice_support || is_chromeos) {
+diff --git a/chrome/browser/chrome_browser_interface_binders_webui.cc b/chrome/browser/chrome_browser_interface_binders_webui.cc
+index b9138786293c3448ac21850f6820755f96adc01e..4df1cc26ede9756883992be401dde8435b9fed23 100644
+--- a/chrome/browser/chrome_browser_interface_binders_webui.cc
++++ b/chrome/browser/chrome_browser_interface_binders_webui.cc
+@@ -105,6 +105,9 @@
+ #include "chrome/browser/ui/webui/skills/skills.mojom.h"
+ #include "chrome/browser/ui/webui/skills/skills_ui.h"
+ #endif
++#if !BUILDFLAG(IS_ANDROID)
++#include "ghost/browser/ui/protections/protections_ui.h"
++#endif
+ 
+ namespace chrome::internal {
+ 
+@@ -355,6 +358,8 @@ void PopulateChromeWebUIFrameBinders(
+   PopulateChromeWebUIFrameBindersPartsAndroid(map, render_frame_host);
+ #else
+   PopulateChromeWebUIFrameBindersPartsDesktop(map, render_frame_host);
++  // Shade: the protections panel.
++  ghost::protections::PopulateWebUIFrameBinders(map);
+ #endif  // BUILDFLAG(IS_ANDROID)
+ 
+ #if BUILDFLAG(IS_CHROMEOS)
+diff --git a/chrome/browser/ui/webui/BUILD.gn b/chrome/browser/ui/webui/BUILD.gn
+index 9623fff2d1efc0f34b07930b2ce608de29c3f375..5dc4e71715147b969741bba6a39d9c8abe8a0fd7 100644
+--- a/chrome/browser/ui/webui/BUILD.gn
++++ b/chrome/browser/ui/webui/BUILD.gn
+@@ -43,6 +43,7 @@ source_set("configs") {
+       "//chrome/browser/ui/webui/commerce",
+       "//chrome/browser/ui/webui/drive_picker_host",
+       "//chrome/browser/ui/webui/personal_context",
++      "//ghost/browser/ui/protections",
+     ]
+   }
+ 
+diff --git a/chrome/browser/ui/webui/chrome_web_ui_configs.cc b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
+index a5745248169918e39fa9b33b24e5c227d1d72f65..fb22f2c9d59a7aa27b3a8bdba28c4bd701c47987 100644
+--- a/chrome/browser/ui/webui/chrome_web_ui_configs.cc
++++ b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
+@@ -86,6 +86,7 @@
+ #include "chrome/browser/ui/webui/personal_context/personal_context_notice_ui.h"
+ #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
+ #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
++#include "ghost/browser/ui/protections/protections_ui.h"
+ #if !BUILDFLAG(IS_CHROMEOS)
+ #include "chrome/browser/ui/webui/app_home/app_home_ui.h"
+ #endif  // !BUILDFLAG(IS_CHROMEOS)
+@@ -381,6 +382,9 @@ void RegisterChromeWebUIConfigs() {
+   map.AddWebUIConfig(
+       std::make_unique<
+           personal_context::notice::PersonalContextNoticeUIConfig>());
++  // Shade: the protections panel.
++  map.AddWebUIConfig(
++      std::make_unique<ghost::protections::ProtectionsUIConfig>());
+   map.AddWebUIConfig(std::make_unique<ProfileInternalsUIConfig>());
+   map.AddWebUIConfig(std::make_unique<ReadingListUIConfig>());
+   map.AddWebUIConfig(std::make_unique<SearchEngineChoiceUIConfig>());
+diff --git a/chrome/chrome_paks.gni b/chrome/chrome_paks.gni
+index e18c99499d08fd9984e1885aa7c2cbb39b583dc4..6aa12dc43bdcb1b589b51916c8545e3b34b61d01 100644
+--- a/chrome/chrome_paks.gni
++++ b/chrome/chrome_paks.gni
+@@ -270,6 +270,7 @@ template("chrome_extra_paks") {
+         "$root_gen_dir/components/headless/command_handler/headless_command_resources.pak",
+         "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
+         "$root_gen_dir/content/traces_internals_resources.pak",
++        "$root_gen_dir/ghost/protections_resources.pak",
+       ]
+ 
+       deps += [
+@@ -278,6 +279,7 @@ template("chrome_extra_paks") {
+         "//chrome/browser/resources/contextual_cueing/internals:resources",
+         "//components/headless/command_handler",
+         "//content/browser/tracing:resources",
++        "//ghost/browser/resources/protections:resources",
+       ]
+       if (is_chrome_branded) {
+         sources += [
+diff --git a/third_party/lit/v3_0/BUILD.gn b/third_party/lit/v3_0/BUILD.gn
+index 3c59b99531dec833263b5769689dc63bee2c4a0d..0547eb6c01afdcfdef2e4834d0147ceac6a86106 100644
+--- a/third_party/lit/v3_0/BUILD.gn
++++ b/third_party/lit/v3_0/BUILD.gn
+@@ -175,6 +175,9 @@ ts_library("build_ts") {
+     "//ui/webui/resources/cr_components/searchbox:build_ts",
+     "//ui/webui/resources/cr_components/theme_color_picker:build_ts",
+     "//ui/webui/resources/cr_elements:build_ts",
++
++    # Shade's pages.
++    "//ghost/browser/resources/*",
+   ]
+   tsconfig_base = "tsconfig_base.json"
+   composite = true
+diff --git a/tools/gritsettings/resource_ids.spec b/tools/gritsettings/resource_ids.spec
+index 24ed276c40a30a015cd97cfb9f40f3bc485e2fd7..573359ad8e9dc3afcd45d604a89a7fa8e00b3c5f 100644
+--- a/tools/gritsettings/resource_ids.spec
++++ b/tools/gritsettings/resource_ids.spec
+@@ -1798,6 +1798,12 @@
+     "includes": [10140],
+   },
+ 
++  # Shade's protections panel.
++  "<(SHARED_INTERMEDIATE_DIR)/ghost/browser/resources/protections/resources.grd": {
++    "META": {"sizes": {"includes": [20]}},
++    "includes": [10240],
++  },
++
+   "<(SHARED_INTERMEDIATE_DIR)/THIS_IS_A_PLACEHOLDER.grd": {
+     "META": {"sizes": {"includes": [800]}},
+     "includes": [12000],
+diff --git a/tools/metrics/histograms/metadata/page/histograms.xml b/tools/metrics/histograms/metadata/page/histograms.xml
+index f12a33f5ffcb90bd94a409b16eeefa740d61887d..4dd0cf7493aa6e87ba9dc19d81916d5c2f9b9b75 100644
+--- a/tools/metrics/histograms/metadata/page/histograms.xml
++++ b/tools/metrics/histograms/metadata/page/histograms.xml
+@@ -645,6 +645,7 @@ chromium-metrics-reviews@google.com.
+   <variant name=".OmniboxPopup"/>
+   <variant name=".PerformanceSidePanel"/>
+   <variant name=".PersonalContextNotice"/>
++  <variant name=".Protections"/>
+   <variant name=".ReadAnythingUntrusted"/>
+   <variant name=".ReadingList"/>
+   <variant name=".ReloadButtonUI"/>
