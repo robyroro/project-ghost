@@ -65,6 +65,11 @@ class LintRepoTest(GitTestCase):
     def test_vendored_code_is_exempt(self):
         self.assertEqual(self.problems({"third_party/foo/x.cc": "int x;\n"}), [])
 
+    def test_vendored_markdown_links_are_not_ours_to_fix(self):
+        # A crate's README links files the published crate leaves out.
+        self.assertEqual(self.problems({"third_party/rust/c/v1/crate/README.md":
+                                        "[example](./examples/a.rs)\n"}), [])
+
     def test_crlf(self):
         self.assertEqual(self.problems({"docs/a.md": b"# A\r\n"}),
                          ["docs/a.md: CRLF line endings (the repo is LF-only; see .gitattributes)"])

@@ -141,7 +141,8 @@ def lint(root: Path) -> list[str]:
             if not has_mpl_notice(text):
                 problems.append(f"{rel}: missing the MPL-2.0 notice in the first "
                                 f"{HEADER_SEARCH_LINES} lines")
-        if rel.endswith(".md"):
+        # Vendored code keeps its own documentation, links and all.
+        if rel.endswith(".md") and not rel.startswith(HEADER_EXEMPT_DIRS):
             problems += [f"{rel}: broken relative link {t}" for t in broken_links(path, text, root)]
     problems += [f"patches/{i.patch}: {i.message}"
                  for i in patches.check(root / "patches") if i.error]

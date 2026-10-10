@@ -405,7 +405,7 @@ def vendor(src: Path) -> int:
                 shutil.rmtree(dest)
             shutil.copytree(crate.package_dir, dest / "crate",
                             ignore=shutil.ignore_patterns(".cargo-ok", ".cargo_vcs_info.json"))
-            marker.write_text(json.dumps(stamp, indent=1) + "\n", encoding="utf-8")
+            marker.write_text(json.dumps(stamp, indent=1) + "\n", encoding="utf-8", newline="\n")
             print(f"vendored {crate.name} {crate.version}")
         settings = config.get(crate.name, {})
         (dest / "BUILD.gn").write_text(render_build_gn(
