@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 23:28:08 +0300
+Subject: [PATCH] chrome_content_browser_client: give Shade's request filter
+ its frame
+
+WillCreateURLLoaderFactory passes its frame to ghost::blocking's
+MaybeProxyURLLoaderFactory as well: each request the filter blocks then
+counts for the tab whose page made it, which the protections panel shows.
+Pages, their subframes and dedicated workers have a frame here; shared
+and service workers don't, and aren't counted.
+
+Why: the frame is the only link from a URLLoaderFactory to its tab.
+Upstream: not upstreamable: product-specific blocking
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index e58877aa6d401abbe386ad643da5584ec3be3184..be892eb96ef34dbb57b6b986a84b11f2074e4846 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -6668,8 +6668,8 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
+     network::mojom::URLLoaderFactoryOverridePtr* factory_override,
+     scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
+   // First, so that blocked requests reach no other interceptor.
+-  ghost::blocking::MaybeProxyURLLoaderFactory(browser_context, isolation_info,
+-                                              factory_builder);
++  ghost::blocking::MaybeProxyURLLoaderFactory(browser_context, frame,
++                                              isolation_info, factory_builder);
+ 
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   auto* web_request_api =

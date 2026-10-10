@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/self_deleting.h"
+#include "content/public/browser/global_routing_id.h"
 #include "ghost/components/privacy_policy/effective_policy.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/cpp/self_deleting_url_loader_factory.h"
@@ -25,7 +26,8 @@ struct ResourceRequest;
 
 namespace content {
 class BrowserContext;
-}
+class RenderFrameHost;
+}  // namespace content
 
 namespace net {
 class IsolationInfo;
@@ -37,8 +39,11 @@ class BlockingEngine;
 
 // Puts a RequestFilter in front of a URLLoaderFactory being created, once the
 // blocking service has started. Called from
-// ChromeContentBrowserClient::WillCreateURLLoaderFactory (patches/0029).
+// ChromeContentBrowserClient::WillCreateURLLoaderFactory (patches/0029, 0037).
+// |frame| is the document or worker's frame the factory serves, when there is
+// one: its tab counts the blocked requests (the protections panel).
 void MaybeProxyURLLoaderFactory(content::BrowserContext* context,
+                                content::RenderFrameHost* frame,
                                 const net::IsolationInfo& isolation_info,
                                 network::URLLoaderFactoryBuilder& factory_builder);
 
@@ -68,6 +73,7 @@ class RequestFilter : public network::SelfDeletingURLLoaderFactory {
   RequestFilter(mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
                 mojo::PendingRemote<network::mojom::URLLoaderFactory> target,
                 std::optional<url::Origin> top_frame_origin,
+                content::GlobalRenderFrameHostId frame,
                 BlockingEngine* engine,
                 PolicyCallback policy,
                 base::SelfDeletingPassKey pass_key);
@@ -94,6 +100,9 @@ class RequestFilter : public network::SelfDeletingURLLoaderFactory {
   // The top-level page of the frame or worker this factory serves, when the
   // factory is created for one.
   const std::optional<url::Origin> top_frame_origin_;
+  // The frame whose tab counts this factory's blocked requests; null for a
+  // shared or service worker.
+  const content::GlobalRenderFrameHostId frame_;
   // The blocking service's engine, which is never destroyed.
   const raw_ptr<BlockingEngine> engine_;
   const PolicyCallback policy_;

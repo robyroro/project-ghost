@@ -15,3 +15,12 @@ What the wiring took, beyond the plan:
 - **Workers' factories carry a frame.** `WillCreateURLLoaderFactory` gets the creator document for a dedicated worker's script and, with `kUseAncestorRenderFrameForWorker` (on by default at the pin), its ancestor frame for the worker's subresources (`dedicated_worker_host.cc`): blocks in dedicated workers count for their tab. Shared and service workers come without a frame.
 - **Patch numbers follow commit order**: the spike's two patches came first, so the toolbar is 0035, the page's registration 0036, and the request filter's frame (Task 3) 0037.
 - **Proof:** `ProtectionsPanelBrowserTest.TheButtonOpensThePanel` finds the button by its element identifier, clicks it, waits for the bubble (shown only after the page's `ShowUI` over Mojo, so the binder works), and reads "Protections" from `chrome://protections.top-chrome/`. Builds: 2m20s to the first error, then 6m32s (the allow-list header and the webui configs recompile); the test target 1m36s.
+
+## Task 2: the count per tab, 2026-10-10
+
+`PageProtections` as planned; 4 unit tests.
+
+## Task 3: the filters report their blocks (patch 0037), 2026-10-10
+
+- `RequestFilter` keeps its factory's frame and reports each block against it; the connection filter reports WebSocket and WebTransport blocks against theirs. Patch 0037 changes only the call 0029 added.
+- `BlockedCountBrowserTest` (6 tests): images, a subframe, a dedicated worker's `fetch`, a WebSocket, a navigation's reset, and a background tab whose blocks don't reach the active tab. 84 unit and 72 browser tests pass, no retry.

@@ -13,6 +13,7 @@
 #include "ghost/browser/blocking/blocking_service.h"
 #include "ghost/browser/blocking/request_filter.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
+#include "ghost/browser/protections/page_protections.h"
 #include "ghost/components/blocking/blocking_engine.h"
 #include "net/cookies/site_for_cookies.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
@@ -33,10 +34,12 @@ GURL PageOf(content::RenderFrameHost* frame) {
 }
 
 // The engine reads a WebSocket's type from its ws: or wss: scheme; a
-// WebTransport URL (https:) is "other", as an empty destination maps.
+// WebTransport URL (https:) is "other", as an empty destination maps. A
+// blocked connection counts for |frame|'s tab (the protections panel).
 void Judge(const GURL& url,
            const GURL& page,
            const privacy_policy::EffectivePolicy& policy,
+           content::GlobalRenderFrameHostId frame,
            base::OnceCallback<void(bool blocked)> done) {
   BlockingService* service = BlockingService::GetIfStarted();
   if (!service || !policy.block_requests || !ChecksAgainst(url, page, policy.check_same_site)) {
@@ -45,9 +48,15 @@ void Judge(const GURL& url,
   }
   service->engine().Check(
       {url, page, network::mojom::RequestDestination::kEmpty, "GET"},
-      base::BindOnce([](base::OnceCallback<void(bool)> done,
-                        Decision decision) { std::move(done).Run(decision.blocked); },
-                     std::move(done)));
+      base::BindOnce(
+          [](content::GlobalRenderFrameHostId frame, base::OnceCallback<void(bool)> done,
+             Decision decision) {
+            if (decision.blocked) {
+              protections::PageProtections::RecordBlocked(frame);
+            }
+            std::move(done).Run(decision.blocked);
+          },
+          frame, std::move(done)));
 }
 
 }  // namespace
@@ -62,7 +71,7 @@ void FilterWebSocket(content::RenderFrameHost* frame,
                      base::OnceCallback<void(bool blocked)> done) {
   const GURL page = frame ? PageOf(frame) : site_for_cookies.RepresentativeUrl();
   Judge(url, page, PolicyOf(frame ? frame->GetBrowserContext() : nullptr, page),
-        std::move(done));
+        frame ? frame->GetGlobalId() : content::GlobalRenderFrameHostId(), std::move(done));
 }
 
 void FilterWebTransport(int process_id,
@@ -74,7 +83,7 @@ void FilterWebTransport(int process_id,
   content::RenderProcessHost* process = content::RenderProcessHost::FromID(process_id);
   const GURL page = frame ? PageOf(frame) : initiator_origin.GetURL();
   Judge(url, page, PolicyOf(process ? process->GetBrowserContext() : nullptr, page),
-        std::move(done));
+        content::GlobalRenderFrameHostId(process_id, frame_routing_id), std::move(done));
 }
 
 }  // namespace ghost::blocking

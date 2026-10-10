@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Tasks 1–2 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** Tasks 1–3 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -238,14 +238,14 @@ void PageProtections::SetCount(int count) {
 - Create: patch 0037 in `chromium/src` (`chrome/browser/chrome_content_browser_client.cc`)
 - Test: `browser/protections/blocked_count_browsertest.cc` (add to `ghost_browsertests`)
 
-- [ ] **Step 1: Write the failing browser tests.** Reuse the fixtures of `request_filter_browsertest.cc` and `connection_filter_browsertest.cc`: the list `||tracker.test^$third-party`, `tracker.test` resolving to the test server, and the WebSocket server. Cases:
+- [x] **Step 1: Write the failing browser tests.** Reuse the fixtures of `request_filter_browsertest.cc` and `connection_filter_browsertest.cc`: the list `||tracker.test^$third-party`, `tracker.test` resolving to the test server, and the WebSocket server. Cases:
   - a page with three tracker images: `PageProtections::FromWebContents(tab)->blocked_count()` reaches 3 (wait with a `PageProtections::Observer` and `base::RunLoop`);
   - an iframe on `frame.test` loading one tracker image counts 1 for the tab;
   - a WebSocket to `tracker.test` counts 1;
   - a navigation to a page with no tracker gives 0;
   - a tracker page loaded in a background tab leaves the active tab's count unchanged.
-- [ ] **Step 2: Run them to see them fail.** Run `autoninja -C out\vanilla ghost_browsertests && out\vanilla\ghost_browsertests --gtest_filter=BlockedCount*`. Expected: the counts stay 0.
-- [ ] **Step 3: Patch 0037.** In `ChromeContentBrowserClient::WillCreateURLLoaderFactory`, change the call that 0029 added:
+- [x] **Step 2: Run them to see them fail.** Run `autoninja -C out\vanilla ghost_browsertests && out\vanilla\ghost_browsertests --gtest_filter=BlockedCount*`. Expected: the counts stay 0.
+- [x] **Step 3: Patch 0037.** In `ChromeContentBrowserClient::WillCreateURLLoaderFactory`, change the call that 0029 added:
 
 ```cpp
   // First, so that blocked requests reach no other interceptor.
@@ -254,15 +254,15 @@ void PageProtections::SetCount(int count) {
 ```
 
   Commit it in `chromium/src` with `-s` and the trailers. `Why:` the panel counts a tab's blocked requests, and the frame tells which tab. `Upstream:` not upstreamable, product-specific.
-- [ ] **Step 4: The request filter.**
+- [x] **Step 4: The request filter.**
   - `MaybeProxyURLLoaderFactory` gains `content::RenderFrameHost* frame` after `context`.
   - `RequestFilter` gains `content::GlobalRenderFrameHostId frame` (default-constructed when `frame` is null) and keeps it as `const content::GlobalRenderFrameHostId frame_;`.
   - Where `InFlight` fails a request with `net::ERR_BLOCKED_BY_CLIENT` (`request_filter.cc:201`), first call `protections::PageProtections::RecordBlocked(frame_)`.
   - In `connection_filter.cc`, when the verdict blocks:
     - WebSocket: `RecordBlocked(frame ? frame->GetGlobalId() : content::GlobalRenderFrameHostId())`;
     - WebTransport: `RecordBlocked(content::GlobalRenderFrameHostId(process_id, frame_routing_id))`.
-- [ ] **Step 5: Run the tests.** Same command as Step 2, then the whole `ghost_browsertests` and `ghost_unittests`. Expected: all pass, no retry.
-- [ ] **Step 6: Commit.** In webops: `blocking: report each block against its frame (patch 0037)`. Re-export the series; `patches.py check`.
+- [x] **Step 5: Run the tests.** Same command as Step 2, then the whole `ghost_browsertests` and `ghost_unittests`. Expected: all pass, no retry.
+- [x] **Step 6: Commit.** In webops: `blocking: report each block against its frame (patch 0037)`. Re-export the series; `patches.py check`.
 
 ### Task 4: The panel's state and the level choice
 

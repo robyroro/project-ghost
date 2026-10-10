@@ -11,8 +11,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/memory/self_deleting.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/render_frame_host.h"
 #include "ghost/browser/blocking/blocking_service.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
+#include "ghost/browser/protections/page_protections.h"
 #include "ghost/components/blocking/blocking_engine.h"
 #include "ghost/components/site/registrable_domain.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -47,6 +49,7 @@ bool HasCrossSiteReferrer(const network::ResourceRequest& request) {
 }  // namespace
 
 void MaybeProxyURLLoaderFactory(content::BrowserContext* context,
+                                content::RenderFrameHost* frame,
                                 const net::IsolationInfo& isolation_info,
                                 network::URLLoaderFactoryBuilder& factory_builder) {
   BlockingService* service = BlockingService::GetIfStarted();
@@ -56,7 +59,7 @@ void MaybeProxyURLLoaderFactory(content::BrowserContext* context,
   auto [receiver, target] = factory_builder.Append();
   base::MakeSelfDeleting<RequestFilter>(
       std::move(receiver), std::move(target), isolation_info.top_frame_origin(),
-      &service->engine(), base::BindRepeating(&PolicyIfAlive, context->GetWeakPtr()));
+      frame ? frame->GetGlobalId() : content::GlobalRenderFrameHostId(), &service->engine(), base::BindRepeating(&PolicyIfAlive, context->GetWeakPtr()));
 }
 
 bool NeedsVerdict(const network::ResourceRequest& request, const GURL& url,
@@ -83,6 +86,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
                                 public network::mojom::URLLoaderClient {
  public:
   InFlight(scoped_refptr<SharedTarget> target,
+           content::GlobalRenderFrameHostId frame,
            BlockingEngine* engine,
            mojo::PendingReceiver<network::mojom::URLLoader> loader,
            int32_t request_id,
@@ -93,6 +97,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
            GURL source,
            bool check_same_site)
       : target_(std::move(target)),
+        frame_(frame),
         engine_(engine),
         pending_loader_(std::move(loader)),
         pending_client_(std::move(client)),
@@ -198,6 +203,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
 
   void Block(const Decision& decision) {
     VLOG(1) << "Blocked " << request_.url << " by " << decision.filter;
+    protections::PageProtections::RecordBlocked(frame_);
     client_->OnComplete(network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
     delete this;
   }
@@ -213,6 +219,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
   }
 
   const scoped_refptr<SharedTarget> target_;
+  const content::GlobalRenderFrameHostId frame_;
   const raw_ptr<BlockingEngine> engine_;
   mojo::PendingReceiver<network::mojom::URLLoader> pending_loader_;
   mojo::PendingRemote<network::mojom::URLLoaderClient> pending_client_;
@@ -237,12 +244,14 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
 RequestFilter::RequestFilter(mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
                              mojo::PendingRemote<network::mojom::URLLoaderFactory> target,
                              std::optional<url::Origin> top_frame_origin,
+                             content::GlobalRenderFrameHostId frame,
                              BlockingEngine* engine,
                              PolicyCallback policy,
                              base::SelfDeletingPassKey pass_key)
     : network::SelfDeletingURLLoaderFactory(std::move(receiver), pass_key),
       target_(base::MakeRefCounted<SharedTarget>()),
       top_frame_origin_(std::move(top_frame_origin)),
+      frame_(frame),
       engine_(engine),
       policy_(std::move(policy)) {
   target_->data.Bind(std::move(target));
@@ -302,7 +311,7 @@ void RequestFilter::CreateLoaderAndStart(
     return;
   }
   // Owns itself until the request ends.
-  (new InFlight(target_, engine_, std::move(loader), request_id, options, to_send,
+  (new InFlight(target_, frame_, engine_, std::move(loader), request_id, options, to_send,
                 std::move(client), traffic_annotation, std::move(source),
                 policy.check_same_site))
       ->Start();

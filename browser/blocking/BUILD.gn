@@ -25,6 +25,7 @@ source_set("blocking") {
     "//base",
     "//content/public/browser",
     "//ghost/browser/privacy_policy",
+    "//ghost/browser/protections",
     "//ghost/components/site",
     "//net",
     "//url",
