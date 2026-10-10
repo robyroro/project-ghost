@@ -55,7 +55,7 @@ The button's accessible name gives the level and the count ("Protections: Standa
 
 | Unit | What it does |
 |---|---|
-| **Patch 0036** (`toolbar_view.cc`) | `ToolbarView::Init` adds Shade's button after the location bar: an include and a call. |
+| **Patch 0036** (`toolbar_view.cc`, `chrome/browser/ui/BUILD.gn`) | `ToolbarView::Init` adds Shade's button after the location bar; `//chrome/browser/ui` links `//ghost/browser/ui/protections` and allows its circular includes (Chromium's pattern for code that both uses and is used by `//chrome/browser/ui`). |
 | `//ghost/browser/ui/views/protections/protections_button` | A `ToolbarButton`: the shield in its three looks (on, Off, disabled), the badge, the accessible name. Follows the active tab's `PageProtections` and level; a click shows the bubble through a `WebUIBubbleManager`, which preloads the page. |
 
 ### The panel
@@ -65,8 +65,8 @@ The button's accessible name gives the level and the count ("Protections: Standa
 | `//ghost/browser/ui/webui/protections/protections.mojom` | `PageHandlerFactory.CreatePageHandler(Page, PageHandler)`; `PageHandler.GetState() => State`, `PageHandler.SetLevel(Level)`, `PageHandler.ShowUI()`; `Page.OnStateChanged(State)`. `State`: the site, the level, the mode's default, whether protections apply, the count, whether the profile is off the record. |
 | `//ghost/browser/ui/webui/protections/protections_ui`, `protections_page_handler` | A `TopChromeWebUIController` and its config for `chrome://protections.top-chrome`. The handler builds `State` from `site_levels` and `PageProtections` for the tab the bubble belongs to; `SetLevel` writes the level (or clears it at the default) and reloads the tab. |
 | `//ghost/browser/resources/protections/` | The page: TypeScript and Lit, built by `build_webui`; header, count, radio group, sentence, Incognito note. |
-| `//ghost/browser/ui/resources/` | A grd of Shade's strings, English only for now. |
-| `//ghost/browser/startup/browser_main_extra_parts` | Registers the WebUI config at startup: no patch. |
+| `//ghost/browser/ui/protections/protections_strings` | Shade's strings, English only, in one C++ file: the page reads them through `loadTimeData`. A grd would need its own locale paks (another patch) for no translation yet; it replaces this file when translations come (amended while planning). |
+| **Patch 0037** (`chrome_web_ui_configs.cc`, `chrome_browser_interface_binders_webui.cc`, `chrome_paks.gni`) | Registers the page's config, its Mojo binder and its pak in Chromium's lists, which have no hook. Amended while planning: the spec first had the config registered from `//ghost/browser/startup`, which can't depend on UI code. |
 
 ## For the spike
 
@@ -98,7 +98,7 @@ The button's accessible name gives the level and the count ("Protections: Standa
 
 ## Documentation
 
-privacy-model.md (the panel; what the count counts, and that workers aren't in it), architecture.md (UI as built: the button, the bubble, the page, the two patches), testing.md, roadmap.md (3D-3 done), progress notes.
+privacy-model.md (the panel; what the count counts, and that workers aren't in it), architecture.md (UI as built: the button, the bubble, the page, patches 0035–0037), testing.md, roadmap.md (3D-3 done), progress notes.
 
 ## Done when
 
