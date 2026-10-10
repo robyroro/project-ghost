@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "chrome/common/chrome_switches.h"
+#include "ghost/browser/blocking/blocking_service.h"
 
 namespace ghost {
 
@@ -17,6 +18,12 @@ void BrowserMainExtraParts::PreEarlyInitialization() {
   // The earliest browser-process stage: BrowserProcessImpl does not exist yet,
   // so nothing that reads these switches has run.
   AppendStartupSwitches(*base::CommandLine::ForCurrentProcess());
+}
+
+void BrowserMainExtraParts::PostCreateThreads() {
+  // As early as the thread pool allows: the engine compiles the lists in about
+  // a second, and requests made before it is ready wait for it.
+  blocking::BlockingService::Start();
 }
 
 void AppendStartupSwitches(base::CommandLine& command_line) {

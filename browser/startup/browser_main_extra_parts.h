@@ -24,6 +24,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts {
 
   // ChromeBrowserMainExtraParts:
   void PreEarlyInitialization() override;
+  void PostCreateThreads() override;
 };
 
 // Adds the switches that turn off upstream services we have no replacement

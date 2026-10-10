@@ -17,5 +17,6 @@ source_set("startup") {
   deps = [
     "//base",
     "//chrome/common:non_code_constants",
+    "//ghost/browser/blocking",
   ]
 }

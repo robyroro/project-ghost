@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 09:45:47 +0300
+Subject: [PATCH] content_browser_client: put Shade's request filter in front
+ of every URLLoaderFactory
+
+ChromeContentBrowserClient::WillCreateURLLoaderFactory now first calls
+ghost::blocking::MaybeProxyURLLoaderFactory, which appends the blocking
+engine's request filter (//ghost/browser/blocking) to the factory being
+built, once the blocking service has started. Appended first, it sees each
+request before any other interceptor, the extensions' webRequest proxy
+included, so a blocked request reaches none of them. //chrome/browser:core
+depends on //ghost/browser/blocking for it.
+
+Why: Chromium has no embedder hook for filtering requests other than this one, which it uses for its own interceptors.
+Upstream: not upstreamable: product-specific blocking
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index aee47c79a71a0071aa83d3098da5fb644c6f9273..35d29b3629de87a3e604e85c3d52c5cbd197a45c 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1238,6 +1238,7 @@ source_set("core") {
+     "//components/webui/chrome_urls",
+     "//device/base",
+     "//device/gamepad/public/cpp:switches",
++    "//ghost/browser/blocking",
+     "//ghost/browser/startup",
+     "//media/capture:capture_switches",
+     "//media/midi",
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 8436913e6145a4c488524e45218396f61dffba0a..8d6f4be8ffb8de81ed8a5229a5ce18d6cca663b6 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -385,6 +385,7 @@
+ #include "extensions/buildflags/buildflags.h"
+ #include "extensions/common/extension_features.h"
+ #include "extensions/common/switches.h"
++#include "ghost/browser/blocking/request_filter.h"
+ #include "google_apis/gaia/gaia_urls.h"
+ #include "google_apis/google_api_keys.h"
+ #include "gpu/config/gpu_switches.h"
+@@ -6657,6 +6658,9 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
+     bool* disable_secure_dns,
+     network::mojom::URLLoaderFactoryOverridePtr* factory_override,
+     scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
++  // First, so that blocked requests reach no other interceptor.
++  ghost::blocking::MaybeProxyURLLoaderFactory(isolation_info, factory_builder);
++
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   auto* web_request_api =
+       extensions::BrowserContextKeyedAPIFactory<extensions::WebRequestAPI>::Get(
