@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Tasks 1–8 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** done 2026-10-11 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -449,25 +449,25 @@ LINE_TO, 16.5f, 16.5f
 
 ### Task 9: The look, with the user
 
-- [ ] Run `out\vanilla\chrome.exe` with a fresh `--user-data-dir` (session scratchpad).
-- [ ] The user checks the panel and the button on a tracker page and on an Off site: light and dark (`--force-dark-mode`), at 100% and 150% Windows scaling.
-- [ ] Fix what the user asks for, rebuild, and show it again.
-- [ ] Done when the user approves. Record their approval in the progress notes.
+- [x] Run `out\vanilla\chrome.exe` with a fresh `--user-data-dir` (session scratchpad).
+- [x] The user checks the panel and the button on a tracker page and on an Off site: light and dark (`--force-dark-mode`), at 100% and 150% Windows scaling.
+- [x] Fix what the user asks for, rebuild, and show it again.
+- [x] Done when the user approves. Record their approval in the progress notes.
 
 ### Task 10: Mutation checks, audit, docs, push
 
-- [ ] **Mutation checks.** Each must make at least one test fail; undo each with `sync.py`, then compare `src/ghost` with webops:
+- [x] **Mutation checks.** Each must make at least one test fail; undo each with `sync.py`, then compare `src/ghost` with webops:
   - **M1:** `PrimaryPageChanged` doesn't reset.
   - **M2:** `RecordBlocked` counts for the active tab of the last active browser instead of the frame's tab.
   - **M3:** `ChooseLevel` always calls `SetLevel`.
   - **M4:** the WebSocket filter doesn't call `RecordBlocked`.
-- [ ] **Full suites and the audit.**
+- [x] **Full suites and the audit.**
   - Run `ghost_unittests` and `ghost_browsertests` in full.
   - Run the egress audit. Expected: 0 unexpected hosts; the preloaded page makes no request.
-- [ ] **Docs.**
+- [x] **Docs.**
   - `privacy-model.md`: the panel; what the count counts; workers aren't in it.
   - `architecture.md`: UI as built; patches 0035–0037; the strings file.
   - `testing.md`.
   - `roadmap.md`: 3D-3 done.
   - The progress notes; the status of the spec and this plan.
-- [ ] **Push.** Ask the user before pushing. After the push, wait for both tooling jobs; then update the memory.
+- [x] **Push.** Ask the user before pushing. After the push, wait for both tooling jobs; then update the memory.

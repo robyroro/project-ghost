@@ -293,6 +293,11 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - A page's WebSocket and WebTransport connections are judged by the engine at the page's level; a blocked WebSocket's handshake never leaves the browser.
    - Three mutation checks fail as required; 65 browser tests pass with no retry.
    - Limitation: shared and service workers' WebSockets are judged at Standard (no profile in the hook).
+
+   **3D-3 done 2026-10-11.** `//ghost/browser/protections`, `//ghost/browser/ui/protections`, `//ghost/browser/resources/protections`; patches 0035 (toolbar), 0036 (the page's registration), 0037 (the request filter's frame); [design](superpowers/specs/2026-10-10-protections-panel-design.md), [progress notes](superpowers/specs/2026-10-10-protections-panel-spike.md).
+   - Shade's first UI: a toolbar shield with the count of requests blocked on the page opens a WebUI panel that sets the site's level; the look approved by the user.
+   - Four mutation checks fail as required; 91 unit and 77 browser tests pass with no retry.
+   - Limitations: shared and service workers' blocks aren't counted; the task manager names the panel "Privacy and security" until Shade's strings get a grd; strings are English only.
 5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.
 
 **Exit criteria** ([phases](#phases-to-public-alpha))

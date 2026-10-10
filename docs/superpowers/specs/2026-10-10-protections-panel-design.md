@@ -1,6 +1,6 @@
 # The protections panel: design
 
-- Status: design approved 2026-10-10 (each choice by the user, from mockups); not started
+- Status: done 2026-10-11 ([progress notes](2026-10-10-protections-panel-spike.md)); design approved 2026-10-10 (each choice by the user, from mockups)
 - Phase 3, sub-project 3D-3 ([roadmap](../../roadmap.md#phase-3-network-protections)); it controls the levels of 3D-1 ([design](2026-10-10-protection-levels-design.md)) and counts what 3A and 3D-2 block
 - Shade's first UI: it also builds the WebUI pipeline (grit, TypeScript, Mojo, a top-chrome page) that 3D-4's settings and Phase 8's privacy report reuse
 
@@ -102,10 +102,10 @@ privacy-model.md (the panel; what the count counts, and that workers aren't in i
 
 ## Done when
 
-- [ ] The tests pass and the four mutation checks fail as required.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The user has approved the look.
-- [ ] The documentation is updated; everything is committed (pushed when the user approves).
+- [x] The tests pass and the four mutation checks fail as required.
+- [x] The egress audit finds no unexpected host.
+- [x] The user has approved the look.
+- [x] The documentation is updated; everything is committed (pushed when the user approves).
 
 ## Out of scope
 

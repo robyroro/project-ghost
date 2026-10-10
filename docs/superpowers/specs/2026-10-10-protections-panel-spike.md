@@ -48,3 +48,22 @@ One commit: the page and its Mojo interface only work together.
 ## Task 8: browser tests for the button and the panel, 2026-10-10
 
 `ProtectionsPanelBrowserTest` (6 tests, replacing the spike's one): the badge and the accessible name; the panel's site and count, which follows the page while it is open; Off clicked in the panel writes the pref, reloads the tab and turns the button Off (the tracker then loads uncounted); the button disabled on `chrome://version`; Incognito's Strict default and note; the button following the active tab. At 152 `View::GetTooltipText()` takes no point and `Browser::profile()` is `GetProfile()`. 91 unit and 77 browser tests pass, no retry.
+
+## Task 9: the look, 2026-10-10
+
+The dev build on a local page loading seven trackers (`localhost:8765`, a fresh profile): the shield carried 7. The user looked at the button and the panel and approved them ("e bine"). The badge's digit is small at 100%: left as is, to revisit with the visual system (`GhostColorMixer`).
+
+## Task 10: mutation checks, 2026-10-11
+
+Each mutant built, and each made tests fail (a script applies it in `src/ghost`, builds both suites, runs the relevant tests and restores the file):
+
+| | Mutant | Fails |
+|---|---|---|
+| M1 | a new page doesn't reset the count | `PageProtectionsTest.ANavigationResetsTheCount`, `BlockedCountBrowserTest.ANavigationStartsFromZero` |
+| M2 | blocks counted for the tab last given a `PageProtections` (the one the button follows), not the frame's | `BlockedCountBrowserTest.ABackgroundTabCountsForItself` |
+| M3 | `ChooseLevel` writes the mode's default instead of clearing it | `PanelStateTest.ChoosingTheDefaultClearsTheSitesChoice` |
+| M4 | the WebSocket filter reports no frame | `BlockedCountBrowserTest.CountsBlockedWebSockets` |
+
+`//content` has no "active tab", so M2 is written as the nearest real mistake: counting for the tab the UI happens to follow.
+
+After the mutants, with `src/ghost` back to webops: 91 unit and 77 browser tests pass, no retry; the egress audit finds 0 unexpected hosts (the preloaded panel page makes no request).

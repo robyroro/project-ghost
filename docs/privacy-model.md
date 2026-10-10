@@ -38,12 +38,18 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - *Strict* also blocks first-party trackers, and applies cosmetic rules more aggressively.
   - *Off* disables blocking for the site. Per-site overrides are one click from the protections panel.
 - **Breakage reports** are prepared on the user's machine and shown to the user before anything is sent. Nothing is reported automatically.
-- **The levels as built (Phase 3D-1).** Each site (the page's registrable domain) has a level; a site without the user's choice has its mode's: Standard in a regular profile, Strict in Incognito. Until the protections panel (3D-3) there is no control for them.
+- **The levels as built (Phase 3D-1).** Each site (the page's registrable domain) has a level; a site without the user's choice has its mode's: Standard in a regular profile, Strict in Incognito. The protections panel (below) sets them.
   - *Off:* nothing is blocked, no tracking parameter is stripped from navigations to the site.
   - *Standard:* third-party requests are checked (below); navigations lose click identifiers.
   - *Strict:* the site's own requests are checked too, so EasyPrivacy's first-party rules apply; navigations lose campaign parameters as well; cross-site requests and navigations from the site leave without a `Referer` header. A destination page's script can still read the origin in `document.referrer`, which the navigation carries and the browser's hooks can't change.
   - GPC, third-party cookie blocking and HTTPS-First don't depend on the level: they don't break sites.
   - The choices are kept in the profile (`ghost.privacy_policy.site_levels`, not synced). Incognito starts from the regular profile's choices; its own last until it closes. A change applies at the page's next load. Tests: `ProtectionLevelsBrowserTest`, `SiteLevelsTest`.
+- **The protections panel (Phase 3D-3).** A shield right of the address bar opens it for the current tab.
+  - The shield carries the number of requests and connections blocked on the current page load: the page, its frames and its dedicated workers. Shared and service workers aren't counted: nothing ties them to a tab. A new page starts from zero. The count stays on the machine.
+  - The panel shows the site (its registrable domain), the count, and Off, Standard and Strict, with the mode's default marked; choosing the default removes the site's choice, so a default changed later applies to it. A choice reloads the page.
+  - Off shows a struck shield without a count. On pages where protections don't apply (browser pages, files, the new tab page) the shield is disabled.
+  - In Incognito the panel says that changes last until all Incognito windows close.
+  - Tests: `BlockedCountBrowserTest`, `ProtectionsPanelBrowserTest`, `PageProtectionsTest`, `PanelStateTest`.
 - **What ships now (Phase 3A).** At the Standard level:
   - with EasyList and EasyPrivacy, unmodified, shipped with the browser and updated with its releases (between releases from 3E). Our own list comes later;
   - every request a page makes is checked: subresources, frames, workers and service workers, and every redirect. Top-level navigations always load, and requests to the page's own site (the same registrable domain) aren't checked;
