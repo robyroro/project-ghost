@@ -7,9 +7,11 @@
 
 #include <optional>
 
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/self_deleting.h"
+#include "ghost/components/privacy_policy/effective_policy.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/cpp/self_deleting_url_loader_factory.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
@@ -20,6 +22,10 @@ namespace network {
 class URLLoaderFactoryBuilder;
 struct ResourceRequest;
 }  // namespace network
+
+namespace content {
+class BrowserContext;
+}
 
 namespace net {
 class IsolationInfo;
@@ -32,15 +38,19 @@ class BlockingEngine;
 // Puts a RequestFilter in front of a URLLoaderFactory being created, once the
 // blocking service has started. Called from
 // ChromeContentBrowserClient::WillCreateURLLoaderFactory (patches/0029).
-void MaybeProxyURLLoaderFactory(const net::IsolationInfo& isolation_info,
+void MaybeProxyURLLoaderFactory(content::BrowserContext* context,
+                                const net::IsolationInfo& isolation_info,
                                 network::URLLoaderFactoryBuilder& factory_builder);
 
-// Whether a request needs the engine's verdict (the Standard level,
-// docs/privacy-model.md): top-level navigations always proceed, and requests
-// to the page's own site aren't checked. `source` is the page the request is
-// for; when it's unknown, every http(s) request is checked.
+// Whether a request needs the engine's verdict: top-level navigations always
+// proceed, and requests to the page's own site are checked only when
+// `check_same_site` (the Strict level, docs/privacy-model.md). `source` is the
+// page the request is for; when it's unknown, every http(s) request is checked.
 bool NeedsVerdict(const network::ResourceRequest& request, const GURL& url,
-                  const GURL& source);
+                  const GURL& source, bool check_same_site);
+
+// The protection policy of a page (its site's level), for each request.
+using PolicyCallback = base::RepeatingCallback<privacy_policy::EffectivePolicy(const GURL& page)>;
 
 // A proxying URLLoaderFactory: asks the engine about each request that needs
 // a verdict, holds it until the answer, then fails it with
@@ -54,6 +64,7 @@ class RequestFilter : public network::SelfDeletingURLLoaderFactory {
                 mojo::PendingRemote<network::mojom::URLLoaderFactory> target,
                 std::optional<url::Origin> top_frame_origin,
                 BlockingEngine* engine,
+                PolicyCallback policy,
                 base::SelfDeletingPassKey pass_key);
   RequestFilter(const RequestFilter&) = delete;
   RequestFilter& operator=(const RequestFilter&) = delete;
@@ -80,6 +91,7 @@ class RequestFilter : public network::SelfDeletingURLLoaderFactory {
   const std::optional<url::Origin> top_frame_origin_;
   // The blocking service's engine, which is never destroyed.
   const raw_ptr<BlockingEngine> engine_;
+  const PolicyCallback policy_;
 };
 
 }  // namespace ghost::blocking

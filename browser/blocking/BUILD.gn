@@ -14,12 +14,15 @@ source_set("blocking") {
   ]
   public_deps = [
     "//ghost/components/blocking",
+    "//ghost/components/privacy_policy",
     "//mojo/public/cpp/bindings",
     "//services/network/public/cpp",
     "//services/network/public/mojom",
   ]
   deps = [
     "//base",
+    "//content/public/browser",
+    "//ghost/browser/privacy_policy",
     "//ghost/components/site",
     "//net",
     "//url",

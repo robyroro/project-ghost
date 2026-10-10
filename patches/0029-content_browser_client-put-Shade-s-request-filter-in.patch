@@ -29,7 +29,7 @@ index aee47c79a71a0071aa83d3098da5fb644c6f9273..35d29b3629de87a3e604e85c3d52c5cb
      "//media/capture:capture_switches",
      "//media/midi",
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
-index 8436913e6145a4c488524e45218396f61dffba0a..8d6f4be8ffb8de81ed8a5229a5ce18d6cca663b6 100644
+index 8436913e6145a4c488524e45218396f61dffba0a..76745c1112c0ae3998ed7dcf56ab51e2069b7aaa 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -385,6 +385,7 @@
@@ -40,12 +40,13 @@ index 8436913e6145a4c488524e45218396f61dffba0a..8d6f4be8ffb8de81ed8a5229a5ce18d6
  #include "google_apis/gaia/gaia_urls.h"
  #include "google_apis/google_api_keys.h"
  #include "gpu/config/gpu_switches.h"
-@@ -6657,6 +6658,9 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
+@@ -6657,6 +6658,10 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
      bool* disable_secure_dns,
      network::mojom::URLLoaderFactoryOverridePtr* factory_override,
      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
 +  // First, so that blocked requests reach no other interceptor.
-+  ghost::blocking::MaybeProxyURLLoaderFactory(isolation_info, factory_builder);
++  ghost::blocking::MaybeProxyURLLoaderFactory(browser_context, isolation_info,
++                                              factory_builder);
 +
  #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
    auto* web_request_api =

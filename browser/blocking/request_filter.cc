@@ -10,7 +10,9 @@
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/memory/self_deleting.h"
+#include "content/public/browser/browser_context.h"
 #include "ghost/browser/blocking/blocking_service.h"
+#include "ghost/browser/privacy_policy/site_levels.h"
 #include "ghost/components/blocking/blocking_engine.h"
 #include "ghost/components/site/registrable_domain.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -25,19 +27,40 @@
 
 namespace ghost::blocking {
 
-void MaybeProxyURLLoaderFactory(const net::IsolationInfo& isolation_info,
+namespace {
+
+// A factory can outlive its profile's last use: a gone profile gets the
+// Standard policy.
+privacy_policy::EffectivePolicy PolicyIfAlive(base::WeakPtr<content::BrowserContext> context,
+                                              const GURL& page) {
+  return context ? privacy_policy::GetPolicy(context.get(), page)
+                 : privacy_policy::PolicyFor(privacy_policy::ProtectionLevel::kStandard,
+                                             /*campaign_pref=*/false);
+}
+
+// Whether a request's Referer would name another site than the one it goes to.
+bool HasCrossSiteReferrer(const network::ResourceRequest& request) {
+  return request.referrer.is_valid() && request.referrer.has_host() &&
+         RegistrableDomain(request.referrer.host()) != RegistrableDomain(request.url.host());
+}
+
+}  // namespace
+
+void MaybeProxyURLLoaderFactory(content::BrowserContext* context,
+                                const net::IsolationInfo& isolation_info,
                                 network::URLLoaderFactoryBuilder& factory_builder) {
   BlockingService* service = BlockingService::GetIfStarted();
   if (!service) {
     return;
   }
   auto [receiver, target] = factory_builder.Append();
-  base::MakeSelfDeleting<RequestFilter>(std::move(receiver), std::move(target),
-                                        isolation_info.top_frame_origin(), &service->engine());
+  base::MakeSelfDeleting<RequestFilter>(
+      std::move(receiver), std::move(target), isolation_info.top_frame_origin(),
+      &service->engine(), base::BindRepeating(&PolicyIfAlive, context->GetWeakPtr()));
 }
 
 bool NeedsVerdict(const network::ResourceRequest& request, const GURL& url,
-                  const GURL& source) {
+                  const GURL& source, bool check_same_site) {
   if (!url.SchemeIsHTTPOrHTTPS()) {
     return false;
   }
@@ -46,7 +69,7 @@ bool NeedsVerdict(const network::ResourceRequest& request, const GURL& url,
   if (request.destination == network::mojom::RequestDestination::kDocument) {
     return false;
   }
-  if (source.is_valid() && source.has_host() &&
+  if (!check_same_site && source.is_valid() && source.has_host() &&
       RegistrableDomain(url.host()) == RegistrableDomain(source.host())) {
     return false;
   }
@@ -64,7 +87,8 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
            const network::ResourceRequest& request,
            mojo::PendingRemote<network::mojom::URLLoaderClient> client,
            const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
-           GURL source)
+           GURL source,
+           bool check_same_site)
       : target_(std::move(target)),
         engine_(engine),
         pending_loader_(std::move(loader)),
@@ -73,14 +97,15 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
         options_(options),
         request_(request),
         traffic_annotation_(traffic_annotation),
-        source_(std::move(source)) {}
+        source_(std::move(source)),
+        check_same_site_(check_same_site) {}
 
   InFlight(const InFlight&) = delete;
   InFlight& operator=(const InFlight&) = delete;
   ~InFlight() override = default;
 
   void Start() {
-    if (!NeedsVerdict(request_, request_.url, source_)) {
+    if (!NeedsVerdict(request_, request_.url, source_, check_same_site_)) {
       // A same-site request starts at once, but stays here: it may redirect
       // to a tracker.
       OnStartVerdict(Decision());
@@ -110,7 +135,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
   }
   void OnReceiveRedirect(const net::RedirectInfo& redirect_info,
                          network::mojom::URLResponseHeadPtr head) override {
-    if (!NeedsVerdict(request_, redirect_info.new_url, source_)) {
+    if (!NeedsVerdict(request_, redirect_info.new_url, source_, check_same_site_)) {
       client_->OnReceiveRedirect(redirect_info, std::move(head));
       return;
     }
@@ -193,6 +218,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
   const network::ResourceRequest request_;
   const net::MutableNetworkTrafficAnnotationTag traffic_annotation_;
   const GURL source_;
+  const bool check_same_site_;
 
   // The page's end.
   mojo::Receiver<network::mojom::URLLoader> loader_receiver_{this};
@@ -209,11 +235,13 @@ RequestFilter::RequestFilter(mojo::PendingReceiver<network::mojom::URLLoaderFact
                              mojo::PendingRemote<network::mojom::URLLoaderFactory> target,
                              std::optional<url::Origin> top_frame_origin,
                              BlockingEngine* engine,
+                             PolicyCallback policy,
                              base::SelfDeletingPassKey pass_key)
     : network::SelfDeletingURLLoaderFactory(std::move(receiver), pass_key),
       target_(base::MakeRefCounted<SharedTarget>()),
       top_frame_origin_(std::move(top_frame_origin)),
-      engine_(engine) {
+      engine_(engine),
+      policy_(std::move(policy)) {
   target_->data.Bind(std::move(target));
   target_->data.set_disconnect_handler(base::BindOnce(
       &RequestFilter::DisconnectReceiversAndDestroy, base::Unretained(this)));
@@ -256,9 +284,24 @@ void RequestFilter::CreateLoaderAndStart(
     return;
   }
   GURL source = SourceOf(request);
+  const privacy_policy::EffectivePolicy policy = policy_.Run(source);
+  // Strict: a cross-site request leaves without Referer, and its redirects too.
+  std::optional<network::ResourceRequest> without_referrer;
+  if (!policy.cross_site_referrer && HasCrossSiteReferrer(request)) {
+    without_referrer.emplace(request);
+    without_referrer->referrer = GURL();
+    without_referrer->referrer_policy = net::ReferrerPolicy::NO_REFERRER;
+  }
+  const network::ResourceRequest& to_send = without_referrer ? *without_referrer : request;
+  if (!policy.block_requests) {
+    target_->data->CreateLoaderAndStart(std::move(loader), request_id, options, to_send,
+                                        std::move(client), traffic_annotation);
+    return;
+  }
   // Owns itself until the request ends.
-  (new InFlight(target_, engine_, std::move(loader), request_id, options, request,
-                std::move(client), traffic_annotation, std::move(source)))
+  (new InFlight(target_, engine_, std::move(loader), request_id, options, to_send,
+                std::move(client), traffic_annotation, std::move(source),
+                policy.check_same_site))
       ->Start();
 }
 
