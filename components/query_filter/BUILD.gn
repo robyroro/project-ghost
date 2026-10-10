@@ -60,6 +60,7 @@ fuzzer_test("ghost_query_filter_fuzzer") {
   deps = [
     ":query_filter",
     "//base",
+    "//base:i18n",
     "//url",
   ]
 }
