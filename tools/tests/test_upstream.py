@@ -80,6 +80,21 @@ class CheckTest(PinnedTestCase):
         self.assertEqual(result["issue"]["title"], "Milestone: Chromium 154 on Extended")
         self.assertEqual(result["issue"]["labels"], ["milestone"])
 
+    def test_a_milestone_extended_cannot_be_on_yet_is_unconfirmed(self):
+        # chromiumdash listed 156.0.8078.13 as Extended with the pin at 152
+        # (2026-10-10); Chrome Releases announced no 156. Nothing has a deadline.
+        for version, milestone in (("156.0.8078.13", 156), ("153.0.8000.10", 153)):
+            with self.subTest(version):
+                result = self.check(entry(version=version, milestone=milestone))
+                self.assertEqual(result["verdict"], "unconfirmed")
+                issue = result["issue"]
+                self.assertEqual(issue["title"], f"Unconfirmed: Chromium {version} on Extended")
+                self.assertEqual(issue["labels"], ["unconfirmed"])
+                self.assertIn("Deadline: none", issue["body"])
+                self.assertIn("the next it can name is 154", issue["body"])
+                self.assertIn(f"https://chromereleases.googleblog.com/search?q={version}",
+                              issue["body"])
+
     def test_broken_replies_are_errors(self):
         for reply, why in (([], "no Extended"), ({"error": "x"}, "a list"),
                            ([{"version": NEW, "milestone": 152, "time": 1}], "hashes"),
@@ -129,6 +144,12 @@ class ReportTest(PinnedTestCase):
         self.assertEqual(create[create.index("--body") + 1], result["issue"]["body"])
         self.assertEqual(create[create.index("--label") + 1], "security-release")
         self.assertLess(calls.index(label), calls.index(create))
+
+    def test_every_label_has_a_colour(self):
+        run, calls = self.gh()
+        upstream.report(self.check(entry(version="156.0.8078.13", milestone=156)), run)
+        label = next(c for c in calls if c[:2] == ["label", "create"])
+        self.assertEqual(label[2:], ["unconfirmed", "--color", "fbca04", "--force"])
 
 
 REQUIREMENTS = """{{

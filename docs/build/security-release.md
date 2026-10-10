@@ -10,6 +10,8 @@ Chromium's Extended Stable channel, which we follow ([ADR 0003](../adr/0003-upst
 
 `.github/workflows/upstream.yml` runs `tools/upstream.py check` every three hours. When Extended Stable's latest Windows release is newer than `CHROMIUM_VERSION`, it opens an issue, `Security release: Chromium <version>`, labelled `security-release`, and GitHub notifies the maintainer. The issue gives the publication time, the deadline and a link to the release notes, and carries the steps below as a checklist. A second run doesn't open a second issue.
 
+A newer milestone opens `Milestone: Chromium <milestone> on Extended` when it is the pin's milestone plus two, the only one Extended Stable can move to. Any other milestone opens `Unconfirmed: Chromium <version> on Extended`, labelled `unconfirmed`, with no deadline: confirm it on Chrome Releases before anything moves. chromiumdash once listed `156.0.8078.13` as Extended's latest while we were on 152 and Chrome Releases announced no 156 ([#2](https://github.com/robyroro/project-ghost/issues/2)).
+
 - Run the same check locally: `python tools/upstream.py check`.
 - Run the workflow now: `gh workflow run upstream.yml`.
 - GitHub disables a schedule after 60 days without activity in the repository. After a quiet period, check that the workflow is enabled (`gh workflow list`).

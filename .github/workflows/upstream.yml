@@ -1,6 +1,7 @@
 # Watches Chromium's Extended Stable channel for Windows and opens an issue
 # when it moves past CHROMIUM_VERSION: a security release to ship within the
-# SLA, or a new milestone (docs/build/security-release.md).
+# SLA, a new milestone, or a listing to confirm by hand
+# (docs/build/security-release.md).
 name: upstream
 
 on:

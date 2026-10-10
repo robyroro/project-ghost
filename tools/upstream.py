@@ -41,7 +41,7 @@ SLA = datetime.timedelta(hours=72)
 REPOSITORY = "https://github.com/robyroro/project-ghost"
 RUNBOOK = "docs/build/security-release.md"
 # GitHub label colours.
-LABELS = {"security-release": "d73a4a", "milestone": "0e8a16"}
+LABELS = {"security-release": "d73a4a", "milestone": "0e8a16", "unconfirmed": "fbca04"}
 
 
 class UpstreamError(Exception):
@@ -97,19 +97,33 @@ def milestone_of(version: str) -> int:
     return repo.parse_version(version)[0]
 
 
+# Extended Stable takes every second milestone (ADR 0003): from the pin's, the
+# next it can name is two on. chromiumdash once listed 156 as Extended's
+# latest while the pin was 152 and Chrome Releases announced no 156 at all.
+MILESTONE_STEP = 2
+
+
 def verdict(pinned: str, latest: Release) -> str:
-    """current, security-release (the pin's milestone, newer) or milestone (a newer one)."""
+    """current, security-release (the pin's milestone, newer), milestone (the
+    next Extended milestone) or unconfirmed (any other milestone: a listing
+    to check by hand before anything moves)."""
     if repo.parse_version(latest.version) <= repo.parse_version(pinned):
         return "current"
-    return "security-release" if latest.milestone == milestone_of(pinned) else "milestone"
+    if latest.milestone == milestone_of(pinned):
+        return "security-release"
+    if latest.milestone == milestone_of(pinned) + MILESTONE_STEP:
+        return "milestone"
+    return "unconfirmed"
 
 
 def _utc(moment: datetime.datetime) -> str:
     return moment.astimezone(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def issue(latest: Release, kind: str, detected: datetime.datetime) -> dict:
+def issue(latest: Release, kind: str, detected: datetime.datetime, pinned: str) -> dict:
     """The GitHub issue a check calls for: title, labels, body."""
+    if kind == "unconfirmed":
+        return _unconfirmed_issue(latest, detected, pinned)
     if kind == "security-release":
         title = f"Security release: Chromium {latest.version}"
         steps = [
@@ -148,6 +162,29 @@ def issue(latest: Release, kind: str, detected: datetime.datetime) -> dict:
     return {"title": title, "labels": [kind], "body": body}
 
 
+def _unconfirmed_issue(latest: Release, detected: datetime.datetime, pinned: str) -> dict:
+    """No deadline: nothing moves until a person has confirmed the release."""
+    expected = milestone_of(pinned) + MILESTONE_STEP
+    body = "\n".join([
+        f"chromiumdash lists Chromium **{latest.version}** (milestone {latest.milestone}, "
+        f"commit `{latest.commit}`) as Extended Stable's latest Windows release. The pin is "
+        f"{pinned}, and Extended takes every second milestone: the next it can name is "
+        f"{expected}, not {latest.milestone}.",
+        "",
+        f"- Published: {_utc(latest.published)}",
+        f"- Detected: {_utc(detected)}",
+        "- Deadline: none until the release is confirmed",
+        f"- Release notes: https://chromereleases.googleblog.com/search?q={latest.version}",
+        "",
+        "- [ ] Confirm on Chrome Releases that Extended Stable really moved to "
+        f"{latest.version}. If it did, move as [patching.md, A new milestone]"
+        f"({REPOSITORY}/blob/main/docs/patching.md#a-new-milestone) says. If it "
+        "didn't, the listing is chromiumdash's error: close this issue.",
+    ])
+    return {"title": f"Unconfirmed: Chromium {latest.version} on Extended",
+            "labels": ["unconfirmed"], "body": body}
+
+
 def check(webops: Path = repo.REPO_ROOT, fetch: Callable | None = None,
           now: datetime.datetime | None = None) -> dict:
     pinned = repo.read_chromium_version(webops)
@@ -157,7 +194,8 @@ def check(webops: Path = repo.REPO_ROOT, fetch: Callable | None = None,
               "milestone": latest.milestone, "commit": latest.commit,
               "published": latest.published.isoformat()}
     if kind != "current":
-        result["issue"] = issue(latest, kind, now or datetime.datetime.now(datetime.timezone.utc))
+        result["issue"] = issue(latest, kind, now or datetime.datetime.now(datetime.timezone.utc),
+                                pinned)
     return result
 
 
