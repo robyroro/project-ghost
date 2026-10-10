@@ -38,7 +38,13 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - *Strict* also blocks first-party trackers, and applies cosmetic rules more aggressively.
   - *Off* disables blocking for the site. Per-site overrides are one click from the protections panel.
 - **Breakage reports** are prepared on the user's machine and shown to the user before anything is sent. Nothing is reported automatically.
-- **What ships now (Phase 3A).** Every profile, Incognito included, blocks at the *Standard* level, fixed until the protections panel (3D):
+- **The levels as built (Phase 3D-1).** Each site (the page's registrable domain) has a level; a site without the user's choice has its mode's: Standard in a regular profile, Strict in Incognito. Until the protections panel (3D-3) there is no control for them.
+  - *Off:* nothing is blocked, no tracking parameter is stripped from navigations to the site.
+  - *Standard:* third-party requests are checked (below); navigations lose click identifiers.
+  - *Strict:* the site's own requests are checked too, so EasyPrivacy's first-party rules apply; navigations lose campaign parameters as well; cross-site requests and navigations from the site leave without a `Referer` header. A destination page's script can still read the origin in `document.referrer`, which the navigation carries and the browser's hooks can't change.
+  - GPC, third-party cookie blocking and HTTPS-First don't depend on the level: they don't break sites.
+  - The choices are kept in the profile (`ghost.privacy_policy.site_levels`, not synced). Incognito starts from the regular profile's choices; its own last until it closes. A change applies at the page's next load. Tests: `ProtectionLevelsBrowserTest`, `SiteLevelsTest`.
+- **What ships now (Phase 3A).** At the Standard level:
   - with EasyList and EasyPrivacy, unmodified, shipped with the browser and updated with its releases (between releases from 3E). Our own list comes later;
   - every request a page makes is checked: subresources, frames, workers and service workers, and every redirect. Top-level navigations always load, and requests to the page's own site (the same registrable domain) aren't checked;
   - a blocked request fails with `ERR_BLOCKED_BY_CLIENT`, as with blocking extensions, and the console says so;
@@ -71,7 +77,7 @@ The omnibox shows the cleaned URL.
 - **How:** the URL is rewritten before the request is sent (an internal redirect), so the original never leaves the browser. The page commits at the clean URL: the address bar, history, the `Referer` the next page receives, back, forward and reload all have it.
 - **Not changed:** form submissions (POST), iframes, subresources (3A blocks the trackers themselves), the fragment (`#…`, which never leaves the browser), and non-HTTP(S) URLs.
 - **The list** is [`components/query_filter/data/parameters.txt`](../components/query_filter/data/parameters.txt), compiled into the browser: about 70 click identifiers on every site, some limited to one site (`si` on YouTube and Spotify, `igsh` on Instagram, `ref_src` and `ref_url` on X), and `utm_*` as campaign parameters. It changes with browser releases until 3E delivers it as a component.
-- **Campaign parameters:** stripped in Incognito; in a regular profile only when `ghost.query_filter.strip_campaign_parameters` is on (off by default; its switch comes with the protections panel, 3D).
+- **Campaign parameters:** stripped at the Strict level, so in Incognito by default; at Standard only when `ghost.query_filter.strip_campaign_parameters` is on (off by default; its switch comes with settings, 3D-4). Off strips nothing.
 - **Kept on this machine:** the history entry keeps the URL the navigation started with as its "original request URL", saved with the session. Loading it again is cleaned again before it is sent.
 
 ### Connections and DNS

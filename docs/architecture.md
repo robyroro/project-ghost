@@ -65,7 +65,7 @@ Planned components:
 | `components/blocking` | adblock-rust wrapper, list management, request and cosmetic filtering (the engine and the lists built in 3A) | 3–4 |
 | `components/query_filter` | tracking-parameter rules (built in 3B) | 3 |
 | `components/site` | what a site is (registrable domains), for every protection | 3 |
-| `components/privacy_policy` | resolves mode × identity × site overrides into an effective policy | 3 |
+| `components/privacy_policy` | resolves mode × identity × site overrides into an effective policy (built in 3D-1: the levels and `EffectivePolicy`; identities in Phase 6) | 3 |
 | `components/identity` | identity model, registry, domain rules | 6 |
 | `components/fingerprinting` | policy types, per-site key derivation, mojom | 7 |
 | `components/privacy_report` | per-page event accounting, score computation | 8 |
@@ -192,6 +192,7 @@ Each item is covered by a test asserting that it is shared, so a change in behav
 
 ## Protections (Phases 3–4, 7)
 
+- **Policy as built (3D-1).** `//ghost/components/privacy_policy` turns a protection level into an `EffectivePolicy` (pure); `//ghost/browser/privacy_policy` keeps per-site levels in a profile pref and answers `GetPolicy(context, page)`. The request filter asks per request through a callback bound to the profile's weak pointer (patch 0029 passes the `BrowserContext`); the query filter's throttle asks per navigation and per redirect. Per-site overrides are a pref, not content settings: no patch, and the panel is ours. [Design](superpowers/specs/2026-10-10-protection-levels-design.md), [progress notes](superpowers/specs/2026-10-10-protection-levels-spike.md).
 - **Policy.** `PrivacyPolicyResolver` is a pure function of mode defaults, identity policy and per-site overrides. It produces an `EffectivePolicy` that every enforcement point reads. Per-site overrides are content settings, which requires new `ContentSettingsType` values (a patch).
 - **Network blocking.** A proxying `URLLoaderFactory` sees navigations, subresources, and worker and service-worker fetches.
   - It asks the adblock engine for a verdict on a dedicated sequence and defers the request only until the verdict arrives.

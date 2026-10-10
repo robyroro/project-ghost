@@ -1,6 +1,6 @@
 # Protection levels per site: design
 
-- Status: design approved 2026-10-10 (the meaning of the levels by the user; the rest decided by Claude at the user's request, "choose the rest yourself", each decision with its reason below)
+- Status: done 2026-10-10 ([progress notes](2026-10-10-protection-levels-spike.md)), committed locally; design approved 2026-10-10 (the meaning of the levels by the user; the rest decided by Claude at the user's request, "choose the rest yourself", each decision with its reason below)
 - Phase 3, sub-project 3D-1 ([roadmap](../../roadmap.md#phase-3-network-protections)); [privacy-model.md](../../privacy-model.md#blocking) defines the levels
 - 3D is four sub-projects, in order (decided 2026-10-10): **3D-1** the per-site policy and the levels (this); **3D-2** WebSocket and WebTransport; **3D-3** the protections panel; **3D-4** settings (the default level, GPC, campaign parameters)
 
@@ -78,8 +78,8 @@ privacy-model.md (the levels as they are now, Incognito's default, how a choice 
 
 ## Done when
 
-- [ ] The tests pass and the four mutation checks fail as required.
-- [ ] The egress audit finds no unexpected host.
+- [x] The tests pass and the four mutation checks fail as required.
+- [x] The egress audit finds no unexpected host.
 - [ ] The documentation is updated; everything is committed (pushed when the user approves).
 
 ## Out of scope

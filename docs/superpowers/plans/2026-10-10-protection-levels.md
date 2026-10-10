@@ -6,6 +6,8 @@
 
 **Architecture:** `//ghost/components/privacy_policy` resolves a level into an `EffectivePolicy` (pure). `//ghost/browser/privacy_policy` stores per-site choices in a profile pref and answers `GetPolicy(context, page)`. The request filter asks per request, through a callback bound to the profile's weak pointer; the query filter's throttle asks per navigation. Patch 0029 passes the `BrowserContext` to the filter.
 
+**Status:** done 2026-10-10, committed locally; see the [progress notes](../specs/2026-10-10-protection-levels-spike.md).
+
 **Tech Stack:** C++ (Chromium 152.0.7977.158), gtest unit and browser tests.
 
 **Conventions:** as 3A–3C (webops first, `sync.py`, `out/vanilla`, no trailers; Chromium commits signed off with `Why:`/`Upstream:`). **Commits stay local until the user approves the push.**
@@ -76,6 +78,6 @@ Tests first: `AnOffSiteKeepsItsParameters`, `StrictStripsCampaignParametersInNor
 
 ### Task 5: Mutation checks, audit, docs
 
-- [ ] M1 blocking ignores Off; M2 Strict doesn't check same-site; M3 Strict keeps the cross-site referrer (both enforcement points); M4 Incognito defaults to Standard. Each made, failing, undone with `sync.py`.
-- [ ] Full suites, egress audit.
-- [ ] Docs: privacy-model.md (the levels as built, defaults, storage, Incognito inheritance, referrer scope), architecture.md, testing.md, roadmap.md (3D split; 3D-1 done), progress notes, spec and plan status. Commit locally; **don't push** until the user approves.
+- [x] M1 blocking ignores Off; M2 Strict doesn't check same-site; M3 Strict keeps the cross-site referrer (both enforcement points); M4 Incognito defaults to Standard. Each made, failing, undone with `sync.py`.
+- [x] Full suites, egress audit.
+- [x] Docs: privacy-model.md (the levels as built, defaults, storage, Incognito inheritance, referrer scope), architecture.md, testing.md, roadmap.md (3D split; 3D-1 done), progress notes, spec and plan status. Commit locally; **don't push** until the user approves.

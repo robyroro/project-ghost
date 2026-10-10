@@ -282,7 +282,12 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - New: Global Privacy Control on; WebRTC on the default public interface; strict HTTPS-First in Incognito (upstream's is only balanced).
    - Found: a Windows telemetry session (DiagTrack) enabled Chromium's ETW log provider at the verbose level, receiving the browser's log messages. Patch 0033: Shade registers no provider. It also ends the browser tests' `EXCESSIVE_OUTPUT` retries.
    - Proven by behavior: every promise of the privacy model's "Cookies and storage" and "Connections and DNS", eleven tests; five mutation checks fail as required; the egress audit finds no unexpected host.
-4. **3D. Per-site policy and the protections panel,** with the Strict and Off levels, WebSocket and WebTransport.
+4. **3D. Per-site policy and the protections panel,** with the Strict and Off levels, WebSocket and WebTransport. Four sub-projects (decided 2026-10-10): 3D-1 the per-site policy and the levels; 3D-2 WebSocket and WebTransport; 3D-3 the protections panel; 3D-4 settings (the default level, GPC, campaign parameters).
+
+   **3D-1 done 2026-10-10.** `//ghost/components/privacy_policy`, `//ghost/browser/privacy_policy`; patch 0029 amended; [design](superpowers/specs/2026-10-10-protection-levels-design.md), [progress notes](superpowers/specs/2026-10-10-protection-levels-spike.md).
+   - Off, Standard and Strict per site; Incognito Strict by default. Blocking, tracking parameters and the referrer follow the page's level; GPC, cookies and HTTPS-First don't change with it.
+   - Four mutation checks fail as required; 58 browser tests pass with no retry.
+   - Limitation: a Strict page's cross-site navigation sends no `Referer`, but the destination's `document.referrer` still shows the origin.
 5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.
 
 **Exit criteria** ([phases](#phases-to-public-alpha))
