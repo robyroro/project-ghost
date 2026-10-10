@@ -1,6 +1,6 @@
 # Tracking-parameter stripping: design
 
-- Status: design approved 2026-10-10
+- Status: done 2026-10-10 ([progress notes](2026-10-10-query-filter-spike.md)); design approved 2026-10-10
 - Phase 3, sub-project 3B ([roadmap](../../roadmap.md#phase-3-network-protections)); what it enforces is in [privacy-model.md](../../privacy-model.md#tracking-parameters)
 - Follows 3A, [the blocking engine](2026-10-10-blocking-engine-design.md); 3D adds the setting's UI and per-site exceptions, 3E delivers the list as a component
 
@@ -41,7 +41,7 @@ No `//content` dependency; unit-tested without a browser.
 ### Patches
 
 - **0032**, `chrome/browser/chrome_content_browser_client.cc` and `chrome/browser/BUILD.gn`: `CreateURLLoaderThrottles` appends `ghost::query_filter::MaybeCreateQueryFilterThrottle(...)` for navigation requests. `Why:` Chromium has no other embedder hook that can change a navigation's URL before it is sent.
-- **0002** grows by one line: `RegisterProfilePrefs` also calls `ghost::RegisterProfilePrefs(registry)`, which registers Ghost's own profile prefs (this one first).
+- **0002** grows by one line: `RegisterProfilePrefs` also calls `ghost::RegisterProfilePrefs(registry)`, which registers Ghost's own profile prefs (this one first). *As built, that call is in 0032 instead: amending 0002 meant rebasing the 29 patches after it, whose files Siso would then rebuild.*
 
 ## The rules
 
@@ -98,10 +98,10 @@ Before the rest:
 
 ## Done when
 
-- [ ] The tests above pass and the four mutation checks fail as required.
-- [ ] The fuzzer ran 30 minutes without a crash.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The tests above pass and the four mutation checks fail as required.
+- [x] The fuzzer ran 30 minutes without a crash.
+- [x] The egress audit finds no unexpected host.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 

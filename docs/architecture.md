@@ -63,7 +63,8 @@ Planned components:
 | Component | Responsibility | Phase |
 |---|---|---|
 | `components/blocking` | adblock-rust wrapper, list management, request and cosmetic filtering (the engine and the lists built in 3A) | 3–4 |
-| `components/query_filter` | tracking-parameter rules | 3 |
+| `components/query_filter` | tracking-parameter rules (built in 3B) | 3 |
+| `components/site` | what a site is (registrable domains), for every protection | 3 |
 | `components/privacy_policy` | resolves mode × identity × site overrides into an effective policy | 3 |
 | `components/identity` | identity model, registry, domain rules | 6 |
 | `components/fingerprinting` | policy types, per-site key derivation, mojom | 7 |
@@ -202,6 +203,10 @@ Each item is covered by a test asserting that it is shared, so a change in behav
   - `components/blocking/rust/lib.rs`: the `cxx` bridge to adblock-rust 0.13.3, network rules only. adblock-rust asks C++ for registrable domains (`registry_controlled_domains`), so blocking and the browser agree on what a site is.
   - `//ghost/third_party/rust`: the crates Chromium lacks, vendored by `tools/rust_vendor.py`; Chromium's own crates for the rest (patch 0028). The lists ship in the installer (patch 0030); `about:credits` names the crates and the lists (patch 0031).
 - **Parameter stripping.** The same interception point rewrites top-level navigations and redirects before they leave the browser, so the omnibox shows the cleaned URL. Which parameters are stripped in which mode is in [privacy-model.md](privacy-model.md#tracking-parameters).
+- **Parameter stripping as built (Phase 3B).** Not the request filter's interception point after all, but a `blink::URLLoaderThrottle` on navigations, which Chromium lets change a navigation's URL: at the start (an internal redirect, so the original is never sent) and at each redirect, where the origin must stay, which removing query parameters guarantees. [Design](superpowers/specs/2026-10-10-query-filter-design.md), [progress notes](superpowers/specs/2026-10-10-query-filter-spike.md).
+  - `//ghost/browser/query_filter`: `QueryFilterThrottle`, created for navigations of the outermost main frame by `ChromeContentBrowserClient::CreateURLLoaderThrottles` (patch 0032), first among the throttles, so Safe Browsing and the rest see the clean URL. The profile pref for campaign parameters, registered by the same patch.
+  - `//ghost/components/query_filter`: the list, compiled in by `tools/embed_text.py`, its parser, `Strip()` and the decisions on where a URL comes from. No `//content`.
+  - `//ghost/components/site`: `RegistrableDomain()`, the one definition of a site, shared with 3A's blocking.
 - **Cosmetic filtering and scriptlets** (Phase 4).
   - At navigation commit, the browser computes each page's hiding rules and scriptlets.
   - It sends them over a frame-associated mojo interface.
@@ -333,5 +338,5 @@ Each is tied to the phase that resolves it:
 |---|---|
 | Patch surface for per-identity basic content settings | Phase 6 spike; fallback defined in [ADR 0005](adr/0005-isolation-primitives.md) |
 | Chrome UI call sites that equate off-the-record with Incognito | Phase 5 audit |
-| Exact interception point for parameter stripping on redirects | Phase 3 prototype and browser tests |
+| Exact interception point for parameter stripping on redirects | Resolved in 3B: a navigation `URLLoaderThrottle` (`WillStartRequest`, `WillRedirectRequest`) |
 | Serialization format for the cached compiled blocking engine | 3E (list updates as components); 3A compiles the lists at each start, in about 80 ms |

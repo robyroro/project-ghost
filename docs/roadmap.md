@@ -271,6 +271,11 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - Found on the way: bytes that aren't UTF-8 reaching the Rust bridge aborted the browser, and `about:credits` named none of the crates or lists. Both fixed.
    - Not yet: WebSocket and WebTransport (3D); list updates between releases (3E).
 2. **3B. Tracking-parameter stripping.**
+
+   **Done 2026-10-10.** `//ghost/components/query_filter`, `//ghost/browser/query_filter`, `//ghost/components/site` (3A's registrable domains, shared), `tools/embed_text.py`; patch 0032; [design](superpowers/specs/2026-10-10-query-filter-design.md), [progress notes](superpowers/specs/2026-10-10-query-filter-spike.md).
+   - Click identifiers (73 entries with `utm_*`) are removed from top-level navigations that come from another site or from the user, and from cross-site redirects, before the request is sent; the page commits at the clean URL. `utm_*` in Incognito, and in Normal with a pref ([privacy-model.md](privacy-model.md#tracking-parameters)).
+   - The fuzzer ran 30 minutes without a crash; four mutation checks fail as required; the egress audit finds no unexpected host.
+   - Kept on this machine: the history entry's original request URL (loading it again is cleaned again).
 3. **3C. Network defaults:** third-party cookies, HTTPS-First, DNS-over-HTTPS, WebRTC, GPC, preconnect and prefetch off.
 4. **3D. Per-site policy and the protections panel,** with the Strict and Off levels, WebSocket and WebTransport.
 5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.

@@ -6,6 +6,8 @@
 
 **Architecture:** `//ghost/components/query_filter` is pure logic: the list (`data/parameters.txt`, compiled in by a GN action), its parser, `Strip()` and the decisions (`ComesFromElsewhere`, `CrossesSites`). `//ghost/browser/query_filter` holds a `blink::URLLoaderThrottle` for outermost-main-frame navigations, which rewrites the URL at the start (an internal redirect) and at cross-site redirects, and the profile pref for campaign parameters. Patch 0032 adds the throttle in `ChromeContentBrowserClient::CreateURLLoaderThrottles`; patch 0002 grows by the call that registers Ghost's profile prefs.
 
+**Status:** done 2026-10-10. What differed (the pref's registration in 0032 rather than 0002; the fuzzer's checks; a history finding) is in the [progress notes](../specs/2026-10-10-query-filter-spike.md).
+
 **Tech Stack:** C++ (Chromium 152.0.7977.158: `//ghost/components/site` (3A's registrable domains), `//url`, `blink::URLLoaderThrottle`, `user_prefs`), GN, Python 3 (build-time embedding, stdlib only), gtest unit and browser tests, libFuzzer.
 
 **Conventions (from 3A):** edit in webops, copy into `chromium/src/ghost` with the scratchpad's `sync.sh` (bash `cp`, so mtimes change), build in `out/vanilla`; never edit `src` while a build runs; webops commits carry no trailers; Chromium commits use `git commit -s` with `Why:`/`Upstream:` trailers and a message file; `python tools/patches.py export --src chromium/src` then `check`. Run: `autoninja -C out\vanilla ghost_unittests ghost_browsertests` from `chromium\src` with `C:\src\depot_tools` on `PATH`.
@@ -37,16 +39,16 @@
 
 **Files:** Create `components/site/registrable_domain.{h,cc}`, `components/site/registrable_domain_unittest.cc`, `components/site/BUILD.gn`; modify `components/blocking/registrable_domain.{h,cc}` (keeps only `RegistrableDomainRange`, the bridge's callback), `components/blocking/registrable_domain_unittest.cc` (keeps the range test), `components/blocking/BUILD.gn`, `browser/blocking/request_filter.cc`, root `BUILD.gn` (`ghost_unittests` gains `//ghost/components/site:unit_tests`).
 
-- [ ] **Step 1:** Move `RegistrableDomain()` and its comment to `ghost::RegistrableDomain()` in `components/site/registrable_domain.h` ("The one definition of the same site in Shade: blocking, through adblock-rust's bridge, and the query filter."), with `//net` and `//url` deps and no cxx; move `KnownRegistries`, `UnknownRegistriesCountTheirLastLabel`, `HostsWithoutADomainAreThemselves` to `components/site/registrable_domain_unittest.cc` unchanged.
-- [ ] **Step 2:** `components/blocking/registrable_domain.cc`'s `RegistrableDomainRange` calls `ghost::RegistrableDomain`; `request_filter.cc` includes `ghost/components/site/registrable_domain.h`. `//ghost/components/blocking:registrable_domain` depends on `//ghost/components/site`.
-- [ ] **Step 3:** Sync, build `ghost_unittests ghost_browsertests`, run `RegistrableDomain*:Blocking*:EngineBridge*:RequestFilter*`: all pass as before.
-- [ ] **Step 4:** Commit: `site: one definition of a site, shared by blocking and the query filter`.
+- [x] **Step 1:** Move `RegistrableDomain()` and its comment to `ghost::RegistrableDomain()` in `components/site/registrable_domain.h` ("The one definition of the same site in Shade: blocking, through adblock-rust's bridge, and the query filter."), with `//net` and `//url` deps and no cxx; move `KnownRegistries`, `UnknownRegistriesCountTheirLastLabel`, `HostsWithoutADomainAreThemselves` to `components/site/registrable_domain_unittest.cc` unchanged.
+- [x] **Step 2:** `components/blocking/registrable_domain.cc`'s `RegistrableDomainRange` calls `ghost::RegistrableDomain`; `request_filter.cc` includes `ghost/components/site/registrable_domain.h`. `//ghost/components/blocking:registrable_domain` depends on `//ghost/components/site`.
+- [x] **Step 3:** Sync, build `ghost_unittests ghost_browsertests`, run `RegistrableDomain*:Blocking*:EngineBridge*:RequestFilter*`: all pass as before.
+- [x] **Step 4:** Commit: `site: one definition of a site, shared by blocking and the query filter`.
 
 ### Task 1: Build-time text embedding
 
 **Files:** Create `tools/embed_text.py`, `tools/tests/test_embed_text.py`.
 
-- [ ] **Step 1: Tests first.**
+- [x] **Step 1: Tests first.**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -88,8 +90,8 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2:** `python -m unittest discover -s tools/tests -t tools -p test_embed_text.py` → fails (no module).
-- [ ] **Step 3: Implement.**
+- [x] **Step 2:** `python -m unittest discover -s tools/tests -t tools -p test_embed_text.py` → fails (no module).
+- [x] **Step 3: Implement.**
 
 ```python
 #!/usr/bin/env python3
@@ -140,14 +142,14 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4:** The tests pass; `python tools/lint.py` clean.
-- [ ] **Step 5:** Commit: `tools: embed_text writes a text file into a C++ header`.
+- [x] **Step 4:** The tests pass; `python tools/lint.py` clean.
+- [x] **Step 5:** Commit: `tools: embed_text writes a text file into a C++ header`.
 
 ### Task 2: The list and its parser
 
 **Files:** Create `components/query_filter/data/parameters.txt`, `parameter_list.{h,cc}`, `parameter_list_unittest.cc`, `BUILD.gn`. Modify `BUILD.gn` (root: `ghost_unittests` deps gain `//ghost/components/query_filter:unit_tests`).
 
-- [ ] **Step 1: The list.** Global click identifiers from privacy-model.md and brave-core's default rule set (`components/query_filter/browser/test_support/query_filter_test_helper.cc`, MPL-2.0); `gbraid` and a global `igshid` from the privacy model; site-tied entries from brave-core plus Spotify's share `si`; Brave's conditional entries (`mkt_tok`, `h_sid`, `h_slt`, `ck_subscriber_id`, kept on unsubscribe links) are left out, since the format has no conditions.
+- [x] **Step 1: The list.** Global click identifiers from privacy-model.md and brave-core's default rule set (`components/query_filter/browser/test_support/query_filter_test_helper.cc`, MPL-2.0); `gbraid` and a global `igshid` from the privacy model; site-tied entries from brave-core plus Spotify's share `si`; Brave's conditional entries (`mkt_tok`, `h_sid`, `h_slt`, `ck_subscriber_id`, kept on unsubscribe links) are left out, since the format has no conditions.
 
 ```
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -244,7 +246,7 @@ si        spotify.com           # O, Spotify share links (open.spotify.com/...?s
 utm_*               # P, Google Analytics campaign parameters
 ```
 
-- [ ] **Step 2: Tests first** (`parameter_list_unittest.cc`):
+- [x] **Step 2: Tests first** (`parameter_list_unittest.cc`):
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -312,7 +314,7 @@ TEST(ParameterListTest, TheShippedListParsesWithoutASkippedLine) {
 }  // namespace ghost::query_filter
 ```
 
-- [ ] **Step 3: Implement** `parameter_list.h`:
+- [x] **Step 3: Implement** `parameter_list.h`:
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -516,14 +518,14 @@ source_set("unit_tests") {
 
 The generated header's include is `ghost/components/query_filter/parameter_list_data.h` (`$target_gen_dir` is `gen/ghost/components/query_filter`, on the include path as `gen/`).
 
-- [ ] **Step 4:** Sync, build `ghost_unittests`, run `--gtest_filter=ParameterListTest.*`: 3 pass.
-- [ ] **Step 5:** Commit: `query_filter: the parameter list and its parser`.
+- [x] **Step 4:** Sync, build `ghost_unittests`, run `--gtest_filter=ParameterListTest.*`: 3 pass.
+- [x] **Step 5:** Commit: `query_filter: the parameter list and its parser`.
 
 ### Task 3: Stripping and the decisions
 
 **Files:** Create `components/query_filter/query_filter.{h,cc}`, `query_filter_unittest.cc`; modify `components/query_filter/BUILD.gn` (sources; deps `//net`, `//url`).
 
-- [ ] **Step 1: Tests first** (`query_filter_unittest.cc`):
+- [x] **Step 1: Tests first** (`query_filter_unittest.cc`):
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -630,8 +632,8 @@ TEST(QueryFilterTest, ARedirectCrossesSites) {
 }  // namespace ghost::query_filter
 ```
 
-- [ ] **Step 2:** Build and run: compile errors (no `query_filter.h`), the expected failure.
-- [ ] **Step 3: Implement** `query_filter.h`:
+- [x] **Step 2:** Build and run: compile errors (no `query_filter.h`), the expected failure.
+- [x] **Step 3: Implement** `query_filter.h`:
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -761,14 +763,14 @@ bool CrossesSites(const GURL& from, const GURL& to) {
 
 BUILD: `query_filter` gains `query_filter.cc`, `query_filter.h`, deps `//ghost/components/site`, `//url` (public_deps `//url`); `unit_tests` gains `query_filter_unittest.cc` and `//url`.
 
-- [ ] **Step 4:** Build and run `--gtest_filter=QueryFilterTest.*:ParameterListTest.*`: all pass. A failing expectation is fixed in the code, not the test, unless the test contradicts the spec.
-- [ ] **Step 5:** Commit: `query_filter: Strip and the decisions on where a URL comes from`.
+- [x] **Step 4:** Build and run `--gtest_filter=QueryFilterTest.*:ParameterListTest.*`: all pass. A failing expectation is fixed in the code, not the test, unless the test contradicts the spec.
+- [x] **Step 5:** Commit: `query_filter: Strip and the decisions on where a URL comes from`.
 
 ### Task 4: The fuzzer
 
 **Files:** Create `components/query_filter/fuzz/query_filter_fuzzer.cc`; modify `components/query_filter/BUILD.gn`, root `BUILD.gn` (`gn_all` gains `//ghost/components/query_filter:ghost_query_filter_fuzzer`).
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -832,13 +834,13 @@ fuzzer_test("ghost_query_filter_fuzzer") {
 }
 ```
 
-- [ ] **Step 2:** `gn gen out\vanilla` succeeds (a no-op group there); commit with Task 3's or alone: `query_filter: a fuzzer over the parser and Strip`.
+- [x] **Step 2:** `gn gen out\vanilla` succeeds (a no-op group there); commit with Task 3's or alone: `query_filter: a fuzzer over the parser and Strip`.
 
 ### Task 5: The campaign pref
 
 **Files:** Create `browser/query_filter/prefs.{h,cc}`, `browser/query_filter/BUILD.gn`, `browser/prefs/profile_prefs.{h,cc}`; modify `browser/prefs/BUILD.gn`; Chromium `chrome/browser/prefs/browser_prefs.cc` (patch 0002).
 
-- [ ] **Step 1:** `browser/query_filter/prefs.h`:
+- [x] **Step 1:** `browser/query_filter/prefs.h`:
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -891,15 +893,15 @@ source_set("prefs") {
 }
 ```
 
-- [ ] **Step 2:** In the Chromium checkout, amend the commit of patch 0002 (`git rebase -i` is not available: commit a fixup and `git rebase --autosquash` with `GIT_SEQUENCE_EDITOR=:`): `browser_prefs.cc` includes `ghost/browser/prefs/profile_prefs.h` and calls `ghost::RegisterProfilePrefs(registry);` right before the `OverrideProfilePrefDefaults` comment. Export; `patches.py check`. Only 0002 changes.
-- [ ] **Step 3:** Build `chrome`; a unit test in `browser/prefs/pref_defaults_unittest.cc`'s style: a `TestingProfile`'s prefs have `kStripCampaignParametersPref` registered and false. Add it as `browser/query_filter/prefs_unittest.cc` to `ghost_unittests`.
-- [ ] **Step 4:** Commit webops (`query_filter: the campaign-parameters pref`) and the patch.
+- [x] **Step 2:** In the Chromium checkout, amend the commit of patch 0002 (`git rebase -i` is not available: commit a fixup and `git rebase --autosquash` with `GIT_SEQUENCE_EDITOR=:`): `browser_prefs.cc` includes `ghost/browser/prefs/profile_prefs.h` and calls `ghost::RegisterProfilePrefs(registry);` right before the `OverrideProfilePrefDefaults` comment. Export; `patches.py check`. Only 0002 changes.
+- [x] **Step 3:** Build `chrome`; a unit test in `browser/prefs/pref_defaults_unittest.cc`'s style: a `TestingProfile`'s prefs have `kStripCampaignParametersPref` registered and false. Add it as `browser/query_filter/prefs_unittest.cc` to `ghost_unittests`.
+- [x] **Step 4:** Commit webops (`query_filter: the campaign-parameters pref`) and the patch.
 
 ### Task 6: The throttle, the hook, the browser tests
 
 **Files:** Create `browser/query_filter/query_filter_throttle.{h,cc}`, `query_filter_browsertest.cc`; modify `browser/query_filter/BUILD.gn`, root `BUILD.gn` (`ghost_browsertests`); Chromium `chrome/browser/chrome_content_browser_client.cc`, `chrome/browser/BUILD.gn` (patch 0032).
 
-- [ ] **Step 1: Browser tests first** (`query_filter_browsertest.cc`). The fixture maps every host to the embedded server and records `host + relative_url` of every request; `Serve` answers `/redirect?<url>` with 302 and anything else with a page. Tests (names are the spec's cases):
+- [x] **Step 1: Browser tests first** (`query_filter_browsertest.cc`). The fixture maps every host to the embedded server and records `host + relative_url` of every request; `Serve` answers `/redirect?<url>` with 302 and anything else with a page. Tests (names are the spec's cases):
   - `ALinkFromAnotherSiteArrivesClean`: on `a.test/page.html`, `content::NavigateToURLFromRenderer(tab, b.test/land?fbclid=1&x=2)` with expected commit URL `b.test/land?x=2`; the server saw `b.test/land?x=2` and never `b.test/land?fbclid=1&x=2`; the last committed entry's URL is clean and the entry count grew by one.
   - `ALinkWithinASiteKeepsItsParameters`: `a.test` → `www.a.test/land?fbclid=1`: committed with it.
   - `ACrossSiteRedirectArrivesClean`: browser-initiated to `r.test/redirect?<b.test/land?gclid=1&x=2>`: commits `b.test/land?x=2`; the server never saw `gclid`.
@@ -909,8 +911,8 @@ source_set("prefs") {
   - `AnIframeKeepsItsParameters`: `a.test` adds an iframe to `b.test/frame?fbclid=1`; the server saw it with `fbclid`.
   - `AFormPostKeepsItsParameters`: a form on `a.test` POSTs to `b.test/form?fbclid=1`; the server saw it as is.
   - `BackAndReloadUseTheCleanURL`: after the clean cross-site navigation, go back, forward and reload: every request the server saw for `b.test/land` is clean.
-- [ ] **Step 2:** Build `ghost_browsertests` without the throttle: they fail to link or fail (no stripping).
-- [ ] **Step 3: Implement** `query_filter_throttle.h`:
+- [x] **Step 2:** Build `ghost_browsertests` without the throttle: they fail to link or fail (no stripping).
+- [x] **Step 3: Implement** `query_filter_throttle.h`:
 
 ```cpp
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -1067,7 +1069,7 @@ source_set("query_filter") {
 }
 ```
 
-- [ ] **Step 4: Patch 0032.** In the Chromium checkout: `chrome/browser/BUILD.gn` `core` deps gain `"//ghost/browser/query_filter"` (sorted after `//ghost/browser/blocking`); `chrome_content_browser_client.cc` includes `ghost/browser/query_filter/query_filter_throttle.h` and, right after `DCHECK(profile);` in `CreateURLLoaderThrottles`:
+- [x] **Step 4: Patch 0032.** In the Chromium checkout: `chrome/browser/BUILD.gn` `core` deps gain `"//ghost/browser/query_filter"` (sorted after `//ghost/browser/blocking`); `chrome_content_browser_client.cc` includes `ghost/browser/query_filter/query_filter_throttle.h` and, right after `DCHECK(profile);` in `CreateURLLoaderThrottles`:
 
 ```cpp
   // First, so that the other throttles (Safe Browsing among them) see the
@@ -1079,23 +1081,23 @@ source_set("query_filter") {
 ```
 
 Commit with `git commit -s -F <file>`: subject `chrome_content_browser_client: strip tracking parameters from navigations`, `Why: no other embedder hook can change a navigation's URL before it is sent`, `Upstream: not upstreamable: product-specific privacy policy`. Export; `check`.
-- [ ] **Step 5:** Sync, build `chrome ghost_unittests ghost_browsertests`; run `QueryFilter*`: all pass. Any failure is a finding for the progress notes before it is fixed.
-- [ ] **Step 6:** Commit webops: `query_filter: navigations lose their tracking parameters on the way in`.
+- [x] **Step 5:** Sync, build `chrome ghost_unittests ghost_browsertests`; run `QueryFilter*`: all pass. Any failure is a finding for the progress notes before it is fixed.
+- [x] **Step 6:** Commit webops: `query_filter: navigations lose their tracking parameters on the way in`.
 
 ### Task 7: The spike's questions
 
-- [ ] **Step 1:** Record in the progress notes (`docs/superpowers/specs/2026-10-10-query-filter-spike.md`) what Task 6's tests showed for questions 1–3 (initiator empty for browser-initiated; the original URL never sent, one history entry; redirects rewritten).
-- [ ] **Step 2:** Question 4 by reading `content/browser/renderer_host/navigation_request.cc` (where `is_outermost_main_frame` is set for prerender and fenced frames) and from `BackAndReloadUseTheCleanURL`; record.
-- [ ] **Step 3:** Question 5: `StrippingTwiceChangesNothing` covers the idempotence a second throttle run needs; record. Also note whether speculation-rules prefetch passes through `CreateURLLoaderThrottles` with `is_outermost_main_frame` (read `content/browser/preloading/prefetch/`); prefetch is turned off in 3C either way.
+- [x] **Step 1:** Record in the progress notes (`docs/superpowers/specs/2026-10-10-query-filter-spike.md`) what Task 6's tests showed for questions 1–3 (initiator empty for browser-initiated; the original URL never sent, one history entry; redirects rewritten).
+- [x] **Step 2:** Question 4 by reading `content/browser/renderer_host/navigation_request.cc` (where `is_outermost_main_frame` is set for prerender and fenced frames) and from `BackAndReloadUseTheCleanURL`; record.
+- [x] **Step 3:** Question 5: `StrippingTwiceChangesNothing` covers the idempotence a second throttle run needs; record. Also note whether speculation-rules prefetch passes through `CreateURLLoaderThrottles` with `is_outermost_main_frame` (read `content/browser/preloading/prefetch/`); prefetch is turned off in 3C either way.
 
 ### Task 8: Fuzzing, mutation checks, egress audit
 
-- [ ] **Step 1:** In `out/fuzz`: `autoninja -C out\fuzz ghost_query_filter_fuzzer`; seeds: one file per URL of `components/blocking/test/request_corpus.tsv`, each followed by `\n` and the shipped list; run `-max_total_time=1800`; no crash. Record runs, coverage.
-- [ ] **Step 2:** M1–M4 of the spec, each made in `src/ghost`, seen failing, undone; then compare `src/ghost` with webops (every tracked file byte for byte).
-- [ ] **Step 3:** Egress audit on `out/vanilla`: no unexpected host.
+- [x] **Step 1:** In `out/fuzz`: `autoninja -C out\fuzz ghost_query_filter_fuzzer`; seeds: one file per URL of `components/blocking/test/request_corpus.tsv`, each followed by `\n` and the shipped list; run `-max_total_time=1800`; no crash. Record runs, coverage.
+- [x] **Step 2:** M1–M4 of the spec, each made in `src/ghost`, seen failing, undone; then compare `src/ghost` with webops (every tracked file byte for byte).
+- [x] **Step 3:** Egress audit on `out/vanilla`: no unexpected host.
 
 ### Task 9: Docs, push
 
-- [ ] **Step 1:** privacy-model (what is stripped and when, the list published, `utm_*` per profile), architecture (units, patch 0032, the open question closed), testing, licensing (brave-core entries), roadmap (3B done), progress notes, spec and plan status.
-- [ ] **Step 2:** Tooling tests, lint, `patches.py check`; push (approved: "write the plan and do everything"); wait for both tooling jobs.
-- [ ] **Step 3:** Memory updated.
+- [x] **Step 1:** privacy-model (what is stripped and when, the list published, `utm_*` per profile), architecture (units, patch 0032, the open question closed), testing, licensing (brave-core entries), roadmap (3B done), progress notes, spec and plan status.
+- [x] **Step 2:** Tooling tests, lint, `patches.py check`; push (approved: "write the plan and do everything"); wait for both tooling jobs.
+- [x] **Step 3:** Memory updated.

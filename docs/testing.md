@@ -76,11 +76,19 @@
     autoninja -C out\fuzz ghost_blocking_list_fuzzer ghost_blocking_request_fuzzer
     out\fuzz\ghost_blocking_list_fuzzer.exe -max_total_time=1800 -max_len=4096 -dict=ghost\components\blocking\fuzz\filter_list.dict <corpus> <seeds>
     out\fuzz\ghost_blocking_request_fuzzer.exe -max_total_time=1800 <corpus> <seeds>
+    autoninja -C out\fuzz ghost_query_filter_fuzzer
+    out\fuzz\ghost_query_filter_fuzzer.exe -max_total_time=1800 -max_len=8192 <corpus> <seeds>
     ```
 
     Seeds: the shipped lists cut into pieces under 4 KB, and one file per line of the request corpus. `//ghost/build/config:rust_fuzz_coverage` instruments `//ghost`'s Rust code, which Chromium's fuzzing build leaves blind.
   - **Installer:** `installer_smoke` checks that both lists are installed in `<version>\blocking\`.
   - Mutation checks showed each of these fails when the behavior it covers is undone ([progress notes](superpowers/specs/2026-10-10-blocking-engine-spike.md#mutation-checks)).
+
+- **Tracking parameters** (Phase 3B; [progress notes](superpowers/specs/2026-10-10-query-filter-spike.md)).
+  - **Unit** (`ghost_unittests`): the list's parser and the shipped list (no line may be skipped); `Strip()`, byte for byte, with encoded names, repeats, site-tied entries and both scopes; the decisions (from the user, from another site, opaque, the same site; GET only); the pref's default.
+  - **Browser** (`ghost_browsertests`, `QueryFilterBrowserTest`), on the embedded server, which records every request: a link from another site and the address bar arrive clean and the original never reaches the server; a link within a site keeps its parameters; a cross-site redirect is cleaned, a same-site one isn't; history holds only the clean URL; back, forward, reload and loading the entry's original URL stay clean; `utm_*` in Normal, Incognito and with the pref; iframes and form posts untouched.
+  - **Fuzzing:** `ghost_query_filter_fuzzer` (a URL, then a list) checks that stripping keeps scheme, host and port and that a second pass changes nothing. Seeds: URLs from the blocking corpus with listed parameters appended.
+  - Mutation checks: [progress notes](superpowers/specs/2026-10-10-query-filter-spike.md#mutation-checks).
 
 ## Running the tooling tests
 

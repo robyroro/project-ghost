@@ -63,6 +63,14 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
 
 The omnibox shows the cleaned URL.
 
+**What ships now (Phase 3B):**
+- **When:** a top-level navigation is cleaned when its URL comes from elsewhere: from the user (address bar, bookmark, pasted link, a link opened from another application, session restore), from another site (another registrable domain), or from an opaque origin; and at each redirect that crosses sites. A site navigating within its own site keeps its parameters: it put them there and already has them, and its own flows may need them.
+- **How:** the URL is rewritten before the request is sent (an internal redirect), so the original never leaves the browser. The page commits at the clean URL: the address bar, history, the `Referer` the next page receives, back, forward and reload all have it.
+- **Not changed:** form submissions (POST), iframes, subresources (3A blocks the trackers themselves), the fragment (`#…`, which never leaves the browser), and non-HTTP(S) URLs.
+- **The list** is [`components/query_filter/data/parameters.txt`](../components/query_filter/data/parameters.txt), compiled into the browser: about 70 click identifiers on every site, some limited to one site (`si` on YouTube and Spotify, `igsh` on Instagram, `ref_src` and `ref_url` on X), and `utm_*` as campaign parameters. It changes with browser releases until 3E delivers it as a component.
+- **Campaign parameters:** stripped in Incognito; in a regular profile only when `ghost.query_filter.strip_campaign_parameters` is on (off by default; its switch comes with the protections panel, 3D).
+- **Kept on this machine:** the history entry keeps the URL the navigation started with as its "original request URL", saved with the session. Loading it again is cleaned again before it is sent.
+
 ### Connections and DNS
 
 - **HTTPS-First with automatic upgrades.** Plain-HTTP navigations are upgraded, and the user is warned before loading a site that has no HTTPS.

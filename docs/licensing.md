@@ -65,6 +65,8 @@ Every release must:
 | Cromite, Bromite | GPL-3.0 | **Don't copy.** Read for ideas only; implement independently. |
 | uBlock Origin (code and scriptlet resources) | GPL-3.0 | **Don't copy.** See below. |
 
+**Data taken from brave-core.** The tracking-parameter list (`components/query_filter/data/parameters.txt`, MPL-2.0) includes the parameter names of brave-core's default query-filter rules, marked `B` in the file, which credits The Brave Authors.
+
 ## Filter lists and scriptlets
 
 - **Filter lists are data, not code.** They are distributed as separate files, never compiled into the binary or into source files. Each list's attribution and license are shown in the browser's credits and on the list settings page.
