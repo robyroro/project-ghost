@@ -3,7 +3,7 @@ URL: https://crates.io/crates/flatbuffers
 Version: 25.12.19
 Revision: 25.12.19
 License: Apache-2.0
-License File: 
+License File: //third_party/flatbuffers/src/LICENSE
 Security Critical: yes
 Shipped: yes
 

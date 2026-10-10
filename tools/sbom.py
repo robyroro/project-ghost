@@ -29,6 +29,10 @@ import repo
 DOCUMENT = "sbom.spdx.json"
 BROWSER_TARGET = "//chrome/installer/mini_installer:mini_installer"
 UPDATER_TARGET = "//chrome/updater/win/installer:installer"
+# Third-party data the browser ships outside any GN target's third_party
+# directory, which the generator finds only when named (//ghost/build/credits.gni
+# names it for about:credits).
+BROWSER_DATA = ("ghost/components/blocking/data",)
 # Ghost (the codename) is the package of this repository's code; it carries
 # the product's name.
 PRODUCT = repo.read_branding()["PRODUCT_FULLNAME"]
@@ -37,10 +41,12 @@ REPOSITORY = "https://github.com/robyroro/project-ghost"
 
 
 def licenses_command(python: str, src: Path, out_dir: Path, target: str,
-                     output: Path) -> list[str]:
+                     output: Path, extra_dirs: tuple[str, ...] = ()) -> list[str]:
+    extra = ([f"--extra-third-party-dirs={json.dumps(list(extra_dirs))}"]
+             if extra_dirs else [])
     return [python, str(src / "tools" / "licenses" / "licenses.py"), "license_file",
             "--format", "spdx", "--gn-out-dir", str(out_dir), "--gn-target", target,
-            "--target-os", "win", str(output)]
+            "--target-os", "win", *extra, str(output)]
 
 
 def merge(primary: dict, secondary: dict) -> dict:
@@ -99,10 +105,10 @@ def build(python: str, src: Path, out_dir: Path, tag: str, commit: str, output: 
     version = release_version.parse_tag(tag, repo.read_chromium_version()).version
     with tempfile.TemporaryDirectory() as tmp:
         docs = []
-        for target in (BROWSER_TARGET, UPDATER_TARGET):
+        for target, extra in ((BROWSER_TARGET, BROWSER_DATA), (UPDATER_TARGET, ())):
             path = Path(tmp) / f"{len(docs)}.json"
-            subprocess.run(licenses_command(python, src, out_dir, target, path), cwd=src,
-                           env=env, check=True)
+            subprocess.run(licenses_command(python, src, out_dir, target, path, extra),
+                           cwd=src, env=env, check=True)
             docs.append(json.loads(path.read_text(encoding="utf-8")))
     doc = complete(merge(*docs), version, tag, commit)
     output.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8", newline="\n")

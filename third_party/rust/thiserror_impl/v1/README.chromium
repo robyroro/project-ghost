@@ -5,7 +5,7 @@ Revision: 1.0.69
 License: MIT OR Apache-2.0
 License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
 Security Critical: yes
-Shipped: yes
+Shipped: no
 
 Description:
 Implementation detail of the `thiserror` crate

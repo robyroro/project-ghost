@@ -90,3 +90,13 @@ class CommandTest(unittest.TestCase):
             ["vpython3.bat", str(src / "tools" / "licenses" / "licenses.py"), "license_file",
              "--format", "spdx", "--gn-out-dir", str(out), "--gn-target",
              "//chrome/installer/mini_installer:mini_installer", "--target-os", "win", "b.json"])
+
+    def test_the_browser_also_ships_the_filter_lists(self):
+        # Data beside the browser, in no GN target's third_party directory: the
+        # generator wouldn't find them.
+        src, out = Path(r"C:\src"), Path(r"C:\src\out\release")
+        command = sbom.licenses_command("vpython3.bat", src, out, sbom.BROWSER_TARGET,
+                                        Path("b.json"), sbom.BROWSER_DATA)
+        self.assertEqual(command[-2:],
+                         ['--extra-third-party-dirs=["ghost/components/blocking/data"]',
+                          "b.json"])

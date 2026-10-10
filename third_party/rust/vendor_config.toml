@@ -4,6 +4,8 @@
 #   build_script_outputs = []   files the build script writes, for GN
 #   build_sources = []          the build script's sources besides build.rs
 #   rustflags = []              extra flags for this crate
+#   license_files = []          its license texts, when the package ships none
+#                               ("//" paths are from the source root)
 
 [flatbuffers]
 # Its build.rs only sets cfg(nightly) when rustc is a nightly, which turns on
@@ -11,3 +13,11 @@
 # rustc is a nightly by build, not by choice: on a stable compiler the script
 # sets nothing, which is what we want.
 build_script = false
+# The package ships no license file. It is google/flatbuffers, which Chromium
+# also vendors as C++: the same project's Apache-2.0 text.
+license_files = ["//third_party/flatbuffers/src/LICENSE"]
+
+[seahash]
+# The package ships no license file; licenses/seahash/LICENSE is the MIT text
+# from its repository (gitlab.redox-os.org/redox-os/seahash, master).
+license_files = ["//ghost/third_party/rust/licenses/seahash/LICENSE"]

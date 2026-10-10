@@ -216,5 +216,47 @@ class BuildGnTest(unittest.TestCase):
         self.assertNotIn("build_script_outputs =", gn)
 
 
+class ReadmeTest(unittest.TestCase):
+    """README.chromium feeds about:credits, which must carry each crate's license text."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.crate_dir = Path(tmp.name)
+        self.crate = rust_vendor.resolve(METADATA)["adblock"]
+
+    def test_names_the_crates_license_files(self):
+        for name in ("LICENSE-MIT", "LICENSE-APACHE", "README.md"):
+            (self.crate_dir / name).write_text("x")
+        self.assertIn("License File: crate/LICENSE-APACHE, crate/LICENSE-MIT\n",
+                      rust_vendor.readme(self.crate, self.crate_dir))
+
+    def test_the_configuration_names_them_when_the_crate_ships_none(self):
+        text = rust_vendor.readme(self.crate, self.crate_dir,
+                                  license_files=["//third_party/foo/LICENSE"])
+        self.assertIn("License File: //third_party/foo/LICENSE\n", text)
+
+    def test_a_library_ships_and_a_proc_macro_does_not(self):
+        (self.crate_dir / "LICENSE").write_text("x")
+        crates = rust_vendor.resolve(METADATA)
+        self.assertIn("Shipped: yes\n", rust_vendor.readme(crates["adblock"], self.crate_dir))
+        # It runs in the compiler: nothing of it is in the binary.
+        self.assertIn("Shipped: no\n", rust_vendor.readme(crates["thiserror-impl"],
+                                                          self.crate_dir))
+
+    def test_a_crate_without_a_license_text_stops_vendoring(self):
+        with self.assertRaisesRegex(rust_vendor.VendorError, "adblock.*license_files"):
+            rust_vendor.readme(self.crate, self.crate_dir)
+
+
+class NoticeDirsTest(unittest.TestCase):
+    def test_lists_every_vendored_crate_for_the_credits_page(self):
+        gni = rust_vendor.render_notice_dirs([Path("url/v2"), Path("adblock/v0_13")])
+        self.assertIn("ghost_rust_notice_dirs = [\n"
+                      '  "ghost/third_party/rust/adblock/v0_13",\n'
+                      '  "ghost/third_party/rust/url/v2",\n'
+                      "]\n", gni)
+
+
 if __name__ == "__main__":
     unittest.main()

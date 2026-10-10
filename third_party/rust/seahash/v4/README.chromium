@@ -3,7 +3,7 @@ URL: https://crates.io/crates/seahash
 Version: 4.1.0
 Revision: 4.1.0
 License: MIT
-License File: 
+License File: //ghost/third_party/rust/licenses/seahash/LICENSE
 Security Critical: yes
 Shipped: yes
 

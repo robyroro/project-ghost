@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 11:45:56 +0300
+Subject: [PATCH] about_credits: credit Shade's vendored crates and filter
+ lists
+
+components/resources/BUILD.gn passes extra_third_party_notice_dirs to
+licenses.py when a downstream project defines it; Shade defines it in
+//ghost/build/credits.gni: the Rust crates //ghost vendors (the list
+tools/rust_vendor.py generates) and EasyList and EasyPrivacy. licenses.py
+finds only directories under Chromium's own third_party/, so without this
+about:credits in an official build names none of them, and their licenses
+ask for their notices.
+
+Why: the variable has no other way in: GN arguments can't define it, and the BUILD file only reads it.
+Upstream: not upstreamable: a downstream project's credits
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/components/resources/BUILD.gn b/components/resources/BUILD.gn
+index 3e45f8d1ea8367b52ef40d0cc4130d8b347454f0..d23ae5626209bd0f0420efed2650adae26815392 100644
+--- a/components/resources/BUILD.gn
++++ b/components/resources/BUILD.gn
+@@ -8,6 +8,10 @@ import("//build/config/features.gni")
+ import("//components/safe_browsing/buildflags.gni")
+ import("//components/site_isolation/site_isolation.gni")
+ import("//components/supervised_user/buildflags.gni")
++
++# Shade: about:credits names //ghost's third-party code and data.
++import("//ghost/build/credits.gni")
++
+ import("//pdf/features.gni")
+ import("//printing/buildflags/buildflags.gni")
+ import("//tools/grit/grit_rule.gni")
