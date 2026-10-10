@@ -1,0 +1,14 @@
+{
+ "easylist.txt": {
+  "fetched": "2026-10-10",
+  "sha256": "318dfd4c3d06aac46e2e6df8d221e1289d0d550fa0a7e17d4698e9d6ac27b99e",
+  "url": "https://easylist.to/easylist/easylist.txt",
+  "version": "202610100609"
+ },
+ "easyprivacy.txt": {
+  "fetched": "2026-10-10",
+  "sha256": "15a6a8d6e96b3696f1f2db5908e6d026271d801c6121d88a17e20aadce951655",
+  "url": "https://easylist.to/easylist/easyprivacy.txt",
+  "version": "202610100609"
+ }
+}

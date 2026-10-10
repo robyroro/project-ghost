@@ -1,0 +1,19 @@
+Name: EasyList and EasyPrivacy
+URL: https://easylist.to/
+Version: see VERSIONS.json
+Revision: see VERSIONS.json
+License: GPL-3.0-or-later, CC-BY-SA-3.0
+License File: LICENSE
+Security Critical: no
+Shipped: yes
+
+Description:
+The filter lists the blocking engine uses for ads (EasyList) and trackers
+(EasyPrivacy), by The EasyList authors (https://easylist.to/). Dual-licensed:
+GNU General Public License version 3 or later, or Creative Commons
+Attribution-ShareAlike 3.0 Unported, at the user's choice.
+
+Local Modifications:
+None. tools/filter_lists.py fetches them unmodified and records each list's
+source, version and sha256 in VERSIONS.json. They ship as data files beside
+the browser, never compiled into it (docs/licensing.md).
