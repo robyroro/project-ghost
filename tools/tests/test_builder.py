@@ -74,7 +74,8 @@ class PlanTest(unittest.TestCase):
         self.assertIn((str(DEPOT / "gn.bat"), "gen", str(Path("out") / "ci")), argvs(steps))
         build = next(a for a in argvs(steps) if a[0] == str(DEPOT / "autoninja.bat"))
         self.assertEqual(build, (str(DEPOT / "autoninja.bat"), "-C", str(Path("out") / "ci"),
-                                 "chrome", "ghost_unittests", "ghost_browsertests"))
+                                 "chrome", "ghost_unittests", "ghost_browsertests",
+                                 "ghost_blocking_perftests"))
 
     def test_jobs_limit_is_passed_to_the_build(self):
         build = next(a for a in argvs(plan(jobs=10)) if a[0] == str(DEPOT / "autoninja.bat"))
@@ -87,12 +88,15 @@ class PlanTest(unittest.TestCase):
              f"--test-launcher-summary-output={RESULTS / 'ghost_unittests.json'}"),
             (str(SRC / "out" / "ci" / "ghost_browsertests.exe"),
              f"--test-launcher-summary-output={RESULTS / 'ghost_browsertests.json'}"),
+            (str(SRC / "out" / "ci" / "ghost_blocking_perftests.exe"),
+             f"--test-launcher-summary-output={RESULTS / 'ghost_blocking_perftests.json'}"),
         ])
 
     def test_steps_run_in_order(self):
         names = [s.description for s in plan("nightly", synced=False)]
         order = ["Fetch", "Sync", "Apply", "Write GN args", "Generate", "Build", "Run ghost_unit",
-                 "Run ghost_browser", "Installer smoke", "Egress audit"]
+                 "Run ghost_browser", "Run ghost_blocking_perf", "Installer smoke",
+                 "Egress audit"]
         positions = [next(i for i, n in enumerate(names) if n.startswith(o)) for o in order]
         self.assertEqual(positions, sorted(positions))
 

@@ -5,7 +5,8 @@
 """Builds and tests one commit on the self-hosted Windows builder.
 
   pr       what every change needs: apply the series, build chrome and the
-           Ghost test targets, run ghost_unittests and ghost_browsertests
+           Ghost test targets, run ghost_unittests, ghost_browsertests and
+           ghost_blocking_perftests
   nightly  pr, plus the installer, its smoke test in Windows Sandbox, and the
            egress audit
 
@@ -37,7 +38,9 @@ TOOLS = repo.REPO_ROOT / "tools"
 SYNC_STAMP = ".ghost-synced"
 # <root>/.ghost-applied holds the series_digest() of the series last applied.
 APPLY_STAMP = ".ghost-applied"
-TEST_TARGETS = ("ghost_unittests", "ghost_browsertests")
+# A development build reports the blocking engine's cost without judging it
+# (blocking_perftest.cc); the test still fails if the lists block nothing.
+TEST_TARGETS = ("ghost_unittests", "ghost_browsertests", "ghost_blocking_perftests")
 Step = bootstrap.Step
 
 

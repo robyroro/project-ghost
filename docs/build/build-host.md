@@ -6,7 +6,7 @@ What it runs, through `.github/workflows/build.yml` and `tools/builder.py`:
 
 | When | Command | Steps |
 |---|---|---|
-| Every pull request and push to `main` | `builder.py pr` | Apply the patch series; build `chrome`, `ghost_unittests` and `ghost_browsertests`; run both test suites |
+| Every pull request and push to `main` | `builder.py pr` | Apply the patch series; build `chrome`, `ghost_unittests`, `ghost_browsertests` and `ghost_blocking_perftests`; run the three |
 | Nightly, 01:00 UTC | `builder.py nightly` | The same, then build `mini_installer`, run the installer smoke test in Windows Sandbox, and run the egress audit |
 
 The workflow does nothing until a maintainer finishes the setup below and sets `GHOST_BUILDER` to `enabled`.
