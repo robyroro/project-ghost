@@ -1,0 +1,92 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Tracking parameters Shade strips from top-level navigations that come from
+# another site or from the user (docs/privacy-model.md#tracking-parameters).
+#
+# One entry a line: a parameter name, then optionally the registrable domains
+# it is limited to (subdomains included). A final * matches every name with
+# that prefix. # starts a comment. [click] is stripped in every profile;
+# [campaign] in Incognito, and in Normal when the user asks.
+#
+# Sources: P = docs/privacy-model.md; B = brave-core's query filter rules
+# (MPL-2.0, The Brave Authors); O = observed, as noted.
+
+[click]
+__hsfp              # B, HubSpot
+__hssc              # B, HubSpot
+__hstc              # B, HubSpot
+__s                 # B, Drip
+_bhlid              # B, beehiiv
+_branch_match_id    # B, Branch
+_branch_referrer    # B, Branch
+_gl                 # B, Google's cross-domain linker
+_hsenc              # P B, HubSpot
+_openstat           # B, Openstat
+at_recipient_id     # B, Adobe Campaign
+at_recipient_list   # B, Adobe Campaign
+bbeml               # B, Bluecore
+bsft_clkid          # B, Blueshift
+bsft_uid            # B, Blueshift
+dclid               # P B, Google Display
+et_rid              # B, Emarsys
+fb_action_ids       # B, Meta
+fb_comment_id       # B, Meta
+fbclid              # P B, Meta
+gbraid              # P, Google Ads
+gclid               # P B, Google Ads
+guce_referrer       # B, Yahoo
+guce_referrer_sig   # B, Yahoo
+hsCtaTracking       # B, HubSpot
+igshid              # P B, Instagram (B limits it to instagram.com)
+irclickid           # B, Impact
+mc_eid              # P B, Mailchimp
+ml_subscriber       # B, MailerLite
+ml_subscriber_hash  # B, MailerLite
+msclkid             # P B, Microsoft Ads
+mtm_cid             # B, Matomo
+oft_c               # B, Ontraport
+oft_ck              # B, Ontraport
+oft_d               # B, Ontraport
+oft_id              # B, Ontraport
+oft_ids             # B, Ontraport
+oft_k               # B, Ontraport
+oft_lk              # B, Ontraport
+oft_sk              # B, Ontraport
+oly_anon_id         # B, Omeda
+oly_enc_id          # B, Omeda
+pk_cid              # B, Matomo
+rb_clickid          # B, Rakuten
+s_cid               # B, Adobe Analytics
+sc_customer         # B, Salesforce
+sc_eh               # B, Salesforce
+sc_uid              # B, Salesforce
+sfmc_activityid     # B, Salesforce Marketing Cloud
+sfmc_id             # B, Salesforce Marketing Cloud
+sms_click           # B, SMS campaigns
+sms_source          # B, SMS campaigns
+sms_uph             # B, SMS campaigns
+srsltid             # B, Google Merchant Center
+ss_email_id         # B, Squarespace
+syclid              # B, Yandex
+ttclid              # P B, TikTok
+twclid              # P B, X
+unicorn_click_id    # B, Unicorn
+vero_conv           # B, Vero
+vero_id             # B, Vero
+vgo_ee              # B, ActiveCampaign
+wbraid              # P B, Google Ads
+wickedid            # B, Wicked Reports
+yclid               # P B, Yandex
+ymclid              # B, Yandex
+ysclid              # B, Yandex
+
+igsh      instagram.com         # B, Instagram share
+ref_src   twitter.com x.com     # B, X
+ref_url   twitter.com x.com     # B, X
+si        youtube.com youtu.be  # B, YouTube share
+si        spotify.com           # O, Spotify share links (open.spotify.com/...?si=)
+
+[campaign]
+utm_*               # P, Google Analytics campaign parameters

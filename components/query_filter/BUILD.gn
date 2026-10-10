@@ -1,0 +1,44 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Tracking-parameter stripping's logic (docs/superpowers/specs/
+# 2026-10-10-query-filter-design.md): no //content, tested without a browser.
+
+# data/parameters.txt in the binary: the first navigation after startup is
+# covered, with no file to read. 3E delivers updates as a component.
+action("parameter_list_data") {
+  script = "//ghost/tools/embed_text.py"
+  inputs = [ "data/parameters.txt" ]
+  outputs = [ "$target_gen_dir/parameter_list_data.h" ]
+  args = [
+    "--input",
+    rebase_path(inputs[0], root_build_dir),
+    "--output",
+    rebase_path(outputs[0], root_build_dir),
+    "--namespace",
+    "ghost::query_filter",
+    "--name",
+    "kShippedParameterList",
+  ]
+}
+
+source_set("query_filter") {
+  sources = [
+    "parameter_list.cc",
+    "parameter_list.h",
+  ]
+  deps = [
+    ":parameter_list_data",
+    "//base",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "parameter_list_unittest.cc" ]
+  deps = [
+    ":query_filter",
+    "//testing/gtest",
+  ]
+}
