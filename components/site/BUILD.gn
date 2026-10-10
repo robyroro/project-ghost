@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# What a site is, for every Shade protection that asks.
+
+source_set("site") {
+  sources = [
+    "registrable_domain.cc",
+    "registrable_domain.h",
+  ]
+  deps = [
+    "//net",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "registrable_domain_unittest.cc" ]
+  deps = [
+    ":site",
+    "//testing/gtest",
+  ]
+}

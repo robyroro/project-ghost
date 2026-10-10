@@ -13,18 +13,9 @@
 
 namespace ghost::blocking {
 
-// The site a host belongs to: its registrable domain (eTLD+1) under Chromium's
-// registry, private registries included. An unknown top-level label (".test",
-// an intranet name) counts as a registry, so "sub.a.test" and "a.test" are one
-// site. A host with no domain (an IP address, "localhost") is its own site.
-//
-// The one definition of "the same site" for blocking: adblock-rust's
-// third-party test calls it through the bridge (RegistrableDomainRange), and
-// the request filter uses it to skip same-site requests.
-std::string_view RegistrableDomain(std::string_view canonical_host);
-
 // The domain's position in the host, as adblock-rust's ResolvesDomain wants
-// it: host[start..end].
+// it: host[start..end]. The domain is ghost::RegistrableDomain()'s
+// (//ghost/components/site), so blocking and the browser agree on what a site is.
 void RegistrableDomainRange(rust::Str canonical_host, size_t& start, size_t& end);
 
 }  // namespace ghost::blocking

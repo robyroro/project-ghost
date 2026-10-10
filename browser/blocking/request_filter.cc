@@ -12,7 +12,7 @@
 #include "base/memory/self_deleting.h"
 #include "ghost/browser/blocking/blocking_service.h"
 #include "ghost/components/blocking/blocking_engine.h"
-#include "ghost/components/blocking/registrable_domain.h"
+#include "ghost/components/site/registrable_domain.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "net/base/isolation_info.h"
 #include "net/base/net_errors.h"

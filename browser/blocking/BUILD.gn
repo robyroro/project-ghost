@@ -20,6 +20,7 @@ source_set("blocking") {
   ]
   deps = [
     "//base",
+    "//ghost/components/site",
     "//net",
     "//url",
   ]

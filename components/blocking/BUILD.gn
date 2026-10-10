@@ -13,10 +13,7 @@ source_set("registrable_domain") {
     "registrable_domain.h",
   ]
   public_deps = [ "//build/rust:cxx_cppdeps" ]
-  deps = [
-    "//net",
-    "//url",
-  ]
+  deps = [ "//ghost/components/site" ]
 }
 
 source_set("blocking") {
