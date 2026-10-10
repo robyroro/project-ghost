@@ -54,6 +54,7 @@ test("ghost_unittests") {
     "//content/test:test_support",
     "//extensions/browser",
     "//ghost/branding:keys",
+    "//ghost/components/blocking:unit_tests",
     "//ghost/browser/startup",
     "//ghost/components/update_client:request_scrubber",
     "//ghost/version",

@@ -1,0 +1,19 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import("//build/rust/rust_static_library.gni")
+
+# adblock-rust behind a cxx bridge (lib.rs). Its C++ half, the registrable
+# domain the engine asks for, is //ghost/components/blocking:registrable_domain.
+rust_static_library("engine") {
+  allow_unsafe = true  # The FFI that cxx generates.
+  crate_root = "lib.rs"
+  sources = [ "lib.rs" ]
+  cxx_bindings = [ "lib.rs" ]
+  deps = [
+    "//ghost/components/blocking:registrable_domain",
+    "//ghost/third_party/rust/adblock/v0_13:lib",
+  ]
+  visibility = [ "//ghost/*" ]
+}

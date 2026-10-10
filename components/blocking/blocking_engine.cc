@@ -1,0 +1,88 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+#include "ghost/components/blocking/blocking_engine.h"
+
+#include <optional>
+#include <utility>
+
+#include "base/logging.h"
+#include "base/task/bind_post_task.h"
+#include "base/task/thread_pool.h"
+#include "ghost/components/blocking/request_types.h"
+#include "ghost/components/blocking/rust/lib.rs.h"
+
+namespace ghost::blocking {
+
+class BlockingEngine::Core {
+ public:
+  void Load(std::vector<std::string> lists) {
+    std::string text;
+    for (const std::string& list : lists) {
+      if (!list.empty()) {
+        text += list;
+        text += '\n';  // A list without a final newline mustn't join the next.
+      }
+    }
+    if (text.empty()) {
+      state_ = State::kFailed;
+      LOG(ERROR) << "Blocking: no filter list was loaded; requests are not blocked.";
+    } else {
+      engine_ = new_engine(text);
+      state_ = State::kReady;
+    }
+    auto pending = std::move(pending_);
+    for (auto& [request, reply] : pending) {
+      Answer(request, std::move(reply));
+    }
+  }
+
+  void Check(CheckRequest request, base::OnceCallback<void(Decision)> reply) {
+    if (state_ == State::kLoading) {
+      pending_.emplace_back(std::move(request), std::move(reply));
+      return;
+    }
+    Answer(request, std::move(reply));
+  }
+
+  State state() const { return state_; }
+
+ private:
+  void Answer(const CheckRequest& request, base::OnceCallback<void(Decision)> reply) {
+    Decision decision;
+    if (state_ == State::kReady && request.url.is_valid()) {
+      Verdict verdict = (*engine_)->check(request.url.spec(), request.source_url.spec(),
+                                          ToAdblockType(request.destination), request.method);
+      decision.blocked = verdict.blocked;
+      decision.filter = std::string(verdict.filter);
+    }
+    std::move(reply).Run(std::move(decision));
+  }
+
+  State state_ = State::kLoading;
+  std::optional<rust::Box<Engine>> engine_;
+  std::vector<std::pair<CheckRequest, base::OnceCallback<void(Decision)>>> pending_;
+};
+
+BlockingEngine::BlockingEngine()
+    : core_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::TaskPriority::USER_BLOCKING,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})) {}
+
+BlockingEngine::~BlockingEngine() = default;
+
+void BlockingEngine::Load(std::vector<std::string> lists) {
+  core_.AsyncCall(&Core::Load).WithArgs(std::move(lists));
+}
+
+void BlockingEngine::Check(CheckRequest request, base::OnceCallback<void(Decision)> reply) {
+  core_.AsyncCall(&Core::Check)
+      .WithArgs(std::move(request), base::BindPostTaskToCurrentDefault(std::move(reply)));
+}
+
+void BlockingEngine::GetStateForTesting(base::OnceCallback<void(State)> reply) {
+  core_.AsyncCall(&Core::state).Then(std::move(reply));
+}
+
+}  // namespace ghost::blocking

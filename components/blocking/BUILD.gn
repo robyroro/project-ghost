@@ -1,0 +1,65 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# The blocking engine (docs/adr/0006-blocking-engine-adblock-rust.md).
+
+source_set("registrable_domain") {
+  sources = [
+    "registrable_domain.cc",
+    "registrable_domain.h",
+  ]
+  public_deps = [ "//build/rust:cxx_cppdeps" ]
+  deps = [
+    "//net",
+    "//url",
+  ]
+}
+
+source_set("blocking") {
+  sources = [
+    "blocking_engine.cc",
+    "blocking_engine.h",
+    "filter_lists.cc",
+    "filter_lists.h",
+    "request_types.cc",
+    "request_types.h",
+  ]
+  public_deps = [
+    ":registrable_domain",
+    "//base",
+    "//services/network/public/mojom:mojom_shared",
+    "//url",
+  ]
+  deps = [ "//ghost/components/blocking/rust:engine" ]
+  data_deps = [ ":filter_lists" ]
+}
+
+# The lists the browser ships, as data files beside it (docs/licensing.md):
+# <out>/blocking/ in a build; the installer takes them from there
+# (patches/0029).
+copy("filter_lists") {
+  sources = [
+    "data/easylist.txt",
+    "data/easyprivacy.txt",
+  ]
+  outputs = [ "$root_out_dir/blocking/{{source_file_part}}" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "blocking_engine_unittest.cc",
+    "engine_bridge_unittest.cc",
+    "filter_lists_unittest.cc",
+    "registrable_domain_unittest.cc",
+    "request_types_unittest.cc",
+  ]
+  deps = [
+    ":blocking",
+    ":registrable_domain",
+    "//base/test:test_support",
+    "//ghost/components/blocking/rust:engine",
+    "//testing/gtest",
+  ]
+}
