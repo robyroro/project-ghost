@@ -117,15 +117,48 @@ def resolve(metadata: dict) -> dict[str, Crate]:
     return crates
 
 
+def prune(crates: dict[str, Crate], config: dict, roots: list[str]) -> dict[str, Crate]:
+    """Applies `build_script = false` from vendor_config.toml (a build script
+    that would misbehave under Chromium's toolchain), then keeps only what the
+    roots still reach: the script's build-dependencies go with it."""
+    changed = {}
+    for name, crate in crates.items():
+        if config.get(name, {}).get("build_script") is False:
+            changed[name] = Crate(**{**crate.__dict__, "build_script": False,
+                                     "deps": [d for d in crate.deps if d[1] != "build"]})
+        else:
+            changed[name] = crate
+    kept, pending = set(), list(roots)
+    while pending:
+        name = pending.pop()
+        if name not in kept:
+            kept.add(name)
+            pending += [d for d, _ in changed[name].deps]
+    return {n: c for n, c in changed.items() if n in kept}
+
+
+def _roots(metadata: dict) -> list[str]:
+    packages = {p["id"]: p for p in metadata["packages"]}
+    root = next(n for n in metadata["resolve"]["nodes"]
+                if n["id"] == metadata["resolve"]["root"])
+    return [packages[d["pkg"]]["name"] for d in root["deps"]]
+
+
 def _chromium_build_gn(tree: Path, crate: Crate) -> Path:
     return tree / directory(crate.name) / epoch(crate.version)[1] / "BUILD.gn"
 
 
 def chromium_version(tree: Path, crate: Crate) -> str | None:
+    """Chromium's version of the crate, if Chromium ships it. A crate Chromium
+    marks testonly (regex, for one) isn't shipped: the browser can't depend on
+    it, so we vendor our own, which is then the binary's only copy."""
     path = _chromium_build_gn(tree, crate)
     if not path.exists():
         return None
-    m = re.search(r'cargo_pkg_version = "([^"]+)"', path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    if re.search(r"^  testonly = true", text, re.MULTILINE):
+        return None
+    m = re.search(r'cargo_pkg_version = "([^"]+)"', text)
     return m.group(1) if m else None
 
 
@@ -205,8 +238,10 @@ def label(crate: Crate, tree: Path) -> str:
 
 
 def _gn_list(name: str, items: list[str], indent: str = "  ") -> str:
+    """A GN list assignment, or nothing for an empty list: Chromium's templates
+    treat a missing list as empty, and some pass a present one on as flags."""
     if not items:
-        return f"{indent}{name} = []\n"
+        return ""
     if len(items) == 1:
         return f'{indent}{name} = [ "{items[0]}" ]\n'
     body = "".join(f'{indent}  "{i}",\n' for i in items)
@@ -344,18 +379,21 @@ def pin(src: Path) -> int:
 
 def vendor(src: Path) -> int:
     tree = src / "third_party" / "rust"
-    crates = resolve(metadata(src))
+    config = tomllib.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
+    meta = metadata(src)
+    crates = prune(resolve(meta), config, _roots(meta))
     missing = missing_features(tree, crates)
     if missing:
         raise VendorError("Chromium's crates lack features the graph needs (patch 0030): "
                           + "; ".join(f"{n}: {', '.join(f)}" for n, f in missing.items()))
-    config = tomllib.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
     checksums = lock_checksums()
     ours = [c for c in crates.values() if not chromium_version(tree, c)]
     wanted = {(directory(c.name), epoch(c.version)[1]) for c in ours}
     for marker in GHOST_RUST.glob(f"*/*/{MARKER}"):
         if (marker.parent.parent.name, marker.parent.name) not in wanted:
             shutil.rmtree(marker.parent)
+            if not any(marker.parent.parent.iterdir()):
+                marker.parent.parent.rmdir()
             print(f"removed {marker.parent.relative_to(GHOST_RUST)}")
     for crate in sorted(ours, key=lambda c: c.name):
         dest = GHOST_RUST / directory(crate.name) / epoch(crate.version)[1]

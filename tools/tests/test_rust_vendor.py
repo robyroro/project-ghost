@@ -91,6 +91,21 @@ class ResolveTest(unittest.TestCase):
         self.assertEqual(crates["adblock"].license, "MPL-2.0")
 
 
+class PruneTest(unittest.TestCase):
+    def test_a_disabled_build_script_takes_its_build_dependencies_with_it(self):
+        crates = rust_vendor.resolve(METADATA)
+        flatbuffers = crates["thiserror"]
+        crates["thiserror"] = flatbuffers.__class__(**{
+            **flatbuffers.__dict__, "deps": [("thiserror-impl", None), ("seahash", "build")]})
+        crates["adblock"] = crates["adblock"].__class__(**{
+            **crates["adblock"].__dict__, "deps": [("regex", None), ("thiserror", None)]})
+        pruned = rust_vendor.prune(crates, {"thiserror": {"build_script": False}}, ["adblock"])
+        self.assertFalse(pruned["thiserror"].build_script)
+        self.assertEqual(pruned["thiserror"].deps, [("thiserror-impl", None)])
+        self.assertNotIn("seahash", pruned)  # only thiserror's build script needed it
+        self.assertEqual(sorted(pruned), ["adblock", "regex", "thiserror", "thiserror-impl"])
+
+
 class ChromiumTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -101,6 +116,17 @@ class ChromiumTest(unittest.TestCase):
     def test_finds_chromiums_crates(self):
         self.assertEqual(rust_vendor.chromium_version(self.tree, self.crates["regex"]), "1.12.4")
         self.assertIsNone(rust_vendor.chromium_version(self.tree, self.crates["seahash"]))
+
+    def test_a_testonly_crate_is_not_chromiums_to_ship(self):
+        # Chromium ships no regex: it marks its copy testonly, so the browser
+        # can't depend on it, and ours isn't a second copy in the binary.
+        build_gn = self.tree / "regex" / "v1" / "BUILD.gn"
+        build_gn.write_text(build_gn.read_text(encoding="utf-8").replace(
+            "cargo_crate(\"lib\") {\n", "cargo_crate(\"lib\") {\n  testonly = true\n"),
+            encoding="utf-8")
+        self.assertIsNone(rust_vendor.chromium_version(self.tree, self.crates["regex"]))
+        self.assertEqual(rust_vendor.label(self.crates["regex"], self.tree),
+                         "//ghost/third_party/rust/regex/v1:lib")
 
     def test_a_missing_feature_is_reported(self):
         self.assertEqual(rust_vendor.missing_features(self.tree, self.crates),
@@ -174,6 +200,14 @@ class BuildGnTest(unittest.TestCase):
         gn = self.render("thiserror", build_script_outputs=["private.rs"])
         self.assertIn('build_root = "crate/build.rs"', gn)
         self.assertIn('build_script_outputs = [ "private.rs" ]', gn)
+
+    def test_empty_lists_are_left_out(self):
+        # Chromium's build-script runner passes `--features` followed by the
+        # list: an empty one makes its argument parser fail (as gnrt, omit it).
+        gn = self.render("thiserror")
+        self.assertNotIn("features =", gn)
+        self.assertNotIn("build_deps =", gn)
+        self.assertNotIn("build_script_outputs =", gn)
 
 
 if __name__ == "__main__":
