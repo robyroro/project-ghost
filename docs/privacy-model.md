@@ -48,7 +48,7 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - with EasyList and EasyPrivacy, unmodified, shipped with the browser and updated with its releases (between releases from 3E). Our own list comes later;
   - every request a page makes is checked: subresources, frames, workers and service workers, and every redirect. Top-level navigations always load, and requests to the page's own site (the same registrable domain) aren't checked;
   - a blocked request fails with `ERR_BLOCKED_BY_CLIENT`, as with blocking extensions, and the console says so;
-  - **not yet checked:** WebSocket and WebTransport connections, which use other hooks (3D);
+  - **WebSocket and WebTransport connections are checked too** (since 3D-2), at the page's level: a blocked WebSocket is never opened, so its handshake never leaves the browser, and a blocked WebTransport is refused with `ERR_BLOCKED_BY_CLIENT`. A WebSocket opened by a shared or service worker is judged at the Standard level, since Chromium's hook gives no profile for it; one opened by a page or a dedicated worker follows its page (`ConnectionFilterBrowserTest`);
   - if the lists can't be loaded, nothing is blocked and the error is logged: a browser that loads nothing is worse. Until the lists are loaded at startup, requests that need a verdict wait.
   - Checks happen in the browser process; nothing about them leaves the machine.
 

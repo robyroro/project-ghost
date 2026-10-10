@@ -269,7 +269,7 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - In the official build a check costs 6 µs at p50 and 36–39 µs at p99, within ADR 0006's 50 µs; the lists compile in about 80 ms at startup into about 6 MiB.
    - Two fuzzers ran 30 minutes each without a crash; four mutation checks fail as required (one after a fix to its test); the egress audit finds no unexpected host.
    - Found on the way: bytes that aren't UTF-8 reaching the Rust bridge aborted the browser, and `about:credits` named none of the crates or lists. Both fixed.
-   - Not yet: WebSocket and WebTransport (3D); list updates between releases (3E).
+   - Not yet: list updates between releases (3E). WebSocket and WebTransport followed in 3D-2.
 2. **3B. Tracking-parameter stripping.**
 
    **Done 2026-10-10.** `//ghost/components/query_filter`, `//ghost/browser/query_filter`, `//ghost/components/site` (3A's registrable domains, shared), `tools/embed_text.py`; patch 0032; [design](superpowers/specs/2026-10-10-query-filter-design.md), [progress notes](superpowers/specs/2026-10-10-query-filter-spike.md).
@@ -288,6 +288,11 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - Off, Standard and Strict per site; Incognito Strict by default. Blocking, tracking parameters and the referrer follow the page's level; GPC, cookies and HTTPS-First don't change with it.
    - Four mutation checks fail as required; 58 browser tests pass with no retry.
    - Limitation: a Strict page's cross-site navigation sends no `Referer`, but the destination's `document.referrer` still shows the origin.
+
+   **3D-2 done 2026-10-10.** `//ghost/browser/blocking/connection_filter`; patch 0034; [design](superpowers/specs/2026-10-10-websocket-webtransport-design.md), [progress notes](superpowers/specs/2026-10-10-websocket-webtransport-spike.md).
+   - A page's WebSocket and WebTransport connections are judged by the engine at the page's level; a blocked WebSocket's handshake never leaves the browser.
+   - Three mutation checks fail as required; 65 browser tests pass with no retry.
+   - Limitation: shared and service workers' WebSockets are judged at Standard (no profile in the hook).
 5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.
 
 **Exit criteria** ([phases](#phases-to-public-alpha))

@@ -1,6 +1,6 @@
 # WebSocket and WebTransport through the blocking engine: design
 
-- Status: design approved 2026-10-10
+- Status: done 2026-10-10 ([progress notes](2026-10-10-websocket-webtransport-spike.md)); design approved 2026-10-10. *As built: the filter's continuations take whether the connection is blocked (`base::OnceCallback<void(bool)>`), and no request-type field was needed.*
 - Phase 3, sub-project 3D-2 ([roadmap](../../roadmap.md#phase-3-network-protections)); follows [3D-1, the protection levels](2026-10-10-protection-levels-design.md)
 - Closes the gap privacy-model.md names since 3A: "WebSocket and WebTransport connections are not yet checked"
 
@@ -47,9 +47,9 @@ privacy-model.md (WebSocket and WebTransport checked; the worker's level), archi
 
 ## Done when
 
-- [ ] The tests pass and the mutation checks fail as required.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The tests pass and the mutation checks fail as required.
+- [x] The egress audit finds no unexpected host.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 
