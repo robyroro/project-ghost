@@ -143,7 +143,11 @@ IN_PROC_BROWSER_TEST_F(RequestFilterBrowserTest, ABlockedFrameFailsWithBlockedBy
 }
 
 IN_PROC_BROWSER_TEST_F(RequestFilterBrowserTest, TheSameSiteIsNotChecked) {
+  // A rule for any site's own.js, first-party included: the engine would
+  // block these requests if it were asked.
+  BlockingService::GetIfStarted()->SetListsForTesting({"/own.js\n"});
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/page.html")));
+  ASSERT_EQ(LoadScript(Tab(), Url("b.test", "/own.js")), "error") << "the rule doesn't match";
   EXPECT_EQ(LoadScript(Tab(), Url("a.test", "/own.js")), "loaded");
   EXPECT_EQ(LoadScript(Tab(), Url("cdn.a.test", "/own.js")), "loaded");
 }
