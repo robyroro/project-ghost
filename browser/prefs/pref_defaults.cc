@@ -14,6 +14,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "extensions/browser/pref_names.h"
+#include "third_party/blink/public/common/peerconnection/webrtc_ip_handling_policy.h"
 
 namespace ghost {
 
@@ -30,6 +31,12 @@ void OverrideProfilePrefDefaults(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kNetworkPredictionOptions,
       base::Value(
           static_cast<int>(prefetch::NetworkPredictionOptions::kDisabled)));
+
+  // WebRTC uses only the interface the system routes through by default, so
+  // it reveals no other address (a VPN's physical interface, other networks).
+  registry->SetDefaultPrefValue(
+      prefs::kWebRTCIPHandlingPolicy,
+      base::Value(blink::kWebRTCIPHandlingDefaultPublicInterfaceOnly));
 
   // Suggestions send what is typed in the omnibox to the search engine as it
   // is typed, before the user decides to search.

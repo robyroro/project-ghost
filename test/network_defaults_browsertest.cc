@@ -19,10 +19,12 @@
 #include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/privacy_sandbox/privacy_sandbox_settings.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -32,6 +34,8 @@
 #include "net/test/embedded_test_server/embedded_test_server_connection_listener.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
+#include "third_party/blink/public/mojom/peerconnection/webrtc_ip_handling_policy.mojom.h"
 
 namespace ghost {
 namespace {
@@ -143,6 +147,23 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcIsVisibleToPagesAndWorkers
                             "new Promise(done => { const w = new Worker('/worker.js');"
                             " w.onmessage = e => done(e.data); })"),
             true);
+}
+
+IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, WebRtcUsesOnlyTheDefaultPublicInterface) {
+  for (Browser* b : {browser(), CreateIncognitoBrowser()}) {
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(b, Url("a.test", "/page")));
+    // What the renderer's WebRTC reads.
+    EXPECT_EQ(Tab(b)->GetMutableRendererPrefs()->webrtc_ip_handling_policy,
+              blink::mojom::WebRtcIpHandlingPolicy::kDefaultPublicInterfaceOnly);
+  }
+}
+
+// Upstream turns them off on a profile's first run when third-party cookies
+// are blocked (PrivacySandboxServiceImpl::MaybeInitializeRelatedWebsiteSetsPref),
+// which Shade's default does: they follow from it, so no default of their own.
+IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, RelatedWebsiteSetsAreOff) {
+  EXPECT_FALSE(PrivacySandboxSettingsFactory::GetForProfile(GetProfile())
+                   ->AreRelatedWebsiteSetsEnabled());
 }
 
 }  // namespace
