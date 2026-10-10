@@ -25,10 +25,8 @@ source_set("query_filter") {
     "//url",
   ]
   deps = [
-    ":prefs",
-    "//components/prefs",
-    "//components/user_prefs",
     "//content/public/browser",
+    "//ghost/browser/privacy_policy",
     "//net",
     "//services/network/public/cpp",
     "//services/network/public/mojom",

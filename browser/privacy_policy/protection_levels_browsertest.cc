@@ -171,5 +171,42 @@ IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, ALevelAppliesAtTheNextLoad) 
   EXPECT_EQ(Load("script", Url("tracker.test", "/t2.js")), "loaded");
 }
 
+// Navigations: the destination's level decides what is stripped (3B), and a
+// Strict page's level drops the Referer of its cross-site navigations.
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, AnOffSiteKeepsItsParameters) {
+  SetLevel(GetProfile(), Url("b.test", "/"), ProtectionLevel::kOff);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("b.test", "/land?fbclid=1")));
+  EXPECT_EQ(Tab()->GetLastCommittedURL(), Url("b.test", "/land?fbclid=1"));
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, StrictStripsCampaignParametersInNormal) {
+  SetLevel(GetProfile(), Url("b.test", "/"), ProtectionLevel::kStrict);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("b.test", "/land?utm_source=n&x=1")));
+  EXPECT_EQ(Tab()->GetLastCommittedURL(), Url("b.test", "/land?x=1"));
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, AStrictPageNavigatesWithoutReferrer) {
+  SetLevel(GetProfile(), Url("a.test", "/"), ProtectionLevel::kStrict);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/page")));
+  content::TestNavigationObserver observer(Tab());
+  ASSERT_TRUE(content::ExecJs(
+      Tab(), content::JsReplace("location.href = $1;", Url("b.test", "/land"))));
+  observer.Wait();
+  EXPECT_EQ(Header("b.test", "/land", "Referer"), "<none>");
+  // What the destination's script sees, for the progress notes.
+  LOG(INFO) << "document.referrer after a Strict page's navigation: '"
+            << content::EvalJs(Tab(), "document.referrer").ExtractString() << "'";
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, AStandardPageNavigatesWithItsOrigin) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/page")));
+  content::TestNavigationObserver observer(Tab());
+  ASSERT_TRUE(content::ExecJs(
+      Tab(), content::JsReplace("location.href = $1;", Url("b.test", "/land"))));
+  observer.Wait();
+  EXPECT_EQ(Header("b.test", "/land", "Referer"), Url("a.test", "/").spec());
+}
+
 }  // namespace
 }  // namespace ghost::privacy_policy

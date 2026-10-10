@@ -6,10 +6,8 @@
 
 #include <optional>
 
-#include "components/prefs/pref_service.h"
-#include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/browser_context.h"
-#include "ghost/browser/query_filter/prefs.h"
+#include "ghost/browser/privacy_policy/site_levels.h"
 #include "ghost/components/query_filter/parameter_list.h"
 #include "net/url_request/redirect_info.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -17,17 +15,39 @@
 
 namespace ghost::query_filter {
 
-QueryFilterThrottle::QueryFilterThrottle(Scope scope) : scope_(scope) {}
+QueryFilterThrottle::QueryFilterThrottle(base::WeakPtr<content::BrowserContext> context,
+                                         bool drop_referrer)
+    : context_(std::move(context)), drop_referrer_(drop_referrer) {}
 
 QueryFilterThrottle::~QueryFilterThrottle() = default;
 
+std::optional<Scope> QueryFilterThrottle::ScopeFor(const GURL& url) const {
+  if (!context_) {
+    return std::nullopt;
+  }
+  const privacy_policy::EffectivePolicy policy = privacy_policy::GetPolicy(context_.get(), url);
+  if (!policy.strip_click_identifiers) {
+    return std::nullopt;
+  }
+  return policy.strip_campaign_parameters ? Scope::kClickAndCampaign : Scope::kClick;
+}
+
 void QueryFilterThrottle::WillStartRequest(network::ResourceRequest* request, bool* defer) {
   url_ = request->url;
+  if (drop_referrer_) {
+    // NO_REFERRER: the redirects carry none either.
+    request->referrer = GURL();
+    request->referrer_policy = net::ReferrerPolicy::NO_REFERRER;
+  }
   if (!IsFilteredNavigation(request->url, request->method) ||
       !ComesFromElsewhere(request->url, request->request_initiator)) {
     return;
   }
-  if (std::optional<GURL> clean = Strip(request->url, ShippedParameterList(), scope_)) {
+  const std::optional<Scope> scope = ScopeFor(request->url);
+  if (!scope) {
+    return;
+  }
+  if (std::optional<GURL> clean = Strip(request->url, ShippedParameterList(), *scope)) {
     request->url = *clean;
     url_ = *clean;
   }
@@ -44,7 +64,12 @@ void QueryFilterThrottle::WillRedirectRequest(
       !CrossesSites(from, redirect_info->new_url)) {
     return;
   }
-  if (std::optional<GURL> clean = Strip(redirect_info->new_url, ShippedParameterList(), scope_)) {
+  const std::optional<Scope> scope = ScopeFor(redirect_info->new_url);
+  if (!scope) {
+    return;
+  }
+  if (std::optional<GURL> clean =
+          Strip(redirect_info->new_url, ShippedParameterList(), *scope)) {
     redirect_info->new_url = *clean;
     url_ = *clean;
   }
@@ -57,11 +82,16 @@ std::unique_ptr<blink::URLLoaderThrottle> MaybeCreateQueryFilterThrottle(
       request.destination != network::mojom::RequestDestination::kDocument) {
     return nullptr;
   }
-  const bool campaign =
-      browser_context->IsOffTheRecord() ||
-      user_prefs::UserPrefs::Get(browser_context)->GetBoolean(kStripCampaignParametersPref);
-  return std::make_unique<QueryFilterThrottle>(campaign ? Scope::kClickAndCampaign
-                                                        : Scope::kClick);
+  // A Strict page's cross-site navigation leaves without Referer: the level
+  // of the page the navigation comes from.
+  bool drop_referrer = false;
+  if (request.request_initiator && !request.request_initiator->opaque()) {
+    const GURL initiator = request.request_initiator->GetURL();
+    drop_referrer =
+        !privacy_policy::GetPolicy(browser_context, initiator).cross_site_referrer &&
+        CrossesSites(initiator, request.url);
+  }
+  return std::make_unique<QueryFilterThrottle>(browser_context->GetWeakPtr(), drop_referrer);
 }
 
 }  // namespace ghost::query_filter
