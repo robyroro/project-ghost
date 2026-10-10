@@ -6,6 +6,7 @@
 #define GHOST_BROWSER_STARTUP_BROWSER_MAIN_EXTRA_PARTS_H_
 
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
+#include "ghost/browser/startup/incognito_defaults.h"
 
 namespace base {
 class CommandLine;
@@ -25,6 +26,10 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts {
   // ChromeBrowserMainExtraParts:
   void PreEarlyInitialization() override;
   void PostCreateThreads() override;
+  void PostProfileInit(Profile* profile, bool is_initial_profile) override;
+
+ private:
+  IncognitoDefaults incognito_defaults_;
 };
 
 // Adds the switches that turn off upstream services we have no replacement

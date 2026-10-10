@@ -26,6 +26,11 @@ void BrowserMainExtraParts::PostCreateThreads() {
   blocking::BlockingService::Start();
 }
 
+void BrowserMainExtraParts::PostProfileInit(Profile* profile, bool is_initial_profile) {
+  // Runs for every profile, those created later included.
+  incognito_defaults_.Watch(profile);
+}
+
 void AppendStartupSwitches(base::CommandLine& command_line) {
   // The component updater fetches data components from update.googleapis.com.
   // It stays off until our own update server exists (roadmap, Phase 2).

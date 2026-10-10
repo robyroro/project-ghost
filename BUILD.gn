@@ -99,6 +99,7 @@ test("ghost_browsertests") {
     "//chrome/browser:browser_process",
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/gcm",
+    "//chrome/browser/interstitials:test_support",
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/browser/privacy_sandbox:headers",
     "//chrome/browser/profiles:profile",
