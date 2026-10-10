@@ -1,0 +1,14 @@
+Name: form_urlencoded
+URL: https://crates.io/crates/form_urlencoded
+Version: 1.2.2
+Revision: 1.2.2
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Parser and serializer for the application/x-www-form-urlencoded syntax, as used by HTML forms.
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

@@ -1,0 +1,14 @@
+Name: flatbuffers
+URL: https://crates.io/crates/flatbuffers
+Version: 25.12.19
+Revision: 25.12.19
+License: Apache-2.0
+License File: 
+Security Critical: yes
+Shipped: yes
+
+Description:
+Official FlatBuffers Rust runtime library.
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

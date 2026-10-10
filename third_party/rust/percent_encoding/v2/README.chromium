@@ -1,0 +1,14 @@
+Name: percent-encoding
+URL: https://crates.io/crates/percent-encoding
+Version: 2.3.2
+Revision: 2.3.2
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Percent encoding and decoding
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

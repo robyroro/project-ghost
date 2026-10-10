@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 09:31:00 +0300
+Subject: [PATCH] third_party/rust: let //ghost's crates use memchr,
+ regex-syntax, utf8_iter, serde's rc and bitflags' serde
+
+//ghost vendors the crates adblock-rust needs that Chromium lacks, in
+//ghost/third_party/rust, and uses Chromium's copy of every crate Chromium
+ships, so the binary never holds two. That needs three crates gnrt made
+visible only within //third_party/rust (memchr, regex-syntax, utf8_iter)
+to be visible to //ghost/third_party/rust too, and three features Chromium
+doesn't build: serde's and serde_core's rc (impls for Rc and Arc) and
+bitflags' serde, which adds a dependency on serde_core. The features only
+add impls; nothing else in Chromium changes.
+
+These are generated files: a milestone that regenerates them may conflict
+here, and patches.py canary shows it before the move.
+
+Why: the alternative is our own copies of serde, bitflags and the rest beside Chromium's in one binary.
+Upstream: not upstreamable: a downstream crate set
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/third_party/rust/bitflags/v2/BUILD.gn b/third_party/rust/bitflags/v2/BUILD.gn
+index de80d2f7642c45700f709c61c70873514e3e2fb3..a5e80b0997d0e154cac22ada53d9e0c3b0227382 100644
+--- a/third_party/rust/bitflags/v2/BUILD.gn
++++ b/third_party/rust/bitflags/v2/BUILD.gn
+@@ -74,6 +74,13 @@ cargo_crate("lib") {
+ 
+   allow_unsafe = false
+ 
++  features = [
++    "serde",
++    "serde_core",
++  ]
++
++  deps = [ "//third_party/rust/serde_core/v1:lib" ]
++
+   #####################################################################
+   # Tweaking which GN `config`s apply to this target.
+ 
+diff --git a/third_party/rust/memchr/v2/BUILD.gn b/third_party/rust/memchr/v2/BUILD.gn
+index f7dd3b5a35d0d978454e17ceeaabfa50df033619..4690e8fb9ed98f60e69636dc8a966c704d991b18 100644
+--- a/third_party/rust/memchr/v2/BUILD.gn
++++ b/third_party/rust/memchr/v2/BUILD.gn
+@@ -82,7 +82,10 @@ cargo_crate("lib") {
+   # Only for usage from third-party crates. Add the crate to
+   # //third_party/rust/chromium_crates_io/Cargo.toml to use
+   # it from first-party code.
+-  visibility = [ "//third_party/rust/*" ]
++  visibility = [
++    "//ghost/third_party/rust/*",
++    "//third_party/rust/*",
++  ]
+ 
+   #####################################################################
+   # Tweaking which GN `config`s apply to this target.
+diff --git a/third_party/rust/regex_syntax/v0_8/BUILD.gn b/third_party/rust/regex_syntax/v0_8/BUILD.gn
+index 3614c0a965e56feab71fcf16478c8a384a08195e..7c7761905255a4a93af41990ad9c17daac2371b8 100644
+--- a/third_party/rust/regex_syntax/v0_8/BUILD.gn
++++ b/third_party/rust/regex_syntax/v0_8/BUILD.gn
+@@ -77,7 +77,10 @@ cargo_crate("lib") {
+   # Only for usage from third-party crates. Add the crate to
+   # //third_party/rust/chromium_crates_io/Cargo.toml to use
+   # it from first-party code.
+-  visibility = [ "//third_party/rust/*" ]
++  visibility = [
++    "//ghost/third_party/rust/*",
++    "//third_party/rust/*",
++  ]
+ 
+   #####################################################################
+   # Tweaking which GN `config`s apply to this target.
+diff --git a/third_party/rust/serde/v1/BUILD.gn b/third_party/rust/serde/v1/BUILD.gn
+index 98179bde54816b80040dcc8467dfd34474cc9d6e..13b927d8e41dd63b56a3ca472d26f4caf073c8a6 100644
+--- a/third_party/rust/serde/v1/BUILD.gn
++++ b/third_party/rust/serde/v1/BUILD.gn
+@@ -60,6 +60,7 @@ cargo_crate("lib") {
+     "alloc",
+     "default",
+     "derive",
++    "rc",
+     "serde_derive",
+     "std",
+   ]
+diff --git a/third_party/rust/serde_core/v1/BUILD.gn b/third_party/rust/serde_core/v1/BUILD.gn
+index 8667ae08f4265dd334852d1a403160e3cc9965bb..ac53464e2240ea105ae072405e565df6b217c131 100644
+--- a/third_party/rust/serde_core/v1/BUILD.gn
++++ b/third_party/rust/serde_core/v1/BUILD.gn
+@@ -49,6 +49,7 @@ cargo_crate("lib") {
+ 
+   features = [
+     "alloc",
++    "rc",
+     "result",
+     "std",
+   ]
+diff --git a/third_party/rust/utf8_iter/v1/BUILD.gn b/third_party/rust/utf8_iter/v1/BUILD.gn
+index 51d5e6d955fd331f07e74909cb8400d039b129e3..aef054ee682a9aff4cbb3476532e4762354d021e 100644
+--- a/third_party/rust/utf8_iter/v1/BUILD.gn
++++ b/third_party/rust/utf8_iter/v1/BUILD.gn
+@@ -35,7 +35,10 @@ cargo_crate("lib") {
+   # Only for usage from third-party crates. Add the crate to
+   # //third_party/rust/chromium_crates_io/Cargo.toml to use
+   # it from first-party code.
+-  visibility = [ "//third_party/rust/*" ]
++  visibility = [
++    "//ghost/third_party/rust/*",
++    "//third_party/rust/*",
++  ]
+ 
+   #####################################################################
+   # Tweaking which GN `config`s apply to this target.

@@ -1,0 +1,14 @@
+Name: precomputed-hash
+URL: https://crates.io/crates/precomputed-hash
+Version: 0.1.1
+Revision: 0.1.1
+License: MIT
+License File: crate/LICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+A library intending to be a base dependency to expose a precomputed hash
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

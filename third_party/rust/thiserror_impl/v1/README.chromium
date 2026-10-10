@@ -1,0 +1,14 @@
+Name: thiserror-impl
+URL: https://crates.io/crates/thiserror-impl
+Version: 1.0.69
+Revision: 1.0.69
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Implementation detail of the `thiserror` crate
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

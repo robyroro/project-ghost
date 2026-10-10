@@ -1,0 +1,13 @@
+# Per-crate settings tools/rust_vendor.py can't infer from Cargo's metadata.
+#
+#   build_script = false        don't run the crate's build script
+#   build_script_outputs = []   files the build script writes, for GN
+#   build_sources = []          the build script's sources besides build.rs
+#   rustflags = []              extra flags for this crate
+
+[flatbuffers]
+# Its build.rs only sets cfg(nightly) when rustc is a nightly, which turns on
+# unstable features (trusted_len) Chromium's toolchain refuses. Chromium's
+# rustc is a nightly by build, not by choice: on a stable compiler the script
+# sets nothing, which is what we want.
+build_script = false

@@ -1,0 +1,14 @@
+Name: regex-automata
+URL: https://crates.io/crates/regex-automata
+Version: 0.4.16
+Revision: 0.4.16
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Automata construction and matching using regular expressions.
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

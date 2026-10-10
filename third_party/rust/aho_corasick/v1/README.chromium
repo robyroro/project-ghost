@@ -1,0 +1,14 @@
+Name: aho-corasick
+URL: https://crates.io/crates/aho-corasick
+Version: 1.1.4
+Revision: 1.1.4
+License: Unlicense OR MIT
+License File: crate/COPYING, crate/LICENSE-MIT, crate/UNLICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+Fast multiple substring searching.
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

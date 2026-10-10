@@ -1,0 +1,14 @@
+Name: idna
+URL: https://crates.io/crates/idna
+Version: 1.1.0
+Revision: 1.1.0
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+IDNA (Internationalizing Domain Names in Applications) and Punycode.
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

@@ -1,0 +1,14 @@
+Name: idna_adapter
+URL: https://crates.io/crates/idna_adapter
+Version: 1.2.2
+Revision: 1.2.2
+License: Apache-2.0 OR MIT
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Back end adapter for idna
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

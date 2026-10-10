@@ -1,0 +1,14 @@
+Name: url
+URL: https://crates.io/crates/url
+Version: 2.5.8
+Revision: 2.5.8
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+URL library for Rust, based on the WHATWG URL Standard
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.
