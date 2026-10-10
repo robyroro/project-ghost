@@ -11,6 +11,7 @@
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
+#include "third_party/blink/public/common/features.h"
 
 namespace ghost {
 
@@ -52,6 +53,14 @@ void AppendFeatureOverrides(
   overrides->emplace_back(
       std::cref(autofill::features::debug::kAutofillServerCommunication),
       base::FeatureList::OVERRIDE_DISABLE_FEATURE);
+
+  // Global Privacy Control: Sec-GPC on every request and
+  // navigator.globalPrivacyControl in pages and workers, an opt-out of sale
+  // and sharing that some jurisdictions make binding (California, Colorado).
+  // Chromium implements it and leaves it off; this feature forces it on.
+  overrides->emplace_back(
+      std::cref(blink::features::kGlobalPrivacyControlForce),
+      base::FeatureList::OVERRIDE_ENABLE_FEATURE);
 }
 
 }  // namespace ghost
