@@ -131,6 +131,9 @@ cargo_crate("lib") {
     "//build/config/compiler:chromium_code",
     "//build/config/coverage:default_coverage",
   ]
+
+  # Fuzzers see inside the crate (//ghost/build/config/BUILD.gn).
+  library_configs += [ "//ghost/build/config:rust_fuzz_coverage" ]
   proc_macro_configs -= [
     "//build/config/compiler:chromium_code",
     "//build/config/coverage:default_coverage",

@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import("//build/config/sanitizers/sanitizers.gni")
+
+# Chromium's libFuzzer build instruments C++ (-fsanitize=fuzzer-no-link) but
+# not Rust, so a fuzzer over Rust code would mutate blind. In a fuzzing build
+# this gives //ghost's Rust targets the instrumentation cargo-fuzz uses: the
+# same edge counters, PC table and comparison tracing; in any other build,
+# nothing. tools/rust_vendor.py adds it to every vendored crate.
+config("rust_fuzz_coverage") {
+  if (use_libfuzzer) {
+    rustflags = [
+      "-Cpasses=sancov-module",
+      "-Cllvm-args=-sanitizer-coverage-level=4",
+      "-Cllvm-args=-sanitizer-coverage-inline-8bit-counters",
+      "-Cllvm-args=-sanitizer-coverage-pc-table",
+      "-Cllvm-args=-sanitizer-coverage-trace-compares",
+    ]
+  }
+}

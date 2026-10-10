@@ -13,7 +13,7 @@
 Chromium's own generator, gnrt, works only on Chromium's crate set
 (third_party/rust/chromium_crates_io). Crates both need are always Chromium's:
 never a second copy in the binary. When one of them lacks a feature the graph
-needs, `vendor` stops and names it; patch 0030 adds such features.
+needs, `vendor` stops and names it; patch 0028 adds such features.
 """
 
 from __future__ import annotations
@@ -295,6 +295,8 @@ def render_build_gn(crate: Crate, crates: dict[str, Crate], tree: Path, sources:
             '    "//build/config/compiler:chromium_code",\n',
             '    "//build/config/coverage:default_coverage",\n',
             "  ]\n",
+            "\n  # Fuzzers see inside the crate (//ghost/build/config/BUILD.gn).\n",
+            '  library_configs += [ "//ghost/build/config:rust_fuzz_coverage" ]\n',
             "  proc_macro_configs -= [\n",
             '    "//build/config/compiler:chromium_code",\n',
             '    "//build/config/coverage:default_coverage",\n',
@@ -384,7 +386,7 @@ def vendor(src: Path) -> int:
     crates = prune(resolve(meta), config, _roots(meta))
     missing = missing_features(tree, crates)
     if missing:
-        raise VendorError("Chromium's crates lack features the graph needs (patch 0030): "
+        raise VendorError("Chromium's crates lack features the graph needs (patch 0028):"
                           + "; ".join(f"{n}: {', '.join(f)}" for n, f in missing.items()))
     checksums = lock_checksums()
     ours = [c for c in crates.values() if not chromium_version(tree, c)]

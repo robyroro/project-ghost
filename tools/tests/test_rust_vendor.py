@@ -193,6 +193,12 @@ class BuildGnTest(unittest.TestCase):
         self.assertIn('visibility = [ "//ghost/*" ]', gn)
         self.assertIn('cargo_pkg_version = "0.13.3"', gn)
 
+    def test_libraries_take_coverage_in_a_fuzzing_build(self):
+        # Chromium instruments only C++ for libFuzzer; the config adds Rust's
+        # instrumentation in a fuzzing build and nothing in any other.
+        self.assertIn('library_configs += [ "//ghost/build/config:rust_fuzz_coverage" ]',
+                      self.render("adblock"))
+
     def test_a_proc_macro(self):
         self.assertIn('crate_type = "proc-macro"', self.render("thiserror-impl"))
 
