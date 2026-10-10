@@ -1,0 +1,21 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Fuzzing build: libFuzzer with AddressSanitizer, as Chromium's fuzzing bots
+# build, less optimize_for_fuzzing, which Chromium doesn't support on Windows.
+# Use with: gn gen out/fuzz --args='import("//ghost/build/args/fuzz.gn")'
+# and build only the fuzzers (docs/testing.md); the browser isn't needed.
+
+is_debug = false
+is_component_build = false
+use_libfuzzer = true
+is_asan = true
+symbol_level = 1
+
+# DCHECKs, and in Rust debug assertions with overflow checks: a fuzzer is
+# slower with them and finds more.
+dcheck_always_on = true
+
+branding_file_path = "//ghost/branding/BRANDING"
+disable_fieldtrial_testing_config = true

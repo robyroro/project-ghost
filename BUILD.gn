@@ -11,6 +11,9 @@ group("gn_all") {
   deps = [
     ":ghost_browsertests",
     ":ghost_unittests",
+    "//ghost/components/blocking:ghost_blocking_list_fuzzer",
+    "//ghost/components/blocking:ghost_blocking_perftests",
+    "//ghost/components/blocking:ghost_blocking_request_fuzzer",
   ]
 }
 

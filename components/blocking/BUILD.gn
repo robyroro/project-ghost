@@ -4,6 +4,9 @@
 
 # The blocking engine (docs/adr/0006-blocking-engine-adblock-rust.md).
 
+import("//testing/libfuzzer/fuzzer_test.gni")
+import("//testing/test.gni")
+
 source_set("registrable_domain") {
   sources = [
     "registrable_domain.cc",
@@ -37,7 +40,7 @@ source_set("blocking") {
 
 # The lists the browser ships, as data files beside it (docs/licensing.md):
 # <out>/blocking/ in a build; the installer takes them from there
-# (patches/0029).
+# (patches/0030).
 copy("filter_lists") {
   sources = [
     "data/easylist.txt",
@@ -48,10 +51,8 @@ copy("filter_lists") {
 
 source_set("unit_tests") {
   testonly = true
-  data = [ "test/request_corpus.tsv" ]
   sources = [
     "blocking_engine_unittest.cc",
-    "blocking_perftest.cc",
     "engine_bridge_unittest.cc",
     "filter_lists_unittest.cc",
     "registrable_domain_unittest.cc",
@@ -63,5 +64,40 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//ghost/components/blocking/rust:engine",
     "//testing/gtest",
+  ]
+}
+
+# Its own binary, beside ghost_unittests (which depends on //chrome/browser),
+# so it builds in minutes in an official output directory, where the budget
+# is judged.
+test("ghost_blocking_perftests") {
+  data = [ "test/request_corpus.tsv" ]
+  sources = [ "blocking_perftest.cc" ]
+  deps = [
+    ":blocking",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//ghost/components/blocking/rust:engine",
+    "//testing/gtest",
+  ]
+}
+
+# libFuzzer, in a fuzzing build (docs/testing.md); elsewhere, nothing.
+fuzzer_test("ghost_blocking_list_fuzzer") {
+  sources = [ "fuzz/blocking_list_fuzzer.cc" ]
+  deps = [
+    "//base",
+    "//ghost/components/blocking/rust:engine",
+  ]
+  dict = "fuzz/filter_list.dict"
+}
+
+fuzzer_test("ghost_blocking_request_fuzzer") {
+  sources = [ "fuzz/blocking_request_fuzzer.cc" ]
+  deps = [
+    ":blocking",
+    "//base",
+    "//ghost/components/blocking/rust:engine",
   ]
 }

@@ -15,5 +15,6 @@ rust_static_library("engine") {
     "//ghost/components/blocking:registrable_domain",
     "//ghost/third_party/rust/adblock/v0_13:lib",
   ]
+  configs += [ "//ghost/build/config:rust_fuzz_coverage" ]
   visibility = [ "//ghost/*" ]
 }
