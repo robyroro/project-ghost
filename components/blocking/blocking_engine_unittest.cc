@@ -76,5 +76,41 @@ TEST_F(BlockingEngineTest, SeveralListsAreOneEngine) {
                   .blocked);
 }
 
+// The bridge takes Rust strings, which must be UTF-8: cxx aborts the process
+// on anything else, so nothing that isn't may reach it.
+TEST_F(BlockingEngineTest, AListThatIsNotUtf8IsLeftOut) {
+  BlockingEngine engine;
+  engine.Load({"||ads.test^\n\xff\n", "||tracker.test^\n"});
+  EXPECT_EQ(State(engine), BlockingEngine::State::kReady);
+  EXPECT_TRUE(Check(engine, TrackerScript()).blocked);
+  EXPECT_FALSE(Check(engine, {GURL("https://ads.test/a.png"), GURL("https://a.test/"),
+                              network::mojom::RequestDestination::kImage, "GET"})
+                   .blocked);
+}
+
+TEST_F(BlockingEngineTest, WhenNoListIsUtf8TheEngineFails) {
+  BlockingEngine engine;
+  engine.Load({"||tracker.test^\n\xc3\x28\n"});
+  EXPECT_EQ(State(engine), BlockingEngine::State::kFailed);
+}
+
+// The method comes from the renderer, and the request filter sees it before
+// the network service validates it.
+TEST_F(BlockingEngineTest, AMethodThatIsNotUtf8IsBlocked) {
+  BlockingEngine engine;
+  engine.Load({"||other.test^\n"});
+  CheckRequest request = TrackerScript();
+  request.method = "G\xffT";
+  EXPECT_TRUE(Check(engine, std::move(request)).blocked);
+}
+
+TEST_F(BlockingEngineTest, AnInvalidPageIsNoPage) {
+  BlockingEngine engine;
+  engine.Load({"||tracker.test^\n"});
+  CheckRequest request = TrackerScript();
+  request.source_url = GURL("not a url\xff");
+  EXPECT_TRUE(Check(engine, std::move(request)).blocked);
+}
+
 }  // namespace
 }  // namespace ghost::blocking

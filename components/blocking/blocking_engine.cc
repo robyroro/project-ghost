@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/logging.h"
+#include "base/strings/string_util.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "ghost/components/blocking/request_types.h"
@@ -20,7 +21,11 @@ class BlockingEngine::Core {
   void Load(std::vector<std::string> lists) {
     std::string text;
     for (const std::string& list : lists) {
-      if (!list.empty()) {
+      // The bridge takes Rust strings, and cxx aborts the process on one that
+      // isn't UTF-8: a damaged list is left out, not a crash at startup.
+      if (!base::IsStringUTF8AllowingNoncharacters(list)) {
+        LOG(ERROR) << "Blocking: a filter list isn't UTF-8; it is left out.";
+      } else if (!list.empty()) {
         text += list;
         text += '\n';  // A list without a final newline mustn't join the next.
       }
@@ -51,8 +56,15 @@ class BlockingEngine::Core {
  private:
   void Answer(const CheckRequest& request, base::OnceCallback<void(Decision)> reply) {
     Decision decision;
-    if (state_ == State::kReady && request.url.is_valid()) {
-      Verdict verdict = (*engine_)->check(request.url.spec(), request.source_url.spec(),
+    // The method comes from the renderer, unvalidated: the network service
+    // would refuse one that isn't UTF-8, and it mustn't reach the bridge.
+    // Valid URLs' specs are ASCII; an invalid page is no page.
+    if (!base::IsStringUTF8AllowingNoncharacters(request.method)) {
+      decision.blocked = true;
+    } else if (state_ == State::kReady && request.url.is_valid()) {
+      const std::string& page =
+          request.source_url.is_valid() ? request.source_url.spec() : base::EmptyString();
+      Verdict verdict = (*engine_)->check(request.url.spec(), page,
                                           ToAdblockType(request.destination), request.method);
       decision.blocked = verdict.blocked;
       decision.filter = std::string(verdict.filter);
