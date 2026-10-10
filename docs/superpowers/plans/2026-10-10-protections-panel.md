@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Tasks 1–7 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** Tasks 1–8 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -438,14 +438,14 @@ LINE_TO, 16.5f, 16.5f
 **Files:**
 - Create: `browser/ui/protections/protections_panel_browsertest.cc` (add to `ghost_browsertests`)
 
-- [ ] **Step 1:** Write the tests. Find the button by its element identifier: the button sets `SetProperty(views::kElementIdentifierKey, kProtectionsButtonElementId)` (declared with `DECLARE_ELEMENT_IDENTIFIER_VALUE` in `protections_button.h`, so no Chromium id list is patched), and the test gets it with `views::ElementTrackerViews::GetInstance()->GetFirstMatchingViewAs<ProtectionsButton>(kProtectionsButtonElementId, browser()->window()->GetElementContext())`. Cases:
+- [x] **Step 1:** Write the tests. Find the button by its element identifier: the button sets `SetProperty(views::kElementIdentifierKey, kProtectionsButtonElementId)` (declared with `DECLARE_ELEMENT_IDENTIFIER_VALUE` in `protections_button.h`, so no Chromium id list is patched), and the test gets it with `views::ElementTrackerViews::GetInstance()->GetFirstMatchingViewAs<ProtectionsButton>(kProtectionsButtonElementId, browser()->window()->GetElementContext())`. Cases:
   1. On a page with three tracker images, the badge text is "3" (`IconWithBadgeImageSource` isn't inspectable: expose `std::u16string badge_text_for_testing()`), and the accessible name is "Protections: Standard, 3 requests blocked".
   2. The bubble opens (`ShowBubble`, then wait for `WebUIBubbleManager::GetBubbleWidget()` to be visible). In its `WebContents`, `content::EvalJs(bubble, "document.querySelector('protections-app').shadowRoot.querySelector('.count').textContent")` is "3".
   3. Clicking Off in the page (`content::ExecJs`, clicking the Off radio) writes `site_levels["news.test"] == "off"`, reloads the tab (wait with `content::TestNavigationObserver`), makes the badge text empty, and puts the button in Off.
   4. On `chrome://settings` the button is disabled.
   5. In an Incognito browser (`CreateIncognitoBrowser()`), the bubble shows Strict as the default and the Incognito note.
-- [ ] **Step 2:** Run them: `out\vanilla\ghost_browsertests --gtest_filter=ProtectionsPanel*`. Expected: pass. Then all of `ghost_browsertests` and `ghost_unittests` with no retry.
-- [ ] **Step 3: Commit.** `protections: browser tests for the button and the panel`.
+- [x] **Step 2:** Run them: `out\vanilla\ghost_browsertests --gtest_filter=ProtectionsPanel*`. Expected: pass. Then all of `ghost_browsertests` and `ghost_unittests` with no retry.
+- [x] **Step 3: Commit.** `protections: browser tests for the button and the panel`.
 
 ### Task 9: The look, with the user
 

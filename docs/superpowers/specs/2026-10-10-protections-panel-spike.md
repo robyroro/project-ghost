@@ -44,3 +44,7 @@ One commit: the page and its Mojo interface only work together.
 - **The badge is our own drawing**, not `IconWithBadgeImageSource`: that one centres a 16 px extension icon (`ExtensionAction::ActionIconSize()`), smaller than the toolbar's 20 px icons. `ShieldWithCount` paints `kShieldIcon` and a pill with the count ("99+" above 99) cut out of its bottom right corner, in `kColorSysPrimary` / `kColorSysOnPrimary`, at each scale.
 - **The struck shield is written in C++** (`shield_off_icon.cc`): `shield.icon`'s path plus a slash, in the commands `aggregate_vector_icons.py` generates, rather than the template's own `.h`/`.cc` templates copied into `//ghost`. The format has `CAP_SQUARE`, no round cap.
 - The button follows the active tab (`TabStripModelObserver`) and that tab's `PageProtections`; a level's change reloads the page, whose reset notification updates the button. Its tooltip and accessible name are the same sentence.
+
+## Task 8: browser tests for the button and the panel, 2026-10-10
+
+`ProtectionsPanelBrowserTest` (6 tests, replacing the spike's one): the badge and the accessible name; the panel's site and count, which follows the page while it is open; Off clicked in the panel writes the pref, reloads the tab and turns the button Off (the tracker then loads uncounted); the button disabled on `chrome://version`; Incognito's Strict default and note; the button following the active tab. At 152 `View::GetTooltipText()` takes no point and `Browser::profile()` is `GetProfile()`. 91 unit and 77 browser tests pass, no retry.
