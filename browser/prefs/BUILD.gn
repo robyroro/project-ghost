@@ -2,14 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-# Linked into //chrome/browser/prefs:impl, which calls it from
-# RegisterProfilePrefs() (patches/0002). Must not depend on //chrome/browser,
-# which depends on it. //extensions/browser is needed only for its pref names;
+# Linked into //chrome/browser/prefs:impl, whose RegisterProfilePrefs()
+# registers Ghost's own prefs (patches/0032), then overrides upstream defaults
+# (patches/0002). Must not depend on //chrome/browser, which depends on it. //extensions/browser is needed only for its pref names;
 # upstream offers no smaller target for them, and it never depends on chrome.
 source_set("prefs") {
   sources = [
     "pref_defaults.cc",
     "pref_defaults.h",
+    "profile_prefs.cc",
+    "profile_prefs.h",
   ]
 
   deps = [
@@ -23,5 +25,6 @@ source_set("prefs") {
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/translate/core/browser:translate_pref_names",
     "//extensions/browser",
+    "//ghost/browser/query_filter:prefs",
   ]
 }

@@ -22,6 +22,7 @@ test("ghost_unittests") {
   sources = [
     "browser/component_updater/component_update_urls_unittest.cc",
     "browser/prefs/pref_defaults_unittest.cc",
+    "browser/query_filter/prefs_unittest.cc",
     "browser/startup/browser_main_extra_parts_unittest.cc",
     "components/signin/gaia_cookie_manager_service_unittest.cc",
     "components/update_client/request_scrubber_unittest.cc",
@@ -61,6 +62,7 @@ test("ghost_unittests") {
     "//ghost/components/blocking:unit_tests",
     "//ghost/components/query_filter:unit_tests",
     "//ghost/components/site:unit_tests",
+    "//ghost/browser/query_filter:prefs",
     "//ghost/browser/startup",
     "//ghost/components/update_client:request_scrubber",
     "//ghost/version",
@@ -81,6 +83,7 @@ test("ghost_unittests") {
 test("ghost_browsertests") {
   sources = [
     "browser/blocking/request_filter_browsertest.cc",
+    "browser/query_filter/query_filter_browsertest.cc",
     "browser/features/feature_overrides_browsertest.cc",
     "test/egress/omnibox_browsertest.cc",
     "test/google_services_browsertest.cc",
@@ -119,6 +122,8 @@ test("ghost_browsertests") {
     "//components/search_engines",
     "//content/test:test_support",
     "//ghost/browser/blocking",
+    "//ghost/browser/query_filter",
+    "//ghost/browser/query_filter:prefs",
     "//ghost/version",
     "//net:test_support",
     "//testing/gmock",

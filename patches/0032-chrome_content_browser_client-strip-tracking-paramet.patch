@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 13:00:06 +0300
+Subject: [PATCH] chrome_content_browser_client: strip tracking parameters from
+ navigations
+
+CreateURLLoaderThrottles now first appends
+ghost::query_filter::MaybeCreateQueryFilterThrottle, a throttle for
+navigations of the outermost main frame: when a navigation's URL comes
+from another site or from the user, it removes Shade's listed tracking
+parameters before the request is sent (an internal redirect), and again at
+each redirect that crosses sites. Appended first, the other throttles,
+Safe Browsing's among them, see the clean URL. //chrome/browser:core
+depends on //ghost/browser/query_filter for it.
+
+RegisterProfilePrefs also calls ghost::RegisterProfilePrefs, which
+registers Shade's own profile prefs (the campaign-parameters switch),
+before Shade's overrides of upstream defaults.
+
+Why: no other embedder hook can change a navigation's URL before it is sent.
+Upstream: not upstreamable: product-specific privacy policy
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index 35d29b3629de87a3e604e85c3d52c5cbd197a45c..314ca5155ad9d472126264c9612e0789bff85531 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1239,6 +1239,7 @@ source_set("core") {
+     "//device/base",
+     "//device/gamepad/public/cpp:switches",
+     "//ghost/browser/blocking",
++    "//ghost/browser/query_filter",
+     "//ghost/browser/startup",
+     "//media/capture:capture_switches",
+     "//media/midi",
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 8d6f4be8ffb8de81ed8a5229a5ce18d6cca663b6..8ae658d77b1801bfe9f25546aa5b72c7b348132f 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -386,6 +386,7 @@
+ #include "extensions/common/extension_features.h"
+ #include "extensions/common/switches.h"
+ #include "ghost/browser/blocking/request_filter.h"
++#include "ghost/browser/query_filter/query_filter_throttle.h"
+ #include "google_apis/gaia/gaia_urls.h"
+ #include "google_apis/google_api_keys.h"
+ #include "gpu/config/gpu_switches.h"
+@@ -6024,6 +6025,13 @@ ChromeContentBrowserClient::CreateURLLoaderThrottles(
+   Profile* profile = Profile::FromBrowserContext(browser_context);
+   DCHECK(profile);
+ 
++  // First, so that the other throttles (Safe Browsing among them) see the
++  // URL without tracking parameters.
++  if (auto query_filter = ghost::query_filter::MaybeCreateQueryFilterThrottle(
++          request, browser_context)) {
++    result.push_back(std::move(query_filter));
++  }
++
+   ChromeNavigationUIData* chrome_navigation_ui_data =
+       static_cast<ChromeNavigationUIData*>(navigation_ui_data);
+ 
+diff --git a/chrome/browser/prefs/browser_prefs.cc b/chrome/browser/prefs/browser_prefs.cc
+index 7c85969c47818b493b6f3795969fe766cdb8ff0f..7efe9890545723dd095bafc9552ad123fc8adef1 100644
+--- a/chrome/browser/prefs/browser_prefs.cc
++++ b/chrome/browser/prefs/browser_prefs.cc
+@@ -224,6 +224,7 @@
+ #include "content/public/common/buildflags.h"
+ #include "extensions/buildflags/buildflags.h"
+ #include "ghost/browser/prefs/pref_defaults.h"
++#include "ghost/browser/prefs/profile_prefs.h"
+ #include "net/http/http_server_properties_manager.h"
+ #include "pdf/buildflags.h"
+ #include "printing/buildflags/buildflags.h"
+@@ -2265,6 +2266,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
+ 
+   registry->RegisterBooleanPref(prefs::kStaticStorageQuotaEnabled, false);
+ 
++  ghost::RegisterProfilePrefs(registry);
++
+   // Must stay last: it changes defaults of prefs registered above.
+   ghost::OverrideProfilePrefDefaults(registry);
+ }
