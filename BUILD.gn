@@ -14,6 +14,7 @@ group("gn_all") {
     "//ghost/components/blocking:ghost_blocking_list_fuzzer",
     "//ghost/components/blocking:ghost_blocking_perftests",
     "//ghost/components/blocking:ghost_blocking_request_fuzzer",
+    "//ghost/components/query_filter:ghost_query_filter_fuzzer",
   ]
 }
 

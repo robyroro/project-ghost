@@ -5,6 +5,8 @@
 # Tracking-parameter stripping's logic (docs/superpowers/specs/
 # 2026-10-10-query-filter-design.md): no //content, tested without a browser.
 
+import("//testing/libfuzzer/fuzzer_test.gni")
+
 # data/parameters.txt in the binary: the first navigation after startup is
 # covered, with no file to read. 3E delivers updates as a component.
 action("parameter_list_data") {
@@ -48,6 +50,16 @@ source_set("unit_tests") {
     ":query_filter",
     "//base",
     "//testing/gtest",
+    "//url",
+  ]
+}
+
+# libFuzzer, in a fuzzing build (docs/testing.md); elsewhere, nothing.
+fuzzer_test("ghost_query_filter_fuzzer") {
+  sources = [ "fuzz/query_filter_fuzzer.cc" ]
+  deps = [
+    ":query_filter",
+    "//base",
     "//url",
   ]
 }
