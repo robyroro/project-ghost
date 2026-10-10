@@ -60,6 +60,7 @@ test("ghost_unittests") {
     "//extensions/browser",
     "//ghost/branding:keys",
     "//ghost/components/blocking:unit_tests",
+    "//ghost/components/privacy_policy:unit_tests",
     "//ghost/components/query_filter:unit_tests",
     "//ghost/components/site:unit_tests",
     "//ghost/browser/query_filter:prefs",

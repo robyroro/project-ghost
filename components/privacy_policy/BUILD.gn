@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Protection levels and the policy each gives (docs/superpowers/specs/
+# 2026-10-10-protection-levels-design.md): no //content, tested without a
+# browser. //ghost/browser/privacy_policy stores the user's choices.
+
+source_set("privacy_policy") {
+  sources = [
+    "effective_policy.cc",
+    "effective_policy.h",
+    "protection_level.cc",
+    "protection_level.h",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "effective_policy_unittest.cc" ]
+  deps = [
+    ":privacy_policy",
+    "//testing/gtest",
+  ]
+}
