@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Tasks 1–6 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** Tasks 1–7 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -411,7 +411,7 @@ interface Page {
 - Modify: `browser/ui/protections/protections_button.{h,cc}`, `BUILD.gn`
 - Create: `browser/ui/protections/vector_icons/BUILD.gn`, `shield_off.icon`
 
-- [ ] **Step 1:** `shield_off.icon`: copy `components/vector_icons/shield.icon`'s path and append a slash:
+- [x] **Step 1:** `shield_off.icon`: copy `components/vector_icons/shield.icon`'s path and append a slash:
 
 ```
 NEW_PATH,
@@ -422,7 +422,7 @@ LINE_TO, 16.5f, 16.5f
 ```
 
   Build it with `aggregate_vector_icons("protections_vector_icons")`, with `icon_directory = "."`, as `components/vector_icons/BUILD.gn` does.
-- [ ] **Step 2:** `ProtectionsButton : ToolbarButton, TabStripModelObserver, PageProtections::Observer`.
+- [x] **Step 2:** `ProtectionsButton : ToolbarButton, TabStripModelObserver, PageProtections::Observer`.
   - It follows the active tab (`OnTabStripModelChanged` with `selection.active_tab_changed()`) and its navigations (a `content::WebContentsObserver` on the active tab).
   - On each change it calls `Update()`:
     - with `GetPanelState`: if `!applies`, the button is disabled with the tooltip `kNotApplicable`;
@@ -430,8 +430,8 @@ LINE_TO, 16.5f, 16.5f
     - otherwise: `kShieldIcon` in `kColorToolbarButtonIcon`, with an `IconWithBadgeImageSource` badge carrying the count (empty when 0, "99+" above 99), coloured `kColorToolbarButtonBackgroundHighlighted`.
     - Then `SetAccessibleName` with the format string.
   - Click: `bubble_manager_->ShowBubble(this)`. The manager is created in the constructor with `WebUIBubbleManager::Create<ProtectionsUI>(browser, GURL("chrome://protections.top-chrome"), <the string id settled in Task 1, Step 6>)`.
-- [ ] **Step 3:** Build and check by hand: the badge appears on a tracker page, the shield turns grey and struck at Off, and the button is disabled on `chrome://settings`.
-- [ ] **Step 4: Commit.** `protections: the toolbar button`.
+- [x] **Step 3:** Build and check by hand: the badge appears on a tracker page, the shield turns grey and struck at Off, and the button is disabled on `chrome://settings`.
+- [x] **Step 4: Commit.** `protections: the toolbar button`.
 
 ### Task 8: Browser tests for the button and the panel
 

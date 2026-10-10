@@ -22,14 +22,18 @@ source_set("protections") {
     "protections_strings.h",
     "protections_ui.cc",
     "protections_ui.h",
+    "shield_off_icon.cc",
+    "shield_off_icon.h",
   ]
 
   public_deps = [ ":mojo_bindings" ]
 
   deps = [
     "//base",
+    "//cc/paint",
     "//chrome/app:generated_resources",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/views/bubble",
@@ -41,6 +45,8 @@ source_set("protections") {
     "//ghost/browser/resources/protections:resources",
     "//mojo/public/cpp/bindings",
     "//ui/base",
+    "//ui/color",
+    "//ui/gfx",
     "//ui/views",
     "//ui/webui",
     "//url",

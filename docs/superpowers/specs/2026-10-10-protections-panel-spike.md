@@ -38,3 +38,9 @@ One commit: the page and its Mojo interface only work together.
 - `build_webui` runs WebUI's ESLint: an HTML template may hold no local variables or `if` (logic goes to the class), and a Lit lifecycle override must call `super`.
 - The levels are native radio inputs styled as a segmented control: radio-group semantics and arrow keys come with them, without `cr_elements` (another dependency to allow).
 - Colours come from `chrome://theme/colors.css` (`--color-sys-*`), loaded by the page; nothing is hard-coded.
+
+## Task 7: the button, 2026-10-10
+
+- **The badge is our own drawing**, not `IconWithBadgeImageSource`: that one centres a 16 px extension icon (`ExtensionAction::ActionIconSize()`), smaller than the toolbar's 20 px icons. `ShieldWithCount` paints `kShieldIcon` and a pill with the count ("99+" above 99) cut out of its bottom right corner, in `kColorSysPrimary` / `kColorSysOnPrimary`, at each scale.
+- **The struck shield is written in C++** (`shield_off_icon.cc`): `shield.icon`'s path plus a slash, in the commands `aggregate_vector_icons.py` generates, rather than the template's own `.h`/`.cc` templates copied into `//ghost`. The format has `CAP_SQUARE`, no round cap.
+- The button follows the active tab (`TabStripModelObserver`) and that tab's `PageProtections`; a level's change reloads the page, whose reset notification updates the button. Its tooltip and accessible name are the same sentence.
