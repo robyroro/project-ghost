@@ -55,15 +55,17 @@ Crates to vendor, by the 2026-10-10 survey: `adblock`, `url`, `idna`, `idna_adap
 
 - **0028**, `chrome/browser/chrome_content_browser_client.cc`: `WillCreateURLLoaderFactory` calls `ghost::MaybeProxyURLLoaderFactory`. `Why:` Chromium has no embedder hook for request filtering besides the extensions system.
 - **0029**, `chrome/installer/mini_installer/chrome.release` (and the build rule that copies the data): the list files go into the installer beside the browser.
+- **0030**, `third_party/rust/{regex/v1,memchr/v2,utf8_iter/v1,serde/v1,bitflags/v2}/BUILD.gn` (found while planning, 2026-10-10): `gnrt` makes `regex`, `memchr` and `utf8_iter` visible only within `//third_party/rust/*`, so the patch adds `//ghost/third_party/rust/*` to their visibility; and Chromium builds `serde` without its `rc` feature and `bitflags` without `serde`, which adblock-rust needs, so the patch adds them (extra impls, inert for the rest of Chromium). `Why:` the alternative is our own copies of `serde`, `bitflags` and `regex` in the binary. The lines are in generated files: a milestone that regenerates them may conflict, and the canary shows it.
 
 ## For the spike
 
 Before the rest:
 
 1. Whether `gnrt` (`tools/crates/gnrt`) can generate `BUILD.gn` files for a crate directory outside `third_party/rust/chromium_crates_io`; otherwise `tools/rust_vendor.py`.
-2. The full dependency set at adblock-rust 0.13.3 with `default-features = false` plus the features we need, and whether Chromium's versions of shared crates satisfy its requirements.
-3. That adblock-rust compiles and links in `out/vanilla` with the in-tree toolchain, and that a `cxx` call from a `ghost_unittests` test works.
-4. Whether the official build's flags (ThinLTO, CFI) accept the Rust objects: one official build of the engine's test target, before the release that first ships it.
+2. That patch 0030 is enough: no other shared crate lacks a feature or visibility adblock-rust needs.
+3. The full dependency set at adblock-rust 0.13.3 with `default-features = false` plus the features we need, and whether Chromium's versions of shared crates satisfy its requirements.
+4. That adblock-rust compiles and links in `out/vanilla` with the in-tree toolchain, and that a `cxx` call from a `ghost_unittests` test works.
+5. Whether the official build's flags (ThinLTO, CFI) accept the Rust objects: one official build of the engine's test target, before the release that first ships it.
 
 ## Error handling
 
