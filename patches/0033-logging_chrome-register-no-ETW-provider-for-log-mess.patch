@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sat, 10 Oct 2026 17:36:08 +0300
+Subject: [PATCH] logging_chrome: register no ETW provider for log messages
+
+On Windows, InitChromeLogging registered Chromium's ETW log provider
+({7FE69228-633E-4f06-80C1-527FEA23E3A7}). Any trace session that enables
+it receives every log message of every browser process, and lowers the
+processes' minimum log level to its own. Windows telemetry's DiagTrack
+sessions (WPR_initiated_DiagTrackMiniLogger_OneTrace_*) enable it at the
+verbose level, and many log messages carry URLs and host names; on the
+reference machine it made every process log at VERBOSE1, which also pushed
+browser tests over the test launcher's output limit. Shade registers none;
+--enable-logging still writes a log file.
+
+Why: no switch or pref controls the registration; it happens in InitChromeLogging for every process.
+Upstream: not upstreamable: Chrome's developers rely on ETW tracing
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/common/logging_chrome.cc b/chrome/common/logging_chrome.cc
+index b6d6fc87bdf137a35207acb750a03d18ffaaaff7..73108a0e9f74376aa10fb3a6e2f810ee90af24a1 100644
+--- a/chrome/common/logging_chrome.cc
++++ b/chrome/common/logging_chrome.cc
+@@ -81,15 +81,6 @@ bool chrome_logging_redirected_ = false;
+ constexpr char kChronosHomeDir[] = "/home/chronos/user/";
+ #endif  // BUILDFLAG(IS_CHROMEOS)
+ 
+-#if BUILDFLAG(IS_WIN)
+-// {7FE69228-633E-4f06-80C1-527FEA23E3A7}
+-const GUID kChromeTraceProviderName = {
+-    0x7fe69228,
+-    0x633e,
+-    0x4f06,
+-    {0x80, 0xc1, 0x52, 0x7f, 0xea, 0x23, 0xe3, 0xa7}};
+-#endif
+-
+ // Assertion handler for logging errors that occur when dialogs are
+ // silenced.  To record a new error, pass the log string associated
+ // with that error in the str parameter.
+@@ -514,8 +505,10 @@ void InitChromeLogging(const base::CommandLine& command_line,
+   }
+ 
+ #if BUILDFLAG(IS_WIN)
+-  // Enable trace control and transport through event tracing for Windows.
+-  LogEventProvider::Initialize(kChromeTraceProviderName);
++  // Shade registers no ETW provider for its log messages: a trace session
++  // that enables one receives every message and lowers the minimum log
++  // level to its own, and Windows telemetry's DiagTrack sessions enable
++  // Chromium's at the verbose level. --enable-logging still writes a file.
+ 
+   // Enable logging to the Windows Event Log.
+   SetEventSource(base::WideToASCII(

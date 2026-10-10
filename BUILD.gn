@@ -86,6 +86,7 @@ test("ghost_browsertests") {
     "browser/query_filter/query_filter_browsertest.cc",
     "browser/features/feature_overrides_browsertest.cc",
     "test/egress/omnibox_browsertest.cc",
+    "test/etw_logging_browsertest.cc",
     "test/google_services_browsertest.cc",
     "test/network_defaults_browsertest.cc",
     "test/web_version_browsertest.cc",
