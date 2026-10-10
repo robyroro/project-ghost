@@ -62,7 +62,7 @@ Planned components:
 
 | Component | Responsibility | Phase |
 |---|---|---|
-| `components/blocking` | adblock-rust wrapper, list management, request and cosmetic filtering | 3–4 |
+| `components/blocking` | adblock-rust wrapper, list management, request and cosmetic filtering (the engine and the lists built in 3A) | 3–4 |
 | `components/query_filter` | tracking-parameter rules | 3 |
 | `components/privacy_policy` | resolves mode × identity × site overrides into an effective policy | 3 |
 | `components/identity` | identity model, registry, domain rules | 6 |
@@ -87,7 +87,7 @@ The rule is in [ADR 0004](adr/0004-patch-strategy.md): use upstream extension po
 | Mechanism | Used for |
 |---|---|
 | `ChromeBrowserMainExtraParts` | startup and shutdown of Ghost services |
-| `BrowserContextKeyedServiceFactory` | per-profile services (identity registry, blocking service) |
+| `BrowserContextKeyedServiceFactory` | per-profile services (identity registry) |
 | `ContentBrowserClient::WillCreateURLLoaderFactory` | request interception for blocking and parameter stripping |
 | `ContentBrowserClient::ConfigureNetworkContextParams` | per-partition proxy config for identities and sessions |
 | `NavigationThrottle` | domain → identity rules on top-level navigations |
@@ -194,8 +194,13 @@ Each item is covered by a test asserting that it is shared, so a change in behav
 - **Policy.** `PrivacyPolicyResolver` is a pure function of mode defaults, identity policy and per-site overrides. It produces an `EffectivePolicy` that every enforcement point reads. Per-site overrides are content settings, which requires new `ContentSettingsType` values (a patch).
 - **Network blocking.** A proxying `URLLoaderFactory` sees navigations, subresources, and worker and service-worker fetches.
   - It asks the adblock engine for a verdict on a dedicated sequence and defers the request only until the verdict arrives.
-  - WebSocket and WebTransport are covered by their own hooks.
+  - WebSocket and WebTransport are covered by their own hooks (3D).
   - CNAME uncloaking matches on the DNS aliases the host resolver reports.
+- **Network blocking as built (Phase 3A).** [Design](superpowers/specs/2026-10-10-blocking-engine-design.md), [progress notes](superpowers/specs/2026-10-10-blocking-engine-spike.md).
+  - `//ghost/browser/blocking`: `RequestFilter`, appended first to every `URLLoaderFactory` through `WillCreateURLLoaderFactory` (patch 0029), so a blocked request reaches no other interceptor. Top-level documents and non-HTTP(S) URLs pass; a request to the page's own site (same registrable domain) starts at once but stays in the filter, which checks every redirect. A blocked request fails with `ERR_BLOCKED_BY_CLIENT`. `BlockingService`, one per browser, started in `PostCreateThreads` of Shade's `ChromeBrowserMainExtraParts`, reads the lists from `<version>\blocking\` (`base::DIR_ASSETS`).
+  - `//ghost/components/blocking`: `BlockingEngine` owns the engine on a `USER_BLOCKING` sequence of its own. Checks made while it loads wait; if no list loads, it allows everything and logs it. Lists and strings that aren't UTF-8 never reach the bridge.
+  - `components/blocking/rust/lib.rs`: the `cxx` bridge to adblock-rust 0.13.3, network rules only. adblock-rust asks C++ for registrable domains (`registry_controlled_domains`), so blocking and the browser agree on what a site is.
+  - `//ghost/third_party/rust`: the crates Chromium lacks, vendored by `tools/rust_vendor.py`; Chromium's own crates for the rest (patch 0028). The lists ship in the installer (patch 0030); `about:credits` names the crates and the lists (patch 0031).
 - **Parameter stripping.** The same interception point rewrites top-level navigations and redirects before they leave the browser, so the omnibox shows the cleaned URL. Which parameters are stripped in which mode is in [privacy-model.md](privacy-model.md#tracking-parameters).
 - **Cosmetic filtering and scriptlets** (Phase 4).
   - At navigation commit, the browser computes each page's hiding rules and scriptlets.
@@ -329,4 +334,4 @@ Each is tied to the phase that resolves it:
 | Patch surface for per-identity basic content settings | Phase 6 spike; fallback defined in [ADR 0005](adr/0005-isolation-primitives.md) |
 | Chrome UI call sites that equate off-the-record with Incognito | Phase 5 audit |
 | Exact interception point for parameter stripping on redirects | Phase 3 prototype and browser tests |
-| Serialization format for the cached compiled blocking engine | Phase 3 |
+| Serialization format for the cached compiled blocking engine | 3E (list updates as components); 3A compiles the lists at each start, in about 80 ms |

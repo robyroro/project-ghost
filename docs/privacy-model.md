@@ -38,6 +38,13 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - *Strict* also blocks first-party trackers, and applies cosmetic rules more aggressively.
   - *Off* disables blocking for the site. Per-site overrides are one click from the protections panel.
 - **Breakage reports** are prepared on the user's machine and shown to the user before anything is sent. Nothing is reported automatically.
+- **What ships now (Phase 3A).** Every profile, Incognito included, blocks at the *Standard* level, fixed until the protections panel (3D):
+  - with EasyList and EasyPrivacy, unmodified, shipped with the browser and updated with its releases (between releases from 3E). Our own list comes later;
+  - every request a page makes is checked: subresources, frames, workers and service workers, and every redirect. Top-level navigations always load, and requests to the page's own site (the same registrable domain) aren't checked;
+  - a blocked request fails with `ERR_BLOCKED_BY_CLIENT`, as with blocking extensions, and the console says so;
+  - **not yet checked:** WebSocket and WebTransport connections, which use other hooks (3D);
+  - if the lists can't be loaded, nothing is blocked and the error is logged: a browser that loads nothing is worse. Until the lists are loaded at startup, requests that need a verdict wait.
+  - Checks happen in the browser process; nothing about them leaves the machine.
 
 ### Cookies and storage
 

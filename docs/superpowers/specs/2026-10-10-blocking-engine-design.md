@@ -1,6 +1,6 @@
 # The blocking engine: design
 
-- Status: design approved 2026-10-10
+- Status: done 2026-10-10 ([progress notes](2026-10-10-blocking-engine-spike.md)); design approved 2026-10-10
 - Phase 3, sub-project 3A ([roadmap](../../roadmap.md#phases-to-public-alpha)); the engine is [ADR 0006](../../adr/0006-blocking-engine-adblock-rust.md)
 - Phase 3's sub-projects, in order (decided 2026-10-10): **3A** the blocking engine; **3B** tracking-parameter stripping; **3C** network defaults (third-party cookies, HTTPS-First, DoH, WebRTC, GPC, preconnect and prefetch off); **3D** per-site policy and the protections panel; **3E** list updates as signed components, which needs the update server (sub-project C) deployed
 
@@ -53,6 +53,8 @@ Crates to vendor, by the 2026-10-10 survey: `adblock`, `url`, `idna`, `idna_adap
 
 ### Patches
 
+Numbered here in the order they were planned. As committed: **0028** is Chromium's crates (below as 0030), **0029** the `ContentBrowserClient` hook (below as 0028), **0030** the installer (below as 0029), and **0031**, added while finishing, names the vendored crates and the lists on `about:credits`.
+
 - **0028**, `chrome/browser/chrome_content_browser_client.cc`: `WillCreateURLLoaderFactory` calls `ghost::MaybeProxyURLLoaderFactory`. `Why:` Chromium has no embedder hook for request filtering besides the extensions system.
 - **0029**, `chrome/installer/mini_installer/chrome.release` (and the build rule that copies the data): the list files go into the installer beside the browser.
 - **0030**, `third_party/rust/{regex/v1,memchr/v2,utf8_iter/v1,serde/v1,bitflags/v2}/BUILD.gn` (found while planning, 2026-10-10): `gnrt` makes `regex`, `memchr` and `utf8_iter` visible only within `//third_party/rust/*`, so the patch adds `//ghost/third_party/rust/*` to their visibility; and Chromium builds `serde` without its `rc` feature and `bitflags` without `serde`, which adblock-rust needs, so the patch adds them (extra impls, inert for the rest of Chromium). `Why:` the alternative is our own copies of `serde`, `bitflags` and `regex` in the binary. The lines are in generated files: a milestone that regenerates them may conflict, and the canary shows it.
@@ -93,7 +95,7 @@ Before the rest:
 
 **Performance** (ADR 0006's budget: under 50 µs p99 per check): a test runs the engine, with the real EasyList and EasyPrivacy, over about 5,000 request URLs recorded once from about 20 news sites (URLs only: no addresses, cookies or headers). It reports the lists' compile time, p50 and p99 per check, and the engine's memory, and fails over budget in an official build.
 
-**Fuzzing:** a libFuzzer target over list parsing, `blocking_list_fuzzer`, run locally for a fixed time before 3A is done.
+**Fuzzing:** a libFuzzer target over list parsing, `blocking_list_fuzzer`, run locally for a fixed time before 3A is done. Built: `ghost_blocking_list_fuzzer`, and `ghost_blocking_request_fuzzer` over requests against the shipped lists (what a page controls); 30 minutes each.
 
 **Mutation checks**, each must fail:
 - M1: no check on redirect → the redirect test fails;
@@ -109,11 +111,11 @@ Before the rest:
 
 ## Done when
 
-- [ ] The tests above pass and the four mutation checks fail as required.
-- [ ] The performance test is within budget in an official build.
-- [ ] The fuzzer ran for its fixed time without a crash.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The tests above pass and the four mutation checks fail as required (M2 after a fix to its test).
+- [x] The performance test is within budget in an official build (p99 36–39 µs).
+- [x] The fuzzer ran for its fixed time without a crash (both fuzzers, 30 minutes each).
+- [x] The egress audit finds no unexpected host.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 

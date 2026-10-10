@@ -257,3 +257,24 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
 **Exit criteria**
 - [ ] An update shipped end to end to test machines.
 - [ ] One milestone move measured.
+
+## Phase 3: network protections
+
+Sub-projects, in order (decided 2026-10-10), each with its own design and plan in `docs/superpowers/`:
+
+1. **3A. The blocking engine.** adblock-rust with EasyList and EasyPrivacy on every request a page makes ([ADR 0006](adr/0006-blocking-engine-adblock-rust.md)).
+
+   **Done 2026-10-10.** `//ghost/components/blocking`, `//ghost/browser/blocking`, `//ghost/third_party/rust` (16 crates), `tools/rust_vendor.py`, `filter_lists.py`; patches 0028 (Chromium's crates), 0029 (the request filter's hook), 0030 (the lists in the installer), 0031 (`about:credits`); [design](superpowers/specs/2026-10-10-blocking-engine-design.md), [progress notes](superpowers/specs/2026-10-10-blocking-engine-spike.md).
+   - Every profile blocks at the Standard level: third-party ads and trackers, with every redirect checked; top-level navigations and the page's own site pass ([privacy-model.md](privacy-model.md#blocking)).
+   - In the official build a check costs 6 µs at p50 and 36–39 µs at p99, within ADR 0006's 50 µs; the lists compile in about 80 ms at startup into about 6 MiB.
+   - Two fuzzers ran 30 minutes each without a crash; four mutation checks fail as required (one after a fix to its test); the egress audit finds no unexpected host.
+   - Found on the way: bytes that aren't UTF-8 reaching the Rust bridge aborted the browser, and `about:credits` named none of the crates or lists. Both fixed.
+   - Not yet: WebSocket and WebTransport (3D); list updates between releases (3E).
+2. **3B. Tracking-parameter stripping.**
+3. **3C. Network defaults:** third-party cookies, HTTPS-First, DNS-over-HTTPS, WebRTC, GPC, preconnect and prefetch off.
+4. **3D. Per-site policy and the protections panel,** with the Strict and Off levels, WebSocket and WebTransport.
+5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.
+
+**Exit criteria** ([phases](#phases-to-public-alpha))
+- [ ] Blocking, parameter and egress tests green.
+- [x] Blocking overhead within budget (3A).

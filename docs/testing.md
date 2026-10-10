@@ -15,7 +15,7 @@
 | Installer smoke | `tools/installer_smoke.py` in Windows Sandbox | Nightly and release | Per-user install, registration, shortcuts, the product's icons, launch, uninstall, cleanup |
 | Updater end to end | `tools/update_smoke.py` in Windows Sandbox, against `tools/update_server.py` | Release; run by hand until the builder runs it | Install through the updater, an applied update, the update request's allow-list, uninstall of the browser and the updater; for signed releases, every PE file's signature, the installer's tag and an update proved by the backup key |
 | Upstream suites | Filtered `unit_tests`, `browser_tests`, `content_browsertests` | Nightly | Upstream behavior our patches touch |
-| Fuzzing | libFuzzer | Nightly, later continuous | List parsing, parameter stripping, manifest parsing, every mojom handler we add |
+| Fuzzing | libFuzzer | By hand now (blocking, since 3A); nightly, later continuous | List parsing and requests against the lists, parameter stripping, manifest parsing, every mojom handler we add |
 | Performance | crossbench (Speedometer 3, JetStream, MotionMark) and a page-load corpus | Nightly | Regression against vanilla Chromium at the same tag; blocking overhead budget |
 | Compatibility | Smoke corpus of popular sites | Nightly, never gating | Breakage from blocking and protections |
 
@@ -65,6 +65,23 @@
     - Four mutation checks showed these fail as required: a CRX3 proved by a third key, an unsigned `chrome.dll`, an untagged installer, and an updater pinning only the primary publisher key. The results are in the [progress notes](superpowers/specs/2026-10-04-signing-spike.md#mutation-checks).
   - **Rollout** ([release.md](build/release.md#rolling-out)): `--rollout-server` runs the update server repository's own service in the Sandbox and offers the update as its candidate. **halted (fraction 0):** the updater checks and stays on the installed release; **rolled out (fraction 1):** it takes the update. Four mutation checks cover the release pipeline: a local change in the Chromium checkout, a server ignoring the fraction, a wrong hash in the provenance, and `--public` with the test identity ([progress notes](superpowers/specs/2026-10-05-release-pipeline-spike.md#mutation-checks)). The Sandbox maps only the base Python installation, so the service's `cryptography` and its `cffi` must be installed there, not in the user's site-packages (`python -s -m pip install --no-user …`); `update_smoke.py` checks before starting a Sandbox.
 
+- **Blocking** (Phase 3A; [progress notes](superpowers/specs/2026-10-10-blocking-engine-spike.md)).
+  - **Unit** (`ghost_unittests`): the engine through its bridge with lists written in the test; `BlockingEngine`'s states, a check made while it loads, and input that isn't UTF-8; registrable domains; the request-type mapping; reading the lists.
+  - **Browser** (`ghost_browsertests`, `RequestFilterBrowserTest`), with test lists and hosts mapped to the embedded test server: a third-party tracker's script blocked and never reaching the server; a frame failing with `ERR_BLOCKED_BY_CLIENT`; the page's own site not checked, with a rule that would block it; a redirect to a tracker blocked; a top-level navigation loading; Incognito; the shipped EasyList and EasyPrivacy blocking known hosts.
+  - **Performance:** `ghost_blocking_perftests` checks 2,194 requests recorded from 20 news front pages (`components/blocking/test/request_corpus.tsv`, query values replaced) against the shipped lists, and reports compile time, memory and p50/p99. It fails over ADR 0006's 50 µs at p99 only in an official build: a development build compiles Rust with debug assertions, about 15 times slower. Its own binary, so that it builds in minutes in `out/release`.
+  - **Fuzzing,** by hand for now: `ghost_blocking_list_fuzzer` (list text) and `ghost_blocking_request_fuzzer` (requests against the shipped lists, in the corpus' format). A fuzzing output directory builds only them (about 30 minutes):
+
+    ```
+    gn gen out\fuzz --args="import(\"//ghost/build/args/fuzz.gn\")"
+    autoninja -C out\fuzz ghost_blocking_list_fuzzer ghost_blocking_request_fuzzer
+    out\fuzz\ghost_blocking_list_fuzzer.exe -max_total_time=1800 -max_len=4096 -dict=ghost\components\blocking\fuzz\filter_list.dict <corpus> <seeds>
+    out\fuzz\ghost_blocking_request_fuzzer.exe -max_total_time=1800 <corpus> <seeds>
+    ```
+
+    Seeds: the shipped lists cut into pieces under 4 KB, and one file per line of the request corpus. `//ghost/build/config:rust_fuzz_coverage` instruments `//ghost`'s Rust code, which Chromium's fuzzing build leaves blind.
+  - **Installer:** `installer_smoke` checks that both lists are installed in `<version>\blocking\`.
+  - Mutation checks showed each of these fails when the behavior it covers is undone ([progress notes](superpowers/specs/2026-10-10-blocking-engine-spike.md#mutation-checks)).
+
 ## Running the tooling tests
 
 ```
@@ -84,7 +101,7 @@ The tooling tests run git with system and global config disabled. The CI runners
 
 **Self-hosted Windows build host, from Phase 1.** `tools/builder.py` runs the builds, and `.github/workflows/build.yml` schedules them. Setup and operation are in the [runbook](build/build-host.md).
 - **Persistent checkout and build cache.** A clean Chromium build takes hours, so pull-request builds are incremental. Chromium is re-synced only when the pin moves, and the series is re-applied only when it changes.
-- **Pull requests and pushes to `main`:** apply the series, build `chrome`, `ghost_unittests` and `ghost_browsertests`, and run them.
+- **Pull requests and pushes to `main`:** apply the series, build `chrome`, `ghost_unittests`, `ghost_browsertests` and `ghost_blocking_perftests`, and run them.
 - **Nightly, now:** the same, plus the installer, its smoke test, and the egress audit.
 - **Nightly, planned:**
   - an official-configuration build;

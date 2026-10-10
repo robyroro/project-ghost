@@ -39,6 +39,20 @@ Every release must:
 3. Add `README.chromium` metadata: `Name`, `URL`, `Version`, `License`, `License File`, `Security Critical`, `Shipped`. This feeds the credits page and the SBOM.
 4. Two maintainers approve ([CONTRIBUTING.md](../CONTRIBUTING.md#review-requirements)).
 
+**Rust crates.** `tools/rust_vendor.py` vendors the crates `//ghost` needs and Chromium lacks into `third_party/rust/<crate>/v<epoch>/`, from the pinned `third_party/rust/Cargo.lock`, and writes each crate's `README.chromium` and `BUILD.gn`. A crate Chromium already ships is always Chromium's copy, never a second one in the binary; patch 0028 opens three of them to `//ghost` and adds the features adblock-rust needs. Since Phase 3A, sixteen crates are vendored, all under allowed licenses:
+
+| License | Crates |
+|---|---|
+| MPL-2.0 | adblock 0.13.3 |
+| MIT OR Apache-2.0 | arrayvec, form_urlencoded, idna, idna_adapter, percent-encoding, regex, regex-automata, rustc-hash, thiserror and thiserror-impl (v1; Chromium has v2), url |
+| Apache-2.0 | flatbuffers |
+| MIT | precomputed-hash, seahash |
+| Unlicense OR MIT (used under MIT) | aho-corasick |
+
+`regex`, `regex-automata` and `aho-corasick` are ours although Chromium has them: Chromium's copies are test-only.
+
+**Credits.** Chromium's `licenses.py` builds `about:credits` from directories under its own `third_party/` only. Patch 0031 has it read `//ghost/build/credits.gni` as well, which names every vendored crate (the list `rust_vendor.py` generates) and the filter lists. The SBOM finds the crates through GN, and `tools/sbom.py` names the lists' directory. A crate that ships no license file is named one in `vendor_config.toml`, or vendoring stops.
+
 ## Code from other browsers and blockers
 
 | Source | License | What we may do |
@@ -53,7 +67,9 @@ Every release must:
 
 ## Filter lists and scriptlets
 
-- **Filter lists are data, not code.** They are distributed as separate, signed components, not compiled into the binary or into source files. Each list's attribution and license are shown in the browser's credits and on the list settings page.
+- **Filter lists are data, not code.** They are distributed as separate files, never compiled into the binary or into source files. Each list's attribution and license are shown in the browser's credits and on the list settings page.
+  - **Now (Phase 3A):** the lists are committed unmodified in `components/blocking/data/`, with their source, date and sha256 in `VERSIONS.json` and their license in `LICENSE` and `README.chromium`, and ship in the installer as files beside the browser, in `<version>\blocking\`. They change with browser releases.
+  - **From 3E:** they arrive as signed components from our update server, between releases.
   - **EasyList and EasyPrivacy** are dual-licensed GPL-3.0 / CC BY-SA 3.0. We distribute them unmodified as separate data, with attribution. Any list we derive from them is published under the same terms.
   - **uBlock Origin's filter lists** (GPL-3.0) may be offered as optional, user-enabled lists, distributed separately. This needs legal confirmation before release.
   - **Other lists**, such as regional and annoyance lists, are reviewed one by one. Some community lists restrict commercial redistribution.
