@@ -9,10 +9,19 @@ source_set("protections") {
   sources = [
     "page_protections.cc",
     "page_protections.h",
+    "panel_state.cc",
+    "panel_state.h",
   ]
 
   public_deps = [
     "//base",
     "//content/public/browser",
+    "//ghost/components/privacy_policy",
+  ]
+
+  deps = [
+    "//ghost/browser/privacy_policy",
+    "//ghost/components/site",
+    "//url",
   ]
 }

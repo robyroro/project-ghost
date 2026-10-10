@@ -24,3 +24,8 @@ What the wiring took, beyond the plan:
 
 - `RequestFilter` keeps its factory's frame and reports each block against it; the connection filter reports WebSocket and WebTransport blocks against theirs. Patch 0037 changes only the call 0029 added.
 - `BlockedCountBrowserTest` (6 tests): images, a subframe, a dedicated worker's `fetch`, a WebSocket, a navigation's reset, and a background tab whose blocks don't reach the active tab. 84 unit and 72 browser tests pass, no retry.
+
+## Task 4: the panel's state and the level choice, 2026-10-10
+
+- `GetPanelState` and `ChooseLevel` as planned; 7 unit tests. Real WebUI pages (`chrome://settings`) don't load under `ChromeRenderViewHostTestHarness` (the controller's constructor crashes), so the tests use `chrome://no-such-page/` for a chrome: page; the browser tests (Task 8) use the real one.
+- M3 (`ChooseLevel` writes the default instead of clearing it) checked now: `ChoosingTheDefaultClearsTheSitesChoice` fails. A first try with `if (false)` didn't compile (`-Wunreachable-code` under `/WX`) and the old binary ran green: a mutant's build result must be checked before its tests are read.

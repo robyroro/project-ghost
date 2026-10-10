@@ -6,7 +6,7 @@
 
 **Architecture:** The blocking filters report each block against its frame to `PageProtections`, a per-tab counter of the primary page. `ProtectionsButton`, a `ToolbarButton` added by patch 0035, shows the count and opens `chrome://protections.top-chrome` through a `WebUIBubbleManager`. The page (TypeScript, Lit) talks to `ProtectionsPageHandler` over Mojo, which reads and writes the levels of 3D-1. Patch 0037 gives the request filter its frame; patch 0036 registers the page (config, Mojo binder, pak).
 
-**Status:** Tasks 1–3 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
+**Status:** Tasks 1–4 done 2026-10-10 ([progress notes](../specs/2026-10-10-protections-panel-spike.md)). The patches are numbered in commit order: the spike's came first, so 0035 is the toolbar, 0036 the page's registration, 0037 the request filter's frame.
 
 **Tech Stack:** C++, TypeScript, Lit, Mojo, grit (`build_webui`), Chromium 152.0.7977.158 Views; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -270,7 +270,7 @@ void PageProtections::SetCount(int count) {
 - Create: `browser/protections/panel_state.{h,cc}` (deps `//ghost/browser/privacy_policy`, `//ghost/components/site`)
 - Test: `browser/protections/panel_state_unittest.cc`
 
-- [ ] **Step 1: Write the failing tests** (`ChromeRenderViewHostTestHarness`):
+- [x] **Step 1: Write the failing tests** (`ChromeRenderViewHostTestHarness`):
 
 ```cpp
 TEST_F(PanelStateTest, ASiteIsItsRegistrableDomain) {
@@ -308,8 +308,8 @@ TEST_F(PanelStateTest, ChoosingALevelReloads) {
 ```
 
   Also: an Incognito `WebContents` (`TestingProfile::GetPrimaryOTRProfile`) has `mode_default == kStrict` and `off_the_record`. If `GetPendingReloadType` doesn't exist at the pin, assert with `content::TestNavigationObserver` that a reload starts.
-- [ ] **Step 2: Run them to see them fail.** Expected: a compile failure.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run them to see them fail.** Expected: a compile failure.
+- [x] **Step 3: Implement.**
 
 ```cpp
 // What the protections panel shows for a tab's page.
@@ -330,8 +330,8 @@ void ChooseLevel(content::WebContents& contents, privacy_policy::ProtectionLevel
 ```
 
   The page is `contents.GetPrimaryMainFrame()->GetLastCommittedURL()`; `applies` is `SchemeIsHTTPOrHTTPS()`; the site is `ghost::RegistrableDomain(url.host_piece())`. The level and default come from `privacy_policy::GetLevel` and `ModeDefault`, and the count from `PageProtections` (0 without one). `ChooseLevel` calls `SetLevel` or `ClearLevel`, then `contents.GetController().Reload(content::ReloadType::NORMAL, /*check_for_repost=*/true)`. It does nothing when `!applies`.
-- [ ] **Step 4: Run the tests.** Expected: pass.
-- [ ] **Step 5: Commit.** `protections: the panel's state and the level choice`.
+- [x] **Step 4: Run the tests.** Expected: pass.
+- [x] **Step 5: Commit.** `protections: the panel's state and the level choice`.
 
 ### Task 5: The Mojo interface and the page handler
 
