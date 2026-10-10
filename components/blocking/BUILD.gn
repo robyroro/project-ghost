@@ -48,8 +48,10 @@ copy("filter_lists") {
 
 source_set("unit_tests") {
   testonly = true
+  data = [ "test/request_corpus.tsv" ]
   sources = [
     "blocking_engine_unittest.cc",
+    "blocking_perftest.cc",
     "engine_bridge_unittest.cc",
     "filter_lists_unittest.cc",
     "registrable_domain_unittest.cc",
