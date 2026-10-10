@@ -90,6 +90,8 @@
   - **Fuzzing:** `ghost_query_filter_fuzzer` (a URL, then a list) checks that stripping keeps scheme, host and port and that a second pass changes nothing. Seeds: URLs from the blocking corpus with listed parameters appended.
   - Mutation checks: [progress notes](superpowers/specs/2026-10-10-query-filter-spike.md#mutation-checks).
 
+- **Network defaults** (Phase 3C; [progress notes](superpowers/specs/2026-10-10-network-defaults-spike.md)). `test/network_defaults_browsertest.cc` proves each promise of [privacy-model.md](privacy-model.md#cookies-and-storage)'s "Cookies and storage" and "Connections and DNS" by its behavior where it can be observed: what the embedded server receives (`Sec-GPC`, `Referer`, cookies), what a page and a worker see, the warning page HTTPS-First shows, and the connections a second server accepts; and by Chromium's own decision where it can't (WebRTC's renderer preference, Privacy Sandbox settings, DNS-over-HTTPS, DIPS). Five mutation checks fail it as required. `test/etw_logging_browsertest.cc` checks that the browser registers no ETW log provider (patch 0033).
+
 ## Running the tooling tests
 
 ```

@@ -1,6 +1,6 @@
 # Network defaults: design
 
-- Status: design approved 2026-10-10
+- Status: done 2026-10-10 ([progress notes](2026-10-10-network-defaults-spike.md)); design approved 2026-10-10. *As built: Incognito was not strict upstream, so `browser/startup/incognito_defaults` makes it so; Related Website Sets needed no default of their own (they follow third-party cookie blocking); mutation check M3 became third-party cookies at upstream's default, and M5 (Incognito not strict) was added.*
 - Phase 3, sub-project 3C ([roadmap](../../roadmap.md#phase-3-network-protections)); what it enforces is in [privacy-model.md](../../privacy-model.md#cookies-and-storage) and [Connections and DNS](../../privacy-model.md#connections-and-dns)
 - Follows 3B, [tracking-parameter stripping](2026-10-10-query-filter-design.md)
 
@@ -80,9 +80,9 @@ Before the rest:
 
 ## Done when
 
-- [ ] The suite passes and the four mutation checks fail as required.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The suite passes and the four mutation checks fail as required.
+- [x] The egress audit finds no unexpected host.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 

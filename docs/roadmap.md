@@ -175,7 +175,7 @@ Remaining before Phase 0 closes:
     - **2026-10-01:** `builder.py nightly` moved that checkout to the security release 152.0.7977.149, running every step. The sync and apply steps ran for the first time.
       - The build took 4 h 39 min for about 8,600 actions. The release rolls V8, so most of Blink recompiles.
       - `ghost_unittests` 11/11, `ghost_browsertests` 12/12, the installer smoke test and the egress audit (0 unexpected hosts) all passed.
-      - Two browser tests passed only on a retry. The launcher had marked their first run `EXCESSIVE_OUTPUT`: over 500 KB of log, mostly Blink property trees, which a DCHECK build prints when `VLOG(1)` is on. They were the first tests in their batch.
+      - Two browser tests passed only on a retry. The launcher had marked their first run `EXCESSIVE_OUTPUT`: over 500 KB of log, mostly Blink property trees, which a DCHECK build prints when `VLOG(1)` is on. They were the first tests in their batch. *Found in Phase 3C: the cause was a Windows telemetry trace session enabling Chromium's ETW log provider at the verbose level, which lowers every process's log level; patch 0033 removes the provider, and no test has needed a retry since.*
       - From the upstream release (2026-09-29 18:30 UTC) to a tested build took 40 hours. That build was not signed or shipped; the 72-hour SLA applies from Phase 2.
     - It re-applies the series only when the series changes. Otherwise every run would rebuild the files the patches touch and their dependents: siso rebuilds by modification time, and `install_modes.h` alone reaches over a hundred files.
 
@@ -277,6 +277,11 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - The fuzzer ran 30 minutes without a crash; four mutation checks fail as required; the egress audit finds no unexpected host.
    - Kept on this machine: the history entry's original request URL (loading it again is cleaned again).
 3. **3C. Network defaults:** third-party cookies, HTTPS-First, DNS-over-HTTPS, WebRTC, GPC, preconnect and prefetch off.
+
+   **Done 2026-10-10.** `test/network_defaults_browsertest.cc`, `browser/startup/incognito_defaults`; [design](superpowers/specs/2026-10-10-network-defaults-design.md), [progress notes](superpowers/specs/2026-10-10-network-defaults-spike.md).
+   - New: Global Privacy Control on; WebRTC on the default public interface; strict HTTPS-First in Incognito (upstream's is only balanced).
+   - Found: a Windows telemetry session (DiagTrack) enabled Chromium's ETW log provider at the verbose level, receiving the browser's log messages. Patch 0033: Shade registers no provider. It also ends the browser tests' `EXCESSIVE_OUTPUT` retries.
+   - Proven by behavior: every promise of the privacy model's "Cookies and storage" and "Connections and DNS", eleven tests; five mutation checks fail as required; the egress audit finds no unexpected host.
 4. **3D. Per-site policy and the protections panel,** with the Strict and Off levels, WebSocket and WebTransport.
 5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.
 

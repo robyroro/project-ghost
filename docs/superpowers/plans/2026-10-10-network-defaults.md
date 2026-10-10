@@ -6,6 +6,8 @@
 
 **Architecture:** Three defaults through Phase 1's hooks: `kGlobalPrivacyControlForce` in `browser/features/feature_overrides.cc` (patch 0003), the WebRTC IP-handling policy and Related Website Sets in `browser/prefs/pref_defaults.cc` (patch 0002). One browser-test suite, `test/network_defaults_browsertest.cc`, proves each promise, new or old. No new patch.
 
+**Status:** done 2026-10-10. What differed (strict Incognito needed code; Related Website Sets needed none; the mutation checks) is in the [progress notes](../specs/2026-10-10-network-defaults-spike.md).
+
 **Tech Stack:** C++ browser tests (`InProcessBrowserTest`, `EmbeddedTestServer` over HTTP and HTTPS with `CERT_TEST_NAMES`, a connection listener), Chromium 152.0.7977.158.
 
 **Conventions (from 3A/3B):** edit in webops, copy with the scratchpad's `sync.py`, build in `out/vanilla` (`autoninja -C out\vanilla ghost_browsertests`), never edit `src` while a build runs; webops commits without trailers; mutation checks undone by `sync.py`.
@@ -24,7 +26,7 @@
 
 **Files:** Create `test/network_defaults_browsertest.cc`; modify root `BUILD.gn` (`ghost_browsertests` sources and deps), `browser/features/feature_overrides.cc`, `browser/features/BUILD.gn` (if `//third_party/blink/public/common` is missing).
 
-- [ ] **Step 1: The suite with its fixture and the GPC tests.** The fixture maps every host to the embedded servers, records each request's host, path and headers, and serves `/worker.js` (posts `navigator.globalPrivacyControl`), `/img` (a GIF) and pages.
+- [x] **Step 1: The suite with its fixture and the GPC tests.** The fixture maps every host to the embedded servers, records each request's host, path and headers, and serves `/worker.js` (posts `navigator.globalPrivacyControl`), `/img` (a GIF) and pages.
 
 ```cpp
 IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcIsSentOnNavigationsAndSubresources) {
@@ -46,8 +48,8 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcIsVisibleToPagesAndWorkers
 }
 ```
 
-- [ ] **Step 2:** Build, run `--gtest_filter=NetworkDefaults*`: both fail (no header; the property is false).
-- [ ] **Step 3:** `feature_overrides.cc` appends:
+- [x] **Step 2:** Build, run `--gtest_filter=NetworkDefaults*`: both fail (no header; the property is false).
+- [x] **Step 3:** `feature_overrides.cc` appends:
 
 ```cpp
   // Global Privacy Control: Sec-GPC on every request and
@@ -59,13 +61,13 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcIsVisibleToPagesAndWorkers
 ```
 
 with `#include "third_party/blink/public/common/features.h"`.
-- [ ] **Step 4:** Both pass. Commit: `features: Global Privacy Control on by default`.
+- [x] **Step 4:** Both pass. Commit: `features: Global Privacy Control on by default`.
 
 ### Task 2: WebRTC and Related Website Sets
 
 **Files:** Modify `test/network_defaults_browsertest.cc`, `browser/prefs/pref_defaults.cc`, `browser/prefs/BUILD.gn`.
 
-- [ ] **Step 1: Tests first.**
+- [x] **Step 1: Tests first.**
 
 ```cpp
 IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, WebRtcUsesOnlyTheDefaultPublicInterface) {
@@ -82,8 +84,8 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, RelatedWebsiteSetsAreOff) {
 }
 ```
 
-- [ ] **Step 2:** Both fail.
-- [ ] **Step 3:** `pref_defaults.cc` appends:
+- [x] **Step 2:** Both fail.
+- [x] **Step 3:** `pref_defaults.cc` appends:
 
 ```cpp
   // WebRTC uses only the interface the system routes through by default, so
@@ -100,13 +102,13 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, RelatedWebsiteSetsAreOff) {
 ```
 
 with `#include "components/privacy_sandbox/privacy_sandbox_prefs.h"` and `#include "third_party/blink/public/common/peerconnection/webrtc_ip_handling_policy.h"`; BUILD deps `//components/privacy_sandbox:privacy_sandbox_prefs` and `//third_party/blink/public/common`.
-- [ ] **Step 4:** Pass. Commit: `prefs: WebRTC on the default public interface; Related Website Sets off`.
+- [x] **Step 4:** Pass. Commit: `prefs: WebRTC on the default public interface; Related Website Sets off`.
 
 ### Task 3: Proving what was already there
 
 **Files:** Modify `test/network_defaults_browsertest.cc`.
 
-- [ ] **Step 1:** Tests (each must pass now; Task 4's mutations and the notes show which can fail):
+- [x] **Step 1:** Tests (each must pass now; Task 4's mutations and the notes show which can fail):
 
 ```cpp
 IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, PrivacySandboxAdApisAreOff) {
@@ -177,16 +179,16 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, PageHintsAndSpeculationRulesC
 ```
 
 Helpers in the fixture: `HttpsUrl()` (the HTTPS server with `CERT_TEST_NAMES` and `AddDefaultHandlers`), `BodyText(rfh)` (`EvalJs(rfh, "document.body.innerText")`), `LoadIframe(url)` (appends an iframe, waits with `TestNavigationObserver`, returns `ChildFrameAt(main, 0)`), `WaitFor(delta)` (a `RunLoop` quit by a delayed task), `hints_server_` with `hints_listener_` (an `EmbeddedTestServerConnectionListener` counting `AcceptedSocket`), `HttpsUpgradesInterceptor` ports reset in `TearDownOnMainThread`.
-- [ ] **Step 2:** Build and run: every test passes. A failure is a finding, recorded before anything changes.
-- [ ] **Step 3:** Commit: `test: the network defaults the privacy model promises, by behavior`.
+- [x] **Step 2:** Build and run: every test passes. A failure is a finding, recorded before anything changes.
+- [x] **Step 3:** Commit: `test: the network defaults the privacy model promises, by behavior`.
 
 ### Task 4: Mutation checks and the egress audit
 
-- [ ] **Step 1:** M1 GPC not forced; M2 WebRTC `default`; M3 Related Website Sets on (both in `src/ghost` copies of Tasks 1–2's lines); M4 `kNetworkPredictionOptions` back to upstream's default (remove its `SetDefaultPrefValue`). Each built, run, seen failing, undone with `sync.py`; `src/ghost` compared with webops.
-- [ ] **Step 2:** Under M4, record whether the listener saw the preconnect, the speculation-rules prefetch, or both.
-- [ ] **Step 3:** Egress audit on `out/vanilla`: no unexpected host. GPC adds a header, not a host.
+- [x] **Step 1:** M1 GPC not forced; M2 WebRTC `default`; M3 Related Website Sets on (both in `src/ghost` copies of Tasks 1–2's lines); M4 `kNetworkPredictionOptions` back to upstream's default (remove its `SetDefaultPrefValue`). Each built, run, seen failing, undone with `sync.py`; `src/ghost` compared with webops.
+- [x] **Step 2:** Under M4, record whether the listener saw the preconnect, the speculation-rules prefetch, or both.
+- [x] **Step 3:** Egress audit on `out/vanilla`: no unexpected host. GPC adds a header, not a host.
 
 ### Task 5: Docs, push
 
-- [ ] **Step 1:** privacy-model.md: each promise of "Cookies and storage" and "Connections and DNS" names its test; Related Website Sets off; strict HTTPS-First in Incognito; WebRTC's policy; DNS prefetch shares preconnect's gate. testing.md: the suite. roadmap.md: 3C done. Progress notes `docs/superpowers/specs/2026-10-10-network-defaults-spike.md`; spec and plan status.
-- [ ] **Step 2:** Full suites, tooling tests, lint, `patches.py check`; push; wait for both tooling jobs; memory.
+- [x] **Step 1:** privacy-model.md: each promise of "Cookies and storage" and "Connections and DNS" names its test; Related Website Sets off; strict HTTPS-First in Incognito; WebRTC's policy; DNS prefetch shares preconnect's gate. testing.md: the suite. roadmap.md: 3C done. Progress notes `docs/superpowers/specs/2026-10-10-network-defaults-spike.md`; spec and plan status.
+- [x] **Step 2:** Full suites, tooling tests, lint, `patches.py check`; push; wait for both tooling jobs; memory.

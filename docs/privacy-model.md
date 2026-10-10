@@ -48,10 +48,13 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
 
 ### Cookies and storage
 
-- **Third-party cookies are blocked** in every mode.
-  - Chromium's partitioned third-party storage and bounce-tracking mitigation stay on.
+- **Third-party cookies are blocked** in every mode (`ThirdPartyCookiesAreNotSent`: a cookie set by a site is not sent in its frame on another site).
+  - Chromium's partitioned third-party storage and bounce-tracking mitigation stay on (`BounceTrackingMitigationIsOn`).
+  - **Related Website Sets are off** (`RelatedWebsiteSetsAreOff`): Google-listed groups of sites don't get each other's cookies. Upstream turns them off on a profile's first run when third-party cookies are blocked.
   - Sign-in flows that legitimately need cross-site access use the Storage Access API and FedCM, which Chromium supports.
-- **Remaining Privacy Sandbox advertising APIs are disabled.**
+- **Remaining Privacy Sandbox advertising APIs are disabled** (`PrivacySandboxAdApisAreOff`: Topics, Protected Audience and ad measurement).
+
+The tests named in this section and the next are in `test/network_defaults_browsertest.cc` (`NetworkDefaultsBrowserTest`).
 
 ### Tracking parameters
 
@@ -74,13 +77,14 @@ The omnibox shows the cleaned URL.
 ### Connections and DNS
 
 - **HTTPS-First with automatic upgrades.** Plain-HTTP navigations are upgraded, and the user is warned before loading a site that has no HTTPS.
-- **DNS-over-HTTPS** uses upstream's "automatic" behavior: it upgrades to the configured resolver's DoH endpoint when one exists. A list of DoH providers is offered in settings. We don't silently send every user's DNS to one third-party provider.
-- **Referrer** keeps Chromium's `strict-origin-when-cross-origin` default. The Strict level sends no referrer cross-site.
-- **WebRTC** exposes only the default public interface. When a route is active it is limited to proxied connections, so it can't reveal the real IP.
-- **Global Privacy Control** is sent: the `Sec-GPC` header and `navigator.globalPrivacyControl`. In some jurisdictions it is a legally meaningful opt-out.
+  - Normal is *balanced*: it doesn't warn for hosts that aren't unique (intranet names). Incognito is *strict*, as Private mode will be: it warns before any page over HTTP (`IncognitoIsStrictAndNormalBalanced`). Upstream's Incognito is only balanced; Shade sets strict mode in each Incognito profile as it is created, in its memory only.
+- **DNS-over-HTTPS** (`DnsOverHttpsIsAutomatic`) uses upstream's "automatic" behavior: it upgrades to the configured resolver's DoH endpoint when one exists. A list of DoH providers is offered in settings. We don't silently send every user's DNS to one third-party provider.
+- **Referrer** keeps Chromium's `strict-origin-when-cross-origin` default (`ACrossSiteSubresourceGetsOnlyTheOrigin`). The Strict level sends no referrer cross-site.
+- **WebRTC** exposes only the default public interface: the policy is `default_public_interface_only`, in every profile (`WebRtcUsesOnlyTheDefaultPublicInterface`). When a route is active it is limited to proxied connections, so it can't reveal the real IP.
+- **Global Privacy Control** is sent: the `Sec-GPC` header and `navigator.globalPrivacyControl`, in pages and workers (`GpcIsSentOnNavigationsAndSubresources`, `GpcIsVisibleToPagesAndWorkers`). Its switch comes with the protections panel (3D); meanwhile `--disable-features=GlobalPrivacyControlForce` turns it off. In some jurisdictions it is a legally meaningful opt-out.
 - **Off by default:**
   - DNS prefetch;
-  - preconnect and page preloading, which contact sites you haven't chosen to visit;
+  - preconnect and page preloading, which contact sites you haven't chosen to visit (`PageHintsAndSpeculationRulesContactNobody`: a page's preconnect, DNS-prefetch and speculation-rules hints open no connection to the site they name. DNS prefetch passes the same check as preconnect in Chromium; the test can observe only the connection);
   - search suggestions, which send keystrokes to the search engine;
   - the password leak check, which sends Google hashes of each username and password the user signs in with.
 
@@ -216,6 +220,8 @@ By default the browser sends the project only the requests needed for updates:
 - **Crash reports.** Never sent unless the user opts in. Before public alpha, uploads are disabled entirely.
 
 The update server doesn't retain IP addresses.
+
+**Log messages stay in the browser.** Chromium registers an ETW provider for its log messages on Windows: any trace session that enables it receives every message, and Windows telemetry's DiagTrack sessions enable Chromium's at the verbose level. Many log messages carry URLs and host names. Shade registers no provider (patch 0033, `EtwLoggingBrowserTest`); `--enable-logging` still writes a local log file. Shade's installer and updater register their own providers, which no session on the reference machine enabled; they are not yet changed.
 
 ### The update request
 
