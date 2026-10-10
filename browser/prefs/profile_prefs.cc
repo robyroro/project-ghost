@@ -4,11 +4,13 @@
 
 #include "ghost/browser/prefs/profile_prefs.h"
 
+#include "ghost/browser/privacy_policy/site_levels.h"
 #include "ghost/browser/query_filter/prefs.h"
 
 namespace ghost {
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
+  privacy_policy::RegisterProfilePrefs(registry);
   query_filter::RegisterProfilePrefs(registry);
 }
 

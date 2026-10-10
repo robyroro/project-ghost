@@ -25,6 +25,7 @@ source_set("prefs") {
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/translate/core/browser:translate_pref_names",
     "//extensions/browser",
+    "//ghost/browser/privacy_policy",
     "//ghost/browser/query_filter:prefs",
     "//third_party/blink/public/common",
   ]

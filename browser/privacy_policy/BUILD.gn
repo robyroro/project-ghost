@@ -1,0 +1,26 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Per-site protection levels in the profile's prefs. Linked into
+# //chrome/browser:core (through blocking and the query filter) and
+# //chrome/browser/prefs:impl (the pref's registration), so it must not depend
+# on //chrome/browser.
+
+source_set("privacy_policy") {
+  sources = [
+    "site_levels.cc",
+    "site_levels.h",
+  ]
+  public_deps = [ "//ghost/components/privacy_policy" ]
+  deps = [
+    "//base",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//components/user_prefs",
+    "//content/public/browser",
+    "//ghost/browser/query_filter:prefs",
+    "//ghost/components/site",
+    "//url",
+  ]
+}
