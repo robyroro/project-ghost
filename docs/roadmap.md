@@ -76,6 +76,8 @@ Meeting this requires:
 
 All three are Phase 2 exit requirements.
 
+**How we meet it (2026-10-10):** `.github/workflows/upstream.yml` checks Extended Stable every three hours and opens an issue, which notifies the maintainer; on call is that one person. [The runbook](build/security-release.md) goes from the issue to a verified release; its first drill took 22 h from start to a verified draft on the reference machine. Not automated yet: the third row, fixes on Stable not yet on Extended, which needs Stable's security notes read against our milestone.
+
 ## Phase 0: foundations
 
 Delivered in this repository:
@@ -245,6 +247,12 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - Three mutation checks fail as required.
    - Still upstream's: "Chromium" in the browser's menus and dialogs (a later sub-project). Open release gates: the trademark search and buying browseshade.com ([licensing](licensing.md#trademarks)).
 7. **F. Security release runbook,** and one measured milestone move (to 154).
+
+   **Security releases done 2026-10-10.** `tools/upstream.py` (`check`, `report`, `bump`), `.github/workflows/upstream.yml`, [the runbook](build/security-release.md); [design](superpowers/specs/2026-10-09-security-release-design.md), [the first drill](security/drills/2026-10-09-152.0.7977.158.md).
+   - Every three hours a workflow compares Extended Stable with the pin and opens an issue for a security release or a new milestone. `bump` moves the pin, the Chromium branch and the series in one command, after checking the tag against chromiumdash and the series with the canary.
+   - Drill on 152.0.7977.158: issue to verified draft in 22 h 13 min (two builds 15 h 34 min, the PIN's overnight wait 5 h 34 min), inside 72 h from our start. It found three gaps, fixed before tagging, and the runbook's wrong `verify` command.
+   - Three mutation checks fail as required.
+   - **Still open:** the milestone move to 154, when Extended Stable reaches it (expected around 2026-10-20).
 
 **Exit criteria**
 - [ ] An update shipped end to end to test machines.

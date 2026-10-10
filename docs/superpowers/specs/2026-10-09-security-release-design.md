@@ -1,6 +1,6 @@
 # Security releases: design
 
-- Status: design approved 2026-10-09
+- Status: done 2026-10-10 ([the drill's record](../../security/drills/2026-10-09-152.0.7977.158.md)); design approved 2026-10-09
 - Phase 2, sub-project F, first half ([roadmap](../../roadmap.md#phase-2-release-engineering)); the second half, one measured milestone move to 154, waits for Extended Stable 154 (expected around 2026-10-20)
 - Depends on sub-project E ([release pipeline](2026-10-05-release-pipeline-design.md)) and on the product name ([Shade](2026-10-09-shade-rebrand-design.md)): the drill's release is the first official build named Shade
 
