@@ -33,3 +33,9 @@ What the wiring took, beyond the plan:
 - **Off, upstream exposes no `navigator.globalPrivacyControl`.** The property is `undefined`, not `false`, as upstream's own tests expect (`content/browser/global_privacy_control_browsertest.cc` compares with `=== true`). `GpcCanBeTurnedOff` does the same.
 - The test is a `PRE_` pair: `PRE_GpcCanBeTurnedOff` writes the pref, and the restart applies it. The existing GPC tests still pass with the default (on).
 - Totals: 98 unit and 82 browser tests pass, with no retry.
+
+## Task 4: the prefs on settingsPrivate (patch 0040), 2026-10-11
+
+- The four prefs are on `PrefsUtil::GetAllowlistedKeys()`. `//chrome/browser/extensions` depends on `//ghost/browser/features`, `privacy_policy` and `query_filter:prefs`, with no cycle: `gn check` passes on every touched target.
+- `SettingsSeesShadesPrefs` failed with every value `"null"` before the patch and passes after it. It reads the Local State pref too: `settingsPrivate` finds Local State prefs by itself (`PrefsUtil::FindServiceForPref`).
+- Totals: 98 unit and 83 browser tests pass, with no retry.

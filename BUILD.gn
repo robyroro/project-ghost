@@ -98,6 +98,7 @@ test("ghost_browsertests") {
     "browser/privacy_policy/protection_levels_browsertest.cc",
     "browser/protections/blocked_count_browsertest.cc",
     "browser/ui/protections/protections_panel_browsertest.cc",
+    "browser/ui/settings/protection_settings_browsertest.cc",
     "test/egress/omnibox_browsertest.cc",
     "test/etw_logging_browsertest.cc",
     "test/google_services_browsertest.cc",

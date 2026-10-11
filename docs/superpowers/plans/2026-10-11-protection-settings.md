@@ -445,7 +445,7 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcCanBeTurnedOff) {
 - Create: patch 0040 (`chrome/browser/extensions/api/settings_private/prefs_util.cc` and its target's `BUILD.gn`)
 - Test: `browser/ui/settings/protection_settings_browsertest.cc` (new; add to `ghost_browsertests`)
 
-- [ ] **Step 1: Write the failing browser test.**
+- [x] **Step 1: Write the failing browser test.**
 
 ```cpp
 namespace ghost::settings {
@@ -478,8 +478,8 @@ IN_PROC_BROWSER_TEST_F(ProtectionSettingsBrowserTest, SettingsSeesShadesPrefs) {
 }  // namespace ghost::settings
 ```
 
-- [ ] **Step 2: Run it to see it fail.** Expected: every value is `"null"`.
-- [ ] **Step 3: Patch 0040.** In `PrefsUtil::GetAllowlistedKeys()`, just before `return *s_allowlist;` at the end:
+- [x] **Step 2: Run it to see it fail.** Expected: every value is `"null"`.
+- [x] **Step 3: Patch 0040.** In `PrefsUtil::GetAllowlistedKeys()`, just before `return *s_allowlist;` at the end:
 
 ```cpp
   // Shade's settings (patches/0040).
@@ -493,8 +493,8 @@ IN_PROC_BROWSER_TEST_F(ProtectionSettingsBrowserTest, SettingsSeesShadesPrefs) {
 ```
 
   Add the three includes and the deps `//ghost/browser/privacy_policy`, `//ghost/browser/query_filter:prefs`, `//ghost/browser/features` to the target that lists `prefs_util.cc`. If `gn check` reports a cycle, move the four constants into a header-only `source_set("pref_names")` in `//ghost/browser/prefs` and depend on that instead. Commit with `-s`. `Why:` chrome://settings reads and writes only allow-listed prefs. `Upstream:` not upstreamable, product-specific.
-- [ ] **Step 4: Run the test.** Expected: pass.
-- [ ] **Step 5: Commit.** In webops: `settings: Shade's prefs reach chrome://settings (patch 0040)`. Re-export; `patches.py check`.
+- [x] **Step 4: Run the test.** Expected: pass.
+- [x] **Step 5: Commit.** In webops: `settings: Shade's prefs reach chrome://settings (patch 0040)`. Re-export; `patches.py check`.
 
 ### Task 5: The handler for the site list
 

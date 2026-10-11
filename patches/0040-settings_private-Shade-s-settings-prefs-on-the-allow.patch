@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 11:50:09 +0300
+Subject: [PATCH] settings_private: Shade's settings prefs on the allow-list
+
+chrome://settings reads and writes prefs only through settingsPrivate,
+which serves only allow-listed keys. Shade's section needs four: the
+default protection level, the site levels dictionary, campaign-parameter
+stripping and the Global Privacy Control switch (Local State).
+
+Why: settingsPrivate's allow-list has no hook.
+Upstream: not upstreamable: product-specific
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/extensions/BUILD.gn b/chrome/browser/extensions/BUILD.gn
+index d3f740db99e1df7bd660fe666922a27b668dfa03..ab4715e1a165a0b4d99de362cb51abe1fd433f02 100644
+--- a/chrome/browser/extensions/BUILD.gn
++++ b/chrome/browser/extensions/BUILD.gn
+@@ -919,6 +919,9 @@ source_set("extensions") {
+     deps += [
+       "//apps",
+       "//build:branding_buildflags",
++      "//ghost/browser/features",
++      "//ghost/browser/privacy_policy",
++      "//ghost/browser/query_filter:prefs",
+       "//build:chromeos_buildflags",
+       "//build/config/chromebox_for_meetings:buildflags",
+       "//build/config/linux/dbus:buildflags",
+diff --git a/chrome/browser/extensions/api/settings_private/prefs_util.cc b/chrome/browser/extensions/api/settings_private/prefs_util.cc
+index 43ba004cc63da143131b8e84533af1743f47727b..327c93ba6493b2372a175157a040d93dc3faf364 100644
+--- a/chrome/browser/extensions/api/settings_private/prefs_util.cc
++++ b/chrome/browser/extensions/api/settings_private/prefs_util.cc
+@@ -37,6 +37,9 @@
+ #include "chrome/common/chrome_features.h"
+ #include "chrome/common/extensions/api/settings_private.h"
+ #include "chrome/common/pref_names.h"
++#include "ghost/browser/features/local_state_prefs.h"
++#include "ghost/browser/privacy_policy/site_levels.h"
++#include "ghost/browser/query_filter/prefs.h"
+ #include "components/autofill/core/common/autofill_prefs.h"
+ #include "components/bookmarks/common/bookmark_pref_names.h"
+ #include "components/browsing_data/core/pref_names.h"
+@@ -1411,6 +1414,15 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
+   // Dictation / Voice typing prefs
+   (*s_allowlist)[prefs::kVoiceTypingHotkey] = settings_api::PrefType::kString;
+ 
++  // Shade's settings (patches/0040).
++  (*s_allowlist)[ghost::privacy_policy::kDefaultLevelPref] =
++      settings_api::PrefType::kString;
++  (*s_allowlist)[ghost::privacy_policy::kSiteLevelsPref] =
++      settings_api::PrefType::kDictionary;
++  (*s_allowlist)[ghost::query_filter::kStripCampaignParametersPref] =
++      settings_api::PrefType::kBoolean;
++  (*s_allowlist)[ghost::kGpcEnabledPref] = settings_api::PrefType::kBoolean;
++
+   return *s_allowlist;
+ }
+ 
