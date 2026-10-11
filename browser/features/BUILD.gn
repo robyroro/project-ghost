@@ -8,9 +8,14 @@ source_set("features") {
   sources = [
     "feature_overrides.cc",
     "feature_overrides.h",
+    "local_state_prefs.cc",
+    "local_state_prefs.h",
   ]
 
-  public_deps = [ "//base" ]
+  public_deps = [
+    "//base",
+    "//components/prefs",
+  ]
 
   deps = [
     "//chrome/browser/media/router:media_router_feature",

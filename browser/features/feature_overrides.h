@@ -9,14 +9,18 @@
 
 #include "base/feature_list.h"
 
+class PrefService;
+
 namespace ghost {
 
 // Appends the feature states that replace upstream defaults. chrome registers
 // these as "extra overrides" during field-trial setup (patches/0003), which
 // places them after --enable-features/--disable-features, so the command line
 // and chrome://flags still win, and before field trials, so server-side
-// experiments cannot undo them.
+// experiments cannot undo them. |local_state| is loaded, with every Local
+// State pref registered (patches/0039).
 void AppendFeatureOverrides(
+    const PrefService& local_state,
     std::vector<base::FeatureList::FeatureOverrideInfo>* overrides);
 
 }  // namespace ghost

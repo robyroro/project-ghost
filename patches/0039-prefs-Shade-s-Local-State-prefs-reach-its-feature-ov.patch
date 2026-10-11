@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 11:37:19 +0300
+Subject: [PATCH] prefs: Shade's Local State prefs reach its feature overrides
+
+ghost::RegisterLocalStatePrefs registers Shade's browser-wide prefs with
+the rest of Local State, and ghost::AppendFeatureOverrides now receives
+the loaded Local State. Its first use is ghost.gpc.enabled, the switch
+for Global Privacy Control in Shade's settings: GPC is a feature, read
+once per process, so its switch is read where the feature list is made
+and applies at the next start. This changes the line patch 0003 added.
+
+Why: the feature list is created before any profile; Local State is the only pref store loaded then.
+Upstream: not upstreamable: product-specific
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/metrics/chrome_feature_list_creator.cc b/chrome/browser/metrics/chrome_feature_list_creator.cc
+index 3d759e5e82f5cf8f9b0ab05d0677613972cb136d..e43b1b467ac570bc8ba270aab7ca3657eac31586 100644
+--- a/chrome/browser/metrics/chrome_feature_list_creator.cc
++++ b/chrome/browser/metrics/chrome_feature_list_creator.cc
+@@ -242,7 +242,7 @@ void ChromeFeatureListCreator::SetUpFieldTrials() {
+   std::vector<base::FeatureList::FeatureOverrideInfo> extra_overrides =
+       content::GetSwitchDependentFeatureOverrides(
+           *base::CommandLine::ForCurrentProcess());
+-  ghost::AppendFeatureOverrides(&extra_overrides);
++  ghost::AppendFeatureOverrides(*local_state_, &extra_overrides);
+   variations_service->SetUpFieldTrials(variation_ids, extra_overrides,
+                                        std::move(feature_list),
+                                        browser_field_trials_.get());
+diff --git a/chrome/browser/prefs/BUILD.gn b/chrome/browser/prefs/BUILD.gn
+index 1d5f602f73d85a8242a76fbcb7cd8f6f87c3e42c..7929ddfd69aa0cdb9cd73dfc039c94c19d90f168 100644
+--- a/chrome/browser/prefs/BUILD.gn
++++ b/chrome/browser/prefs/BUILD.gn
+@@ -200,6 +200,7 @@ source_set("impl") {
+     "//components/wallet/core/common:prefs",
+     "//components/webui/chrome_urls",
+     "//components/webui/flags",
++    "//ghost/browser/features",
+     "//ghost/browser/prefs",
+     "//services/preferences/public/cpp/tracked",
+     "//services/preferences/public/mojom",
+diff --git a/chrome/browser/prefs/browser_prefs.cc b/chrome/browser/prefs/browser_prefs.cc
+index 7efe9890545723dd095bafc9552ad123fc8adef1..6b9f04749856936cb30faffeed67671318098d70 100644
+--- a/chrome/browser/prefs/browser_prefs.cc
++++ b/chrome/browser/prefs/browser_prefs.cc
+@@ -223,6 +223,7 @@
+ #include "content/public/browser/render_process_host.h"
+ #include "content/public/common/buildflags.h"
+ #include "extensions/buildflags/buildflags.h"
++#include "ghost/browser/features/local_state_prefs.h"
+ #include "ghost/browser/prefs/pref_defaults.h"
+ #include "ghost/browser/prefs/profile_prefs.h"
+ #include "net/http/http_server_properties_manager.h"
+@@ -1731,6 +1732,9 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
+       policy::policy_prefs::kLocalNetworkAccessPermissionsPolicyDefaultEnabled,
+       false);
+ 
++  // Shade's browser-wide prefs (patches/0039).
++  ghost::RegisterLocalStatePrefs(registry);
++
+   // This is intentionally last.
+   RegisterLocalStatePrefsForMigration(registry);
+ }

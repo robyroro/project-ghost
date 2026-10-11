@@ -19,6 +19,7 @@
 #include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/net/stub_resolver_config_reader.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -41,6 +42,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "ghost/browser/features/local_state_prefs.h"
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/socket/stream_socket.h"
@@ -206,6 +208,22 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcIsVisibleToPagesAndWorkers
                             "new Promise(done => { const w = new Worker('/worker.js');"
                             " w.onmessage = e => done(e.data); })"),
             true);
+}
+
+// GPC's switch is read at startup: PRE_ turns it off, the test runs after the
+// restart.
+IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, PRE_GpcCanBeTurnedOff) {
+  g_browser_process->local_state()->SetBoolean(kGpcEnabledPref, false);
+}
+
+IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcCanBeTurnedOff) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/page")));
+  EXPECT_EQ(Header("a.test", "/page", "Sec-GPC"), "");
+  LoadImage(Url("b.test", "/img"));
+  EXPECT_EQ(Header("b.test", "/img", "Sec-GPC"), "");
+  // Off, upstream doesn't expose the property at all (undefined), as its own
+  // tests expect (content/browser/global_privacy_control_browsertest.cc).
+  EXPECT_EQ(content::EvalJs(Tab(), "navigator.globalPrivacyControl === true"), false);
 }
 
 IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, WebRtcUsesOnlyTheDefaultPublicInterface) {

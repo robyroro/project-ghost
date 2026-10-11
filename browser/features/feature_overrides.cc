@@ -11,11 +11,14 @@
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
+#include "components/prefs/pref_service.h"
+#include "ghost/browser/features/local_state_prefs.h"
 #include "third_party/blink/public/common/features.h"
 
 namespace ghost {
 
 void AppendFeatureOverrides(
+    const PrefService& local_state,
     std::vector<base::FeatureList::FeatureOverrideInfo>* overrides) {
   // HTTPS-First in balanced mode for users who have not chosen a setting.
   // Upstream consults the kHttpsFirstBalancedMode pref only after the user has
@@ -57,10 +60,14 @@ void AppendFeatureOverrides(
   // Global Privacy Control: Sec-GPC on every request and
   // navigator.globalPrivacyControl in pages and workers, an opt-out of sale
   // and sharing that some jurisdictions make binding (California, Colorado).
-  // Chromium implements it and leaves it off; this feature forces it on.
-  overrides->emplace_back(
-      std::cref(blink::features::kGlobalPrivacyControlForce),
-      base::FeatureList::OVERRIDE_ENABLE_FEATURE);
+  // Chromium implements it and leaves it off; this feature forces it on. The
+  // user can turn it off in Shade's settings (kGpcEnabledPref); upstream's
+  // default (off) then applies.
+  if (local_state.GetBoolean(kGpcEnabledPref)) {
+    overrides->emplace_back(
+        std::cref(blink::features::kGlobalPrivacyControlForce),
+        base::FeatureList::OVERRIDE_ENABLE_FEATURE);
+  }
 }
 
 }  // namespace ghost

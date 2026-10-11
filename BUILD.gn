@@ -21,6 +21,7 @@ group("gn_all") {
 test("ghost_unittests") {
   sources = [
     "browser/component_updater/component_update_urls_unittest.cc",
+    "browser/features/feature_overrides_unittest.cc",
     "browser/prefs/pref_defaults_unittest.cc",
     "browser/privacy_policy/site_levels_unittest.cc",
     "browser/protections/page_protections_unittest.cc",
@@ -52,6 +53,7 @@ test("ghost_unittests") {
     "//components/password_manager/core/browser/leak_detection",
     "//components/password_manager/core/common",
     "//components/prefs",
+    "//components/prefs:test_support",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/signin/public/identity_manager",
     "//components/signin/public/identity_manager:test_support",
@@ -66,6 +68,7 @@ test("ghost_unittests") {
     "//ghost/components/privacy_policy:unit_tests",
     "//ghost/components/query_filter:unit_tests",
     "//ghost/components/site:unit_tests",
+    "//ghost/browser/features",
     "//ghost/browser/privacy_policy",
     "//ghost/browser/protections",
     "//ghost/browser/query_filter:prefs",
@@ -138,6 +141,7 @@ test("ghost_browsertests") {
     "//components/search_engines",
     "//content/test:test_support",
     "//ghost/browser/blocking",
+    "//ghost/browser/features",
     "//ghost/browser/privacy_policy",
     "//ghost/browser/protections",
     "//ghost/browser/query_filter",

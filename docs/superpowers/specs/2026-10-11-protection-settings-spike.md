@@ -25,3 +25,11 @@ What the wiring took, beyond the plan:
 - The panel needed no change: its "default" label already comes from `ModeDefault`.
 - Tests: 5 unit tests (4 in `SiteLevels`, 1 in `PanelState`) and 3 browser tests in `ProtectionLevels`.
 - Totals: 96 unit and 80 browser tests pass, with no retry.
+
+## Task 3: GPC's switch (patch 0039), 2026-10-11
+
+- `ghost.gpc.enabled` in Local State. `AppendFeatureOverrides` forces `kGlobalPrivacyControlForce` only while it is true.
+- Patch 0039 registers the pref and passes `*local_state_` to `AppendFeatureOverrides`. Task 3 came before the allow-list (Task 4), so it took 0039, and the allow-list is 0040. The plan and spec are renumbered.
+- **Off, upstream exposes no `navigator.globalPrivacyControl`.** The property is `undefined`, not `false`, as upstream's own tests expect (`content/browser/global_privacy_control_browsertest.cc` compares with `=== true`). `GpcCanBeTurnedOff` does the same.
+- The test is a `PRE_` pair: `PRE_GpcCanBeTurnedOff` writes the pref, and the restart applies it. The existing GPC tests still pass with the default (on).
+- Totals: 98 unit and 82 browser tests pass, with no retry.

@@ -6,8 +6,8 @@
 
 **Architecture:** The section is a TypeScript and Lit library in `//ghost/browser/resources/settings`, served by the Settings host under `/shade/` and bundled into `settings.js` in official builds. This is the way Chromium maps its own `settings_shared` library (`/shared/settings/`). It reads and writes prefs through `settings_shared`'s `PrefService` (`settingsPrivate`), and writes the site list through `ProtectionsHandler`, a `SettingsPageUIHandler`. Three patches carry the glue:
 - 0038: the section;
-- 0039: the prefs on `settingsPrivate`'s allow-list;
-- 0040: GPC's Local State pref and the feature list.
+- 0039: GPC's Local State pref and the feature list (Task 3 came first, so it took 0039; renumbered while executing);
+- 0040: the prefs on `settingsPrivate`'s allow-list.
 
 **Tech Stack:** C++, TypeScript, Lit, `build_webui`, `settingsPrivate`, Chromium 152.0.7977.158 Settings; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
@@ -35,7 +35,7 @@
 - **The menu icon is `settings:shield`**, already in Settings' icon set.
 - **The relaunch indicator follows Settings' hardware acceleration toggle.** A load-time boolean `shadeGpcEnabledAtStartup` is `blink::IsGlobalPrivacyControlEnabled()` at page load. The Relaunch button shows while the pref differs from it.
 - **The panel opens the section with `WebContents::OpenURL`** on the tab, in a new foreground tab. This is content API, so `//ghost/browser/ui/protections` gains no dependency on `chrome_pages`. The panel's "default" label already follows `ModeDefault` through `GetPanelState`, so it needs no change.
-- **Patch numbers follow commit order:** 0038 is the spike's section patch (bundle, route, menu, view, hook), 0039 the allow-list, 0040 Local State.
+- **Patch numbers follow commit order:** 0038 is the spike's section patch (bundle, route, menu, view, hook), 0040 the allow-list, 0039 Local State.
 
 ---
 
@@ -332,15 +332,15 @@ IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, IncognitoIgnoresAnOffDefault
   Run `out\vanilla\ghost_browsertests --gtest_filter=ProtectionLevels*`. Expected: pass.
 - [x] **Step 7: Commit.** `privacy_policy: the default level for a regular profile's sites`.
 
-### Task 3: GPC's switch (patch 0040)
+### Task 3: GPC's switch (patch 0039)
 
 **Files:**
 - Create: `browser/features/local_state_prefs.{h,cc}`
 - Modify: `browser/features/feature_overrides.{h,cc}`, `browser/features/BUILD.gn` (deps `//components/prefs`)
-- Create: patch 0040 (`chrome/browser/prefs/browser_prefs.cc`, `chrome/browser/metrics/chrome_feature_list_creator.cc`, and the `BUILD.gn` of `browser_prefs.cc`'s target)
+- Create: patch 0039 (`chrome/browser/prefs/browser_prefs.cc`, `chrome/browser/metrics/chrome_feature_list_creator.cc`, and the `BUILD.gn` of `browser_prefs.cc`'s target)
 - Test: `browser/features/feature_overrides_unittest.cc` (add to `ghost_unittests`), `test/network_defaults_browsertest.cc`
 
-- [ ] **Step 1: Write the failing unit tests** in `feature_overrides_unittest.cc`:
+- [x] **Step 1: Write the failing unit tests** in `feature_overrides_unittest.cc`:
 
 ```cpp
 namespace ghost {
@@ -374,8 +374,8 @@ TEST(FeatureOverridesTest, GpcTurnedOffIsLeftToUpstream) {
 ```
 
   Add `"browser/features/feature_overrides_unittest.cc"` to `ghost_unittests`' sources, and `"//ghost/browser/features"` and `"//components/prefs:test_support"` to its deps.
-- [ ] **Step 2: Run them to see them fail.** Expected: a compile failure.
-- [ ] **Step 3: Implement.** `local_state_prefs.h`:
+- [x] **Step 2: Run them to see them fail.** Expected: a compile failure.
+- [x] **Step 3: Implement.** `local_state_prefs.h`:
 
 ```cpp
 namespace ghost {
@@ -386,7 +386,7 @@ namespace ghost {
 inline constexpr char kGpcEnabledPref[] = "ghost.gpc.enabled";
 
 // Shade's browser-wide prefs; chrome's RegisterLocalState() calls this
-// (patches/0040).
+// (patches/0039).
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
 }  // namespace ghost
@@ -405,20 +405,20 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 ```
 
   Add `local_state_prefs.{h,cc}` to `source_set("features")`, and `//components/prefs` to its `public_deps`.
-- [ ] **Step 4: Patch 0040** in `chromium/src`:
+- [x] **Step 4: Patch 0039** in `chromium/src`:
   - In `chrome_feature_list_creator.cc`, change 0003's line to `ghost::AppendFeatureOverrides(*local_state_, &extra_overrides);`. 0003 stays as it is: this patch changes the line after it.
   - In `browser_prefs.cc`, include `ghost/browser/features/local_state_prefs.h`. At the end of `RegisterLocalState(PrefRegistrySimple* registry)`:
 
 ```cpp
-  // Shade's browser-wide prefs (patches/0040).
+  // Shade's browser-wide prefs (patches/0039).
   ghost::RegisterLocalStatePrefs(registry);
 ```
 
     Add `"//ghost/browser/features"` to the deps of the target that lists `prefs/browser_prefs.cc` (find it with `gn refs out\vanilla //chrome/browser/prefs/browser_prefs.cc` or by searching `chrome/browser/BUILD.gn`).
 
   Commit with `-s`. `Why:` the user can turn GPC off; the switch is read where the feature list is made. `Upstream:` not upstreamable, product-specific.
-- [ ] **Step 5: Run the unit tests.** Expected: pass.
-- [ ] **Step 6: The browser test** in `test/network_defaults_browsertest.cc`, after the GPC tests:
+- [x] **Step 5: Run the unit tests.** Expected: pass.
+- [x] **Step 6: The browser test** in `test/network_defaults_browsertest.cc`, after the GPC tests:
 
 ```cpp
 // GPC's switch is read at startup: PRE_ turns it off, the test runs after the
@@ -437,12 +437,12 @@ IN_PROC_BROWSER_TEST_F(NetworkDefaultsBrowserTest, GpcCanBeTurnedOff) {
 ```
 
   If `Header` returns a different marker for a missing header in this file, use that marker (check the fixture). Run `out\vanilla\ghost_browsertests --gtest_filter=NetworkDefaults*`. Expected: all pass, with the two existing GPC tests still passing (default on).
-- [ ] **Step 7: Commit.** In webops: `features: GPC can be turned off, at the next start (patch 0040)`. Re-export the series; `patches.py check`.
+- [x] **Step 7: Commit.** In webops: `features: GPC can be turned off, at the next start (patch 0039)`. Re-export the series; `patches.py check`.
 
-### Task 4: The prefs on `settingsPrivate` (patch 0039)
+### Task 4: The prefs on `settingsPrivate` (patch 0040)
 
 **Files:**
-- Create: patch 0039 (`chrome/browser/extensions/api/settings_private/prefs_util.cc` and its target's `BUILD.gn`)
+- Create: patch 0040 (`chrome/browser/extensions/api/settings_private/prefs_util.cc` and its target's `BUILD.gn`)
 - Test: `browser/ui/settings/protection_settings_browsertest.cc` (new; add to `ghost_browsertests`)
 
 - [ ] **Step 1: Write the failing browser test.**
@@ -479,10 +479,10 @@ IN_PROC_BROWSER_TEST_F(ProtectionSettingsBrowserTest, SettingsSeesShadesPrefs) {
 ```
 
 - [ ] **Step 2: Run it to see it fail.** Expected: every value is `"null"`.
-- [ ] **Step 3: Patch 0039.** In `PrefsUtil::GetAllowlistedKeys()`, just before `return *s_allowlist;` at the end:
+- [ ] **Step 3: Patch 0040.** In `PrefsUtil::GetAllowlistedKeys()`, just before `return *s_allowlist;` at the end:
 
 ```cpp
-  // Shade's settings (patches/0039).
+  // Shade's settings (patches/0040).
   (*s_allowlist)[ghost::privacy_policy::kDefaultLevelPref] =
       settings_api::PrefType::kString;
   (*s_allowlist)[ghost::privacy_policy::kSiteLevelsPref] =
@@ -494,7 +494,7 @@ IN_PROC_BROWSER_TEST_F(ProtectionSettingsBrowserTest, SettingsSeesShadesPrefs) {
 
   Add the three includes and the deps `//ghost/browser/privacy_policy`, `//ghost/browser/query_filter:prefs`, `//ghost/browser/features` to the target that lists `prefs_util.cc`. If `gn check` reports a cycle, move the four constants into a header-only `source_set("pref_names")` in `//ghost/browser/prefs` and depend on that instead. Commit with `-s`. `Why:` chrome://settings reads and writes only allow-listed prefs. `Upstream:` not upstreamable, product-specific.
 - [ ] **Step 4: Run the test.** Expected: pass.
-- [ ] **Step 5: Commit.** In webops: `settings: Shade's prefs reach chrome://settings (patch 0039)`. Re-export; `patches.py check`.
+- [ ] **Step 5: Commit.** In webops: `settings: Shade's prefs reach chrome://settings (patch 0040)`. Re-export; `patches.py check`.
 
 ### Task 5: The handler for the site list
 
@@ -560,7 +560,7 @@ TEST_F(ProtectionsHandlerTest, ClearsASite) {
 namespace ghost::settings {
 
 // chrome://settings' writes to the site list of Shade's section. Reads go
-// through settingsPrivate (patches/0039); writes come here so that the level
+// through settingsPrivate (patches/0040); writes come here so that the level
 // and the site are checked, and the site keyed, as the panel does.
 class ProtectionsHandler : public ::settings::SettingsPageUIHandler {
  public:
@@ -819,11 +819,11 @@ function waitDeep(selector) {
   - **M2:** `ModeDefault` reads the pref off the record too.
   - **M3:** `AppendFeatureOverrides` forces GPC whatever the pref says.
   - **M4:** `HandleSetSiteLevel` stores `page.host()` instead of calling `SetLevel` (which keys by registrable domain).
-  - **M5:** patch 0039 without the site-levels line (a change to `prefs_util.cc` in `chromium/src`, reverted with `git checkout` there).
+  - **M5:** patch 0040 without the site-levels line (a change to `prefs_util.cc` in `chromium/src`, reverted with `git checkout` there).
 - [ ] **Full suites and the audit.** Run `ghost_unittests` and `ghost_browsertests` in full. Run the egress audit. Expected: 0 unexpected hosts.
 - [ ] **Docs.**
   - `privacy-model.md`: the default level; GPC can be turned off, at the next start; where the settings live.
-  - `architecture.md`: the Settings library, its mapping and patches 0038–0040.
+  - `architecture.md`: the Settings library, its mapping and patches 0038–0039.
   - `testing.md`.
   - `roadmap.md`: 3D-4 done, 3D closed.
   - The progress notes; the status of the spec and of this plan.
