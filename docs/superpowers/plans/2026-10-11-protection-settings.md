@@ -732,7 +732,7 @@ let instance: ProtectionsBrowserProxy|null = null;
 **Files:**
 - Modify: `browser/ui/protections/protections.mojom` (`PageHandler.OpenSettings()`), `protections_page_handler.{h,cc}`, `protections_strings.cc` (`kSettingsLink` "Protection settings"), `browser/resources/protections/app.html.ts`, `app.ts`, `app.css`
 
-- [ ] **Step 1:** `OpenSettings()` in the handler:
+- [x] **Step 1:** `OpenSettings()` in the handler:
 
 ```cpp
 void ProtectionsPageHandler::OpenSettings() {
@@ -751,9 +751,9 @@ void ProtectionsPageHandler::OpenSettings() {
 ```
 
   Use the handler's existing way of finding the bubble's tab in place of `ActiveTab()` if it's named differently.
-- [ ] **Step 2:** The page shows a link row at the bottom, `<a href="#" id="settings">${i18n('settingsLink')}</a>`, which calls `handler.openSettings()` and prevents the default.
-- [ ] **Step 3:** Build, open the panel, click the link. Expected: a new tab at `chrome://settings/protections`; the bubble closes.
-- [ ] **Step 4: Commit.** `protections: the panel links to Shade's settings`.
+- [x] **Step 2:** The page shows a link row at the bottom, `<a href="#" id="settings">${i18n('settingsLink')}</a>`, which calls `handler.openSettings()` and prevents the default.
+- [x] **Step 3:** Build, open the panel, click the link. Expected: a new tab at `chrome://settings/protections`; the bubble closes.
+- [x] **Step 4: Commit.** `protections: the panel links to Shade's settings`.
 
 ### Task 9: Browser tests for the section
 

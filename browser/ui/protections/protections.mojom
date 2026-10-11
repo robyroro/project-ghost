@@ -38,6 +38,9 @@ interface PageHandler {
   SetLevel(Level level);
   // The page has rendered: the bubble can show.
   ShowUI();
+  // Opens Shade's section of chrome://settings in a new tab and closes the
+  // bubble.
+  OpenSettings();
 };
 
 // Page side.

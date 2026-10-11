@@ -50,6 +50,7 @@ class ProtectionsUI : public TopChromeWebUIController, public mojom::PageHandler
 
   // The page has rendered: the bubble can show.
   void ShowUI();
+  void CloseUI();
 
  private:
   // mojom::PageHandlerFactory:

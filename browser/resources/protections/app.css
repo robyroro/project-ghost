@@ -103,6 +103,21 @@
   margin: 8px 16px 14px;
 }
 
+#footer {
+  border-top: 1px solid var(--color-sys-divider);
+  padding: 8px 16px 10px;
+}
+
+#settings {
+  color: var(--color-sys-primary);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+#settings:hover {
+  text-decoration: underline;
+}
+
 #note {
   border-top: 1px solid var(--color-sys-divider);
   color: var(--color-sys-on-surface-subtle);

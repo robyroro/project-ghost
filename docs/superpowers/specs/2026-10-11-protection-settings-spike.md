@@ -65,3 +65,7 @@ What the wiring took, beyond the plan:
   - a search for "tracker" matches.
   - The look in dark mode matches the approved mockup.
 - Totals: 98 unit tests (the 4 handler tests removed) and 83 browser tests pass, with no retry.
+
+## Task 8: the panel's link, 2026-10-11
+
+- `PageHandler.OpenSettings()` opens `chrome://settings/protections` in a new foreground tab, from the bubble's active tab (`WebContents::OpenURL`, content API only), then closes the bubble (`ProtectionsUI::CloseUI`). The panel has a "Protection settings" link at its foot.

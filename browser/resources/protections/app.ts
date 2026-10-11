@@ -123,6 +123,11 @@ export class ProtectionsAppElement extends CrLitElement {
     const level = Number((e.target as HTMLInputElement).value) as Level;
     ProtectionsBrowserProxy.getInstance().handler.setLevel(level);
   }
+
+  protected onSettingsClick_(e: Event) {
+    e.preventDefault();
+    ProtectionsBrowserProxy.getInstance().handler.openSettings();
+  }
 }
 
 declare global {

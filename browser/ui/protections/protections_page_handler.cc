@@ -9,10 +9,14 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "ghost/browser/protections/panel_state.h"
 #include "ghost/browser/ui/protections/protections_ui.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
+#include "url/gurl.h"
 
 namespace ghost::protections {
 
@@ -67,6 +71,19 @@ void ProtectionsPageHandler::SetLevel(mojom::Level level) {
 
 void ProtectionsPageHandler::ShowUI() {
   ui_->ShowUI();
+}
+
+void ProtectionsPageHandler::OpenSettings() {
+  content::WebContents* tab = ActiveTab();
+  if (!tab) {
+    return;
+  }
+  tab->OpenURL(content::OpenURLParams(GURL("chrome://settings/protections"), content::Referrer(),
+                                      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                                      ui::PAGE_TRANSITION_LINK,
+                                      /*is_renderer_initiated=*/false),
+               /*navigation_handle_callback=*/{});
+  ui_->CloseUI();
 }
 
 void ProtectionsPageHandler::OnBlockedCountChanged() {

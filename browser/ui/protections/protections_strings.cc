@@ -32,6 +32,7 @@ constexpr Entry kPageStrings[] = {
     {"defaultMark", "default"},
     {"incognitoNote", "Changes here last until you close all Incognito windows."},
     {"notApplicable", "Protections don't apply to this page"},
+    {"settingsLink", "Protection settings"},
 };
 
 }  // namespace

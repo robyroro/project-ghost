@@ -52,6 +52,12 @@ void ProtectionsUI::ShowUI() {
   }
 }
 
+void ProtectionsUI::CloseUI() {
+  if (embedder()) {
+    embedder()->CloseUI();
+  }
+}
+
 WEB_UI_CONTROLLER_TYPE_IMPL(ProtectionsUI)
 
 void PopulateWebUIFrameBinders(mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {

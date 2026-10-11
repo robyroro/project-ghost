@@ -44,6 +44,7 @@ class ProtectionsPageHandler : public mojom::PageHandler,
   void GetState(GetStateCallback callback) override;
   void SetLevel(mojom::Level level) override;
   void ShowUI() override;
+  void OpenSettings() override;
 
  private:
   // PageProtections::Observer: also a new page, which resets the count.

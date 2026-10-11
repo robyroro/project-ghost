@@ -31,6 +31,11 @@ ${this.isOff_() ? html`
 <p id="about">${this.about_()}</p>
 ${this.offTheRecord_() ?
     html`<div id="note">${this.i18n_('incognitoNote')}</div>` : nothing}
+<div id="footer">
+  <a id="settings" href="#" @click="${this.onSettingsClick_}">
+    ${this.i18n_('settingsLink')}
+  </a>
+</div>
 <!--_html_template_end_-->` : nothing;
   // clang-format on
 }
