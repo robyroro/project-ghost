@@ -29,10 +29,16 @@ namespace ghost::privacy_policy {
 // list).
 inline constexpr char kSiteLevelsPref[] = "ghost.privacy_policy.site_levels";
 
+// The level of the sites the user hasn't set, in a regular profile: a level's
+// pref string, Standard if unknown. Incognito ignores it (always Strict, the
+// privacy model's Private mode). Not synced.
+inline constexpr char kDefaultLevelPref[] = "ghost.privacy_policy.default_level";
+
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
-// Strict off the record (Incognito, which becomes Private mode), Standard
-// otherwise (docs/privacy-model.md#modes).
+// Strict off the record (Incognito, which becomes Private mode,
+// docs/privacy-model.md#modes); otherwise the default level the user chose
+// (kDefaultLevelPref).
 ProtectionLevel ModeDefault(content::BrowserContext* context);
 
 // The level for a page: its site's (the registrable domain of its host), or

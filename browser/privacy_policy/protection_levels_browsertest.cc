@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -159,6 +160,27 @@ IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, IncognitoIsStrictByDefault) 
   const GURL page = embedded_https_test_server().GetURL("a.test", "/page");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, page));
   // The control: the page is there and loads its own scripts.
+  ASSERT_EQ(Load("script", page.Resolve("/fine.js"), incognito), "loaded");
+  EXPECT_EQ(Load("script", page.Resolve("/own.js"), incognito), "error");
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, AStrictDefaultBlocksTheSitesOwnTrackers) {
+  GetProfile()->GetPrefs()->SetString(kDefaultLevelPref, "strict");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/page")));
+  EXPECT_EQ(Load("script", Url("a.test", "/own.js")), "error");
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, AnOffDefaultLoadsTrackers) {
+  GetProfile()->GetPrefs()->SetString(kDefaultLevelPref, "off");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/page")));
+  EXPECT_EQ(Load("script", Url("tracker.test", "/t.js")), "loaded");
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, IncognitoIgnoresAnOffDefault) {
+  GetProfile()->GetPrefs()->SetString(kDefaultLevelPref, "off");
+  Browser* incognito = CreateIncognitoBrowser();
+  const GURL page = embedded_https_test_server().GetURL("a.test", "/page");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, page));
   ASSERT_EQ(Load("script", page.Resolve("/fine.js"), incognito), "loaded");
   EXPECT_EQ(Load("script", page.Resolve("/own.js"), incognito), "error");
 }

@@ -18,3 +18,10 @@ What the wiring took, beyond the plan:
   - `chrome://settings/protections` renders the section;
   - `?search=shade` keeps the section visible and highlights the title.
 - **Builds:** 1m35s to the first error (ESLint), then 2m34s; each later rebuild under 1m30s. A running dev browser holds `resources.pak` and fails the repack: close it before building.
+
+## Task 2: the default level, 2026-10-11
+
+- `ghost.privacy_policy.default_level` as planned: `ModeDefault` reads it in a regular profile; Incognito stays Strict.
+- The panel needed no change: its "default" label already comes from `ModeDefault`.
+- Tests: 5 unit tests (4 in `SiteLevels`, 1 in `PanelState`) and 3 browser tests in `ProtectionLevels`.
+- Totals: 96 unit and 80 browser tests pass, with no retry.

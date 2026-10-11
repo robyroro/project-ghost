@@ -70,6 +70,15 @@ TEST_F(PanelStateTest, ChoosingTheDefaultClearsTheSitesChoice) {
   EXPECT_FALSE(HasChoice("news.test"));
 }
 
+TEST_F(PanelStateTest, TheDefaultIsTheChosenDefaultLevel) {
+  profile()->GetPrefs()->SetString(privacy_policy::kDefaultLevelPref, "strict");
+  NavigateAndCommit(GURL("https://news.test/"));
+  EXPECT_EQ(GetPanelState(*web_contents()).mode_default, ProtectionLevel::kStrict);
+  ChooseLevel(*web_contents(), ProtectionLevel::kStrict);
+  EXPECT_FALSE(
+      profile()->GetPrefs()->GetDict(privacy_policy::kSiteLevelsPref).contains("news.test"));
+}
+
 TEST_F(PanelStateTest, ChoosingALevelReloadsThePage) {
   NavigateAndCommit(GURL("https://news.test/"));
   ASSERT_FALSE(web_contents()->GetController().GetPendingEntry());

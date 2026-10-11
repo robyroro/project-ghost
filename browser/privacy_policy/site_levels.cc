@@ -44,10 +44,16 @@ std::optional<ProtectionLevel> SiteLevel(content::BrowserContext* context, const
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterDictionaryPref(kSiteLevelsPref);
+  registry->RegisterStringPref(kDefaultLevelPref,
+                               std::string(ToPrefString(ProtectionLevel::kStandard)));
 }
 
 ProtectionLevel ModeDefault(content::BrowserContext* context) {
-  return context->IsOffTheRecord() ? ProtectionLevel::kStrict : ProtectionLevel::kStandard;
+  if (context->IsOffTheRecord()) {
+    return ProtectionLevel::kStrict;
+  }
+  return ParseProtectionLevel(Prefs(context)->GetString(kDefaultLevelPref))
+      .value_or(ProtectionLevel::kStandard);
 }
 
 ProtectionLevel GetLevel(content::BrowserContext* context, const GURL& page) {

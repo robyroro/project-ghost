@@ -232,7 +232,7 @@ void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source)
 - Modify: `browser/privacy_policy/site_levels.{h,cc}`
 - Test: `browser/privacy_policy/site_levels_unittest.cc`
 
-- [ ] **Step 1: Write the failing tests** (in `site_levels_unittest.cc`):
+- [x] **Step 1: Write the failing tests** (in `site_levels_unittest.cc`):
 
 ```cpp
 TEST_F(SiteLevelsTest, TheRegularProfileUsesTheDefaultLevel) {
@@ -263,8 +263,8 @@ TEST_F(SiteLevelsTest, ASitesOwnLevelOutlivesADefaultChange) {
 }
 ```
 
-- [ ] **Step 2: Run them to see them fail.** `autoninja -C out\vanilla ghost_unittests && out\vanilla\ghost_unittests --gtest_filter=SiteLevels*`. Expected: a compile failure (no `kDefaultLevelPref`).
-- [ ] **Step 3: Implement.** In `site_levels.h`:
+- [x] **Step 2: Run them to see them fail.** `autoninja -C out\vanilla ghost_unittests && out\vanilla\ghost_unittests --gtest_filter=SiteLevels*`. Expected: a compile failure (no `kDefaultLevelPref`).
+- [x] **Step 3: Implement.** In `site_levels.h`:
 
 ```cpp
 // The level of the sites the user hasn't set, in a regular profile: a level's
@@ -290,8 +290,8 @@ ProtectionLevel ModeDefault(content::BrowserContext* context) {
 }
 ```
 
-- [ ] **Step 4: Run the tests.** Same command as Step 2, then all of `ghost_unittests`. Expected: pass. `PanelState*` still passes: its "default" label already reads `ModeDefault`.
-- [ ] **Step 5: Add one panel test** in `browser/protections/panel_state_unittest.cc`:
+- [x] **Step 4: Run the tests.** Same command as Step 2, then all of `ghost_unittests`. Expected: pass. `PanelState*` still passes: its "default" label already reads `ModeDefault`.
+- [x] **Step 5: Add one panel test** in `browser/protections/panel_state_unittest.cc`:
 
 ```cpp
 TEST_F(PanelStateTest, TheDefaultIsTheChosenDefaultLevel) {
@@ -304,7 +304,7 @@ TEST_F(PanelStateTest, TheDefaultIsTheChosenDefaultLevel) {
 ```
 
   Run `--gtest_filter=PanelState*`. Expected: pass.
-- [ ] **Step 6: Browser tests** in `browser/privacy_policy/protection_levels_browsertest.cc`:
+- [x] **Step 6: Browser tests** in `browser/privacy_policy/protection_levels_browsertest.cc`:
 
 ```cpp
 IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, AStrictDefaultBlocksTheSitesOwnTrackers) {
@@ -330,7 +330,7 @@ IN_PROC_BROWSER_TEST_F(ProtectionLevelsBrowserTest, IncognitoIgnoresAnOffDefault
 ```
 
   Run `out\vanilla\ghost_browsertests --gtest_filter=ProtectionLevels*`. Expected: pass.
-- [ ] **Step 7: Commit.** `privacy_policy: the default level for a regular profile's sites`.
+- [x] **Step 7: Commit.** `privacy_policy: the default level for a regular profile's sites`.
 
 ### Task 3: GPC's switch (patch 0040)
 

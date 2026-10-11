@@ -53,6 +53,33 @@ TEST_F(SiteLevelsTest, AnUnknownStoredLevelIsIgnored) {
   EXPECT_EQ(GetLevel(&profile_, GURL("https://a.test/")), ProtectionLevel::kStandard);
 }
 
+TEST_F(SiteLevelsTest, TheRegularProfileUsesTheDefaultLevel) {
+  for (ProtectionLevel level :
+       {ProtectionLevel::kOff, ProtectionLevel::kStandard, ProtectionLevel::kStrict}) {
+    profile_.GetPrefs()->SetString(kDefaultLevelPref, ToPrefString(level));
+    EXPECT_EQ(ModeDefault(&profile_), level);
+    EXPECT_EQ(GetLevel(&profile_, GURL("https://a.test/")), level);
+  }
+}
+
+TEST_F(SiteLevelsTest, IncognitoIsStrictWhateverTheDefault) {
+  profile_.GetPrefs()->SetString(kDefaultLevelPref, "off");
+  EXPECT_EQ(ModeDefault(Incognito()), ProtectionLevel::kStrict);
+  EXPECT_EQ(GetLevel(Incognito(), GURL("https://a.test/")), ProtectionLevel::kStrict);
+}
+
+TEST_F(SiteLevelsTest, AnUnknownDefaultIsStandard) {
+  profile_.GetPrefs()->SetString(kDefaultLevelPref, "strictest");
+  EXPECT_EQ(ModeDefault(&profile_), ProtectionLevel::kStandard);
+}
+
+TEST_F(SiteLevelsTest, ASitesOwnLevelOutlivesADefaultChange) {
+  SetLevel(&profile_, GURL("https://a.test/"), ProtectionLevel::kStrict);
+  profile_.GetPrefs()->SetString(kDefaultLevelPref, "strict");
+  profile_.GetPrefs()->SetString(kDefaultLevelPref, "standard");
+  EXPECT_EQ(GetLevel(&profile_, GURL("https://a.test/")), ProtectionLevel::kStrict);
+}
+
 TEST_F(SiteLevelsTest, APageWithoutAHostHasTheModesDefault) {
   EXPECT_EQ(GetLevel(&profile_, GURL()), ProtectionLevel::kStandard);
   EXPECT_EQ(GetLevel(Incognito(), GURL("about:blank")), ProtectionLevel::kStrict);
