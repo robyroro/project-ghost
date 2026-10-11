@@ -298,6 +298,11 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
    - Shade's first UI: a toolbar shield with the count of requests blocked on the page opens a WebUI panel that sets the site's level; the look approved by the user.
    - Four mutation checks fail as required; 91 unit and 77 browser tests pass with no retry.
    - Limitations: shared and service workers' blocks aren't counted; the task manager names the panel "Privacy and security" until Shade's strings get a grd; strings are English only.
+
+   **3D-4 built 2026-10-11** (the look awaits the user's approval). `//ghost/browser/resources/settings`, `//ghost/browser/ui/settings`, `//ghost/browser/features:local_state_prefs`; patches 0038 (the Settings section), 0039 (Local State for the feature overrides), 0040 (`settingsPrivate`'s allow-list); [design](superpowers/specs/2026-10-11-protection-settings-design.md), [progress notes](superpowers/specs/2026-10-11-protection-settings-spike.md).
+   - A "Shade protections" section of `chrome://settings`: the default level (Off, Standard, Strict; Incognito stays Strict), GPC (applies at the next start, with Relaunch), campaign parameters, and the sites with their own level. The panel links to it.
+   - Five mutation checks fail as required; 98 unit and 91 browser tests pass with no retry; the egress audit finds no unexpected host.
+   - Found: dev builds bundle WebUI too (`optimize_webui = !is_debug`); Chromium's lint allows no new `chrome.send` user, so the section writes everything through `settingsPrivate`.
 5. **3E. List updates as signed components,** which needs the update server (sub-project C) deployed.
 
 **Exit criteria** ([phases](#phases-to-public-alpha))

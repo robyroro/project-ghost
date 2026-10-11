@@ -76,3 +76,15 @@ What the wiring took, beyond the plan:
 - The helpers find the section through Settings' nested shadow roots (`findDeep`) and poll (`waitFor`). The browser-side checks use `base::test::RunUntil`.
 - **The suites run on a hidden Windows desktop from now on.** The user's screen showed the tests' browser windows. A launcher creates a desktop (`CreateDesktop`) and starts the test there (`STARTUPINFO.lpDesktop`); child processes inherit it. Views and WebUI tests pass there unchanged.
 - Totals: 98 unit and 91 browser tests pass, with no retry.
+
+## Task 11: mutation checks, audit, docs, 2026-10-11
+
+- **Mutation checks**, run with each mutant's build checked first and the tests on the hidden desktop. Each fails as required:
+  - **M1:** `ModeDefault` ignores the default-level pref. Caught by `SiteLevelsTest.TheRegularProfileUsesTheDefaultLevel`, `PanelStateTest.TheDefaultIsTheChosenDefaultLevel`, `ProtectionLevelsBrowserTest.AStrictDefaultBlocksTheSitesOwnTrackers` and `.AnOffDefaultLoadsTrackers`, and `ProtectionsPanelBrowserTest.AnOffDefaultTurnsTheButtonOff`.
+  - **M2:** Incognito reads the pref. Caught by `SiteLevelsTest.IncognitoIsStrictWhateverTheDefault` (and three more) and `ProtectionLevelsBrowserTest.IncognitoIgnoresAnOffDefault` and `.IncognitoIsStrictByDefault`.
+  - **M3:** GPC forced whatever its pref says. Caught by `FeatureOverridesTest.GpcTurnedOffIsLeftToUpstream` and `NetworkDefaultsBrowserTest.GpcCanBeTurnedOff`.
+  - **M4:** the list's remove button writes the dictionary back unchanged. Caught by `ProtectionSettingsBrowserTest.TheListFollowsThePanel`.
+  - **M5:** patch 0040 without the site-levels line. Caught by `ProtectionSettingsBrowserTest.SettingsSeesShadesPrefs` and `.TheListFollowsThePanel`.
+- **The egress audit** (dev build, on the hidden desktop) finds 0 unexpected hosts. Not counted, as always: one route probe and the `wpad` lookups. The section's favicons come from the local cache.
+- **Docs:** privacy-model.md (the settings; GPC can be turned off), architecture.md (the Settings library and patches 0038–0040), testing.md (the new tests; the hidden desktop), roadmap.md.
+- **The official build check** is left to the user's decision. Dev builds already run the bundled path. A full `out\release` build takes hours and belongs to the release workflow; the next release run builds the section anyway.

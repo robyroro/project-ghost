@@ -50,6 +50,11 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - Off shows a struck shield without a count. On pages where protections don't apply (browser pages, files, the new tab page) the shield is disabled.
   - In Incognito the panel says that changes last until all Incognito windows close.
   - Tests: `BlockedCountBrowserTest`, `ProtectionsPanelBrowserTest`, `PageProtectionsTest`, `PanelStateTest`.
+- **Settings (Phase 3D-4).** "Shade protections", a section of `chrome://settings` (`chrome://settings/protections`), above "Privacy and security"; the panel links to it.
+  - *Default level:* Off, Standard (recommended) or Strict, for the sites the user hasn't set in regular windows (`ghost.privacy_policy.default_level`, not synced). Incognito always starts at Strict; the sites' own levels still reach it. Changing the default leaves the sites' own levels alone.
+  - *Global Privacy Control* and *campaign parameters* switches (below).
+  - *Sites with their own level:* the regular profile's choices, made from the panel, with each one's level changeable and removable. Incognito's choices aren't listed: they end with the session.
+  - Tests: `ProtectionSettingsBrowserTest`, `SiteLevelsTest`, and the default-level cases of `ProtectionLevelsBrowserTest` and `ProtectionsPanelBrowserTest`.
 - **What ships now (Phase 3A).** At the Standard level:
   - with EasyList and EasyPrivacy, unmodified, shipped with the browser and updated with its releases (between releases from 3E). Our own list comes later;
   - every request a page makes is checked: subresources, frames, workers and service workers, and every redirect. Top-level navigations always load, and requests to the page's own site (the same registrable domain) aren't checked;
@@ -83,7 +88,7 @@ The omnibox shows the cleaned URL.
 - **How:** the URL is rewritten before the request is sent (an internal redirect), so the original never leaves the browser. The page commits at the clean URL: the address bar, history, the `Referer` the next page receives, back, forward and reload all have it.
 - **Not changed:** form submissions (POST), iframes, subresources (3A blocks the trackers themselves), the fragment (`#…`, which never leaves the browser), and non-HTTP(S) URLs.
 - **The list** is [`components/query_filter/data/parameters.txt`](../components/query_filter/data/parameters.txt), compiled into the browser: about 70 click identifiers on every site, some limited to one site (`si` on YouTube and Spotify, `igsh` on Instagram, `ref_src` and `ref_url` on X), and `utm_*` as campaign parameters. It changes with browser releases until 3E delivers it as a component.
-- **Campaign parameters:** stripped at the Strict level, so in Incognito by default; at Standard only when `ghost.query_filter.strip_campaign_parameters` is on (off by default; its switch comes with settings, 3D-4). Off strips nothing.
+- **Campaign parameters:** stripped at the Strict level, so in Incognito by default; at Standard only when `ghost.query_filter.strip_campaign_parameters` is on (off by default; the switch is in Shade's settings, 3D-4). Off strips nothing.
 - **Kept on this machine:** the history entry keeps the URL the navigation started with as its "original request URL", saved with the session. Loading it again is cleaned again before it is sent.
 
 ### Connections and DNS
@@ -93,7 +98,7 @@ The omnibox shows the cleaned URL.
 - **DNS-over-HTTPS** (`DnsOverHttpsIsAutomatic`) uses upstream's "automatic" behavior: it upgrades to the configured resolver's DoH endpoint when one exists. A list of DoH providers is offered in settings. We don't silently send every user's DNS to one third-party provider.
 - **Referrer** keeps Chromium's `strict-origin-when-cross-origin` default (`ACrossSiteSubresourceGetsOnlyTheOrigin`). The Strict level sends no referrer cross-site.
 - **WebRTC** exposes only the default public interface: the policy is `default_public_interface_only`, in every profile (`WebRtcUsesOnlyTheDefaultPublicInterface`). When a route is active it is limited to proxied connections, so it can't reveal the real IP.
-- **Global Privacy Control** is sent: the `Sec-GPC` header and `navigator.globalPrivacyControl`, in pages and workers (`GpcIsSentOnNavigationsAndSubresources`, `GpcIsVisibleToPagesAndWorkers`). Its switch comes with the protections panel (3D); meanwhile `--disable-features=GlobalPrivacyControlForce` turns it off. In some jurisdictions it is a legally meaningful opt-out.
+- **Global Privacy Control** is sent: the `Sec-GPC` header and `navigator.globalPrivacyControl`, in pages and workers (`GpcIsSentOnNavigationsAndSubresources`, `GpcIsVisibleToPagesAndWorkers`). The switch is in Shade's settings (3D-4): it is browser-wide (Local State, `ghost.gpc.enabled`, on by default) and applies at the next start, with Chromium's Relaunch button, because Chromium reads GPC once per process. Off, the header isn't sent and the property doesn't exist, as upstream behaves (`GpcCanBeTurnedOff`). `--disable-features=GlobalPrivacyControlForce` still turns it off as well. In some jurisdictions it is a legally meaningful opt-out.
 - **Off by default:**
   - DNS prefetch;
   - preconnect and page preloading, which contact sites you haven't chosen to visit (`PageHintsAndSpeculationRulesContactNobody`: a page's preconnect, DNS-prefetch and speculation-rules hints open no connection to the site they name. DNS prefetch passes the same check as preconnect in Chromium; the test can observe only the connection);
