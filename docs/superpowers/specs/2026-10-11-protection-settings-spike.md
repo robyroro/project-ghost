@@ -87,4 +87,5 @@ What the wiring took, beyond the plan:
   - **M5:** patch 0040 without the site-levels line. Caught by `ProtectionSettingsBrowserTest.SettingsSeesShadesPrefs` and `.TheListFollowsThePanel`.
 - **The egress audit** (dev build, on the hidden desktop) finds 0 unexpected hosts. Not counted, as always: one route probe and the `wpad` lookups. The section's favicons come from the local cache.
 - **Docs:** privacy-model.md (the settings; GPC can be turned off), architecture.md (the Settings library and patches 0038–0040), testing.md (the new tests; the hidden desktop), roadmap.md.
-- **The official build check** is left to the user's decision. Dev builds already run the bundled path. A full `out\release` build takes hours and belongs to the release workflow; the next release run builds the section anyway.
+- **The look:** the user checked the section in the dev build and approved it (2026-10-11).
+- **The official build check** was skipped by the user (2026-10-11). Dev builds already run the bundled path. A full `out\release` build takes hours and belongs to the release workflow; the next release run builds the section anyway.

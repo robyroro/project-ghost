@@ -9,6 +9,8 @@
 - 0039: GPC's Local State pref and the feature list (Task 3 came first, so it took 0039; renumbered while executing);
 - 0040: the prefs on `settingsPrivate`'s allow-list.
 
+**Status:** done 2026-10-11 ([progress notes](../specs/2026-10-11-protection-settings-spike.md)); the official build check was skipped by the user.
+
 **Tech Stack:** C++, TypeScript, Lit, `build_webui`, `settingsPrivate`, Chromium 152.0.7977.158 Settings; `ChromeRenderViewHostTestHarness`, `InProcessBrowserTest`.
 
 **Settled while planning** (each confirmed in the source at the pin; the spec is amended to match):
@@ -801,30 +803,30 @@ function waitDeep(selector) {
 
 ### Task 10: The look, with the user
 
-- [ ] Run `out\vanilla\chrome.exe` with a fresh `--user-data-dir` in the session scratchpad. Set two sites from the panel first, so the list isn't empty.
-- [ ] The user checks the section in light and dark (`--force-dark-mode`), at 100% and 150% Windows scaling, and with a search.
-- [ ] Fix what the user asks for, rebuild, and show it again.
-- [ ] Done when the user approves. Record the approval in the progress notes.
+- [x] Run `out\vanilla\chrome.exe` with a fresh `--user-data-dir` in the session scratchpad. Set two sites from the panel first, so the list isn't empty.
+- [x] The user checks the section in light and dark (`--force-dark-mode`), at 100% and 150% Windows scaling, and with a search.
+- [x] Fix what the user asks for, rebuild, and show it again.
+- [x] Done when the user approves. Record the approval in the progress notes.
 
 ### Task 11: The official build, mutation checks, audit, docs, push
 
-- [ ] **The official build.** Ask the user before starting it: it takes hours, and the release workflow owns `out\release`. Build `chrome` in `out\release` with `release.gn`, launched through WMI as in the release runbook, with `chrome/VERSION` untouched. Open `chrome://settings/protections` in it. Expected:
+- [ ] **The official build (skipped by the user, 2026-10-11: dev builds bundle the section the same way).** Ask the user before starting it: it takes hours, and the release workflow owns `out\release`. Build `chrome` in `out\release` with `release.gn`, launched through WMI as in the release runbook, with `chrome/VERSION` untouched. Open `chrome://settings/protections` in it. Expected:
   - the section renders;
   - search finds it;
   - DevTools' network panel shows no request for `/shade/`, since everything is bundled.
 
   Record the build time.
-- [ ] **Mutation checks.** Each must make at least one test fail; check that the mutant built before trusting a green run. Undo each with `sync.py`, then compare `src/ghost` with webops:
+- [x] **Mutation checks.** Each must make at least one test fail; check that the mutant built before trusting a green run. Undo each with `sync.py`, then compare `src/ghost` with webops:
   - **M1:** `ModeDefault` returns Standard for a regular profile whatever the pref says.
   - **M2:** `ModeDefault` reads the pref off the record too.
   - **M3:** `AppendFeatureOverrides` forces GPC whatever the pref says.
   - **M4:** the list's remove button writes the dictionary back unchanged (amended in Task 7: the handler M4 targeted was dropped).
   - **M5:** patch 0040 without the site-levels line (a change to `prefs_util.cc` in `chromium/src`, reverted with `git checkout` there).
-- [ ] **Full suites and the audit.** Run `ghost_unittests` and `ghost_browsertests` in full. Run the egress audit. Expected: 0 unexpected hosts.
-- [ ] **Docs.**
+- [x] **Full suites and the audit.** Run `ghost_unittests` and `ghost_browsertests` in full. Run the egress audit. Expected: 0 unexpected hosts.
+- [x] **Docs.**
   - `privacy-model.md`: the default level; GPC can be turned off, at the next start; where the settings live.
   - `architecture.md`: the Settings library, its mapping and patches 0038–0039.
   - `testing.md`.
   - `roadmap.md`: 3D-4 done, 3D closed.
   - The progress notes; the status of the spec and of this plan.
-- [ ] **Push.** Ask the user before pushing. After the push, wait for both tooling jobs; then update the memory.
+- [x] **Push.** Ask the user before pushing. After the push, wait for both tooling jobs; then update the memory.

@@ -1,6 +1,6 @@
 # Protection settings: design
 
-- Status: design approved 2026-10-11 (each choice by the user, from mockups and questions; the rest decided by Claude with the user's approval, each decision with its reason below)
+- Status: done 2026-10-11 ([progress notes](2026-10-11-protection-settings-spike.md)); design approved 2026-10-11 (each choice by the user, from mockups and questions; the rest decided by Claude with the user's approval, each decision with its reason below)
 - Phase 3, sub-project 3D-4 ([roadmap](../../roadmap.md#phase-3-network-protections)), the last of 3D; it sets what 3D-1's policy ([design](2026-10-10-protection-levels-design.md)) takes as given and links from 3D-3's panel ([design](2026-10-10-protections-panel-design.md))
 
 ## Goal
@@ -119,11 +119,11 @@ privacy-model.md (the settings; GPC can be turned off), architecture.md (the Set
 
 ## Done when
 
-- [ ] The tests pass and the five mutation checks fail as required.
-- [ ] The section loads in the official build.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The user approves the look.
-- [ ] The documentation is updated; everything is committed (pushed when the user approves).
+- [x] The tests pass and the five mutation checks fail as required.
+- [ ] The section loads in the official build: skipped by the user (2026-10-11). Dev builds bundle the section the same way (`optimize_webui = !is_debug`); the next release run builds it.
+- [x] The egress audit finds no unexpected host.
+- [x] The user approves the look (2026-10-11).
+- [x] The documentation is updated; everything is committed and pushed (user approved).
 
 ## Out of scope
 
