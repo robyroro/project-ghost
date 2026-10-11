@@ -10,6 +10,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "ghost/browser/ui/protections/level_strings.h"
 
 namespace ghost::protections::strings {
 
@@ -28,38 +29,30 @@ constexpr Entry kPageStrings[] = {
     {"blockedMany", "requests blocked on this page"},
     {"offLabel", "nothing is blocked on this site"},
     {"levelGroup", "Protection level for this site"},
-    {"levelOff", "Off"},
-    {"levelStandard", "Standard"},
-    {"levelStrict", "Strict"},
     {"defaultMark", "default"},
-    {"aboutOff",
-     "Trackers and ads load. Links keep their tracking parameters. Cookies, HTTPS and GPC "
-     "protections still apply."},
-    {"aboutStandard",
-     "Blocks third-party trackers and ads. Removes click identifiers from links to this site."},
-    {"aboutStrict",
-     "Also blocks the site's own trackers. Removes campaign parameters. Sends no referrer to "
-     "other sites."},
     {"incognitoNote", "Changes here last until you close all Incognito windows."},
     {"notApplicable", "Protections don't apply to this page"},
 };
-
-std::string_view LevelName(ProtectionLevel level) {
-  switch (level) {
-    case ProtectionLevel::kOff:
-      return "Off";
-    case ProtectionLevel::kStandard:
-      return "Standard";
-    case ProtectionLevel::kStrict:
-      return "Strict";
-  }
-}
 
 }  // namespace
 
 void AddToDataSource(content::WebUIDataSource& source) {
   for (const Entry& entry : kPageStrings) {
     source.AddString(entry.name, base::UTF8ToUTF16(entry.text));
+  }
+  // Shared with Shade's section of chrome://settings (level_strings).
+  constexpr struct {
+    std::string_view name;
+    std::string_view about;
+    ProtectionLevel level;
+  } kLevels[] = {
+      {"levelOff", "aboutOff", ProtectionLevel::kOff},
+      {"levelStandard", "aboutStandard", ProtectionLevel::kStandard},
+      {"levelStrict", "aboutStrict", ProtectionLevel::kStrict},
+  };
+  for (const auto& level : kLevels) {
+    source.AddString(level.name, base::UTF8ToUTF16(LevelName(level.level)));
+    source.AddString(level.about, base::UTF8ToUTF16(LevelDetails(level.level)));
   }
 }
 

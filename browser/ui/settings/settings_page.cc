@@ -11,6 +11,7 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ghost/browser/ui/settings/protections_handler.h"
+#include "ghost/browser/ui/settings/settings_strings.h"
 
 #if !BUILDFLAG(OPTIMIZE_WEBUI)
 #include "ghost/grit/shade_settings_resources_map.h"
@@ -23,7 +24,7 @@ void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source)
   // Bundled into settings.js otherwise, as upstream's settings_shared is.
   source->AddResourcePaths(kShadeSettingsResources);
 #endif
-  source->AddString("shadeProtectionsTitle", "Shade protections");
+  AddSettingsStrings(source);
   web_ui->AddMessageHandler(std::make_unique<ProtectionsHandler>(Profile::FromWebUI(web_ui)));
 }
 

@@ -12,6 +12,16 @@ mojom("mojo_bindings") {
 # The protections panel: the toolbar's shield and the page it opens. Linked
 # into //chrome/browser/ui/views/toolbar:impl, whose ToolbarView adds the
 # button (patches/0035): so it depends on the toolbar's header target only.
+# What each level is called and does: shared with Shade's section of
+# chrome://settings, which can't depend on the toolbar's targets.
+source_set("level_strings") {
+  sources = [
+    "level_strings.cc",
+    "level_strings.h",
+  ]
+  public_deps = [ "//ghost/components/privacy_policy" ]
+}
+
 source_set("protections") {
   sources = [
     "protections_button.cc",
@@ -41,6 +51,7 @@ source_set("protections") {
     "//chrome/browser/ui/webui/top_chrome",
     "//components/vector_icons",
     "//content/public/browser",
+    ":level_strings",
     "//ghost/browser/protections",
     "//ghost/browser/resources/protections:resources",
     "//mojo/public/cpp/bindings",

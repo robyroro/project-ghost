@@ -613,7 +613,7 @@ GURL SitePage(const base::Value& site) {
 - Create: `browser/ui/settings/settings_strings.{h,cc}`
 - Modify: `browser/ui/settings/settings_page.cc`
 
-- [ ] **Step 1:** Write `settings_strings.cc` with `void AddSettingsStrings(content::WebUIDataSource* source)`. It makes these `AddString` calls, English only. The level sentences repeat the panel's in `protections_strings.cc`: refer to those constants rather than copying them.
+- [x] **Step 1:** Write `settings_strings.cc` with `void AddSettingsStrings(content::WebUIDataSource* source)`. It makes these `AddString` calls, English only. The level sentences repeat the panel's in `protections_strings.cc`: refer to those constants rather than copying them.
 
 | Key | Text |
 |---|---|
@@ -640,8 +640,8 @@ GURL SitePage(const base::Value& site) {
 | `shadeSiteLevel` | Level for $1 |
 
   Also `source->AddBoolean("shadeGpcEnabledAtStartup", blink::IsGlobalPrivacyControlEnabled());` (dep `//third_party/blink/public/common`).
-- [ ] **Step 2:** `SetUpSettingsPage` calls `AddSettingsStrings(source)` instead of its single string. Build. Expected: compiles; the spike's title still shows.
-- [ ] **Step 3: Commit.** `settings: the strings of Shade's section`.
+- [x] **Step 2:** `SetUpSettingsPage` calls `AddSettingsStrings(source)` instead of its single string. Build. Expected: compiles; the spike's title still shows.
+- [x] **Step 3: Commit.** `settings: the strings of Shade's section`.
 
 ### Task 7: The section
 
