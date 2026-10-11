@@ -212,5 +212,28 @@ IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, TheButtonFollowsTheActiveTab
   EXPECT_EQ(button->badge_text_for_testing(), u"3");
 }
 
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, TheLinkOpensTheSettings) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Page("news.test")));
+  content::WebContents* panel = OpenPanel(browser());
+  ASSERT_TRUE(panel);
+  ui_test_utils::TabAddedWaiter added(browser());
+  ASSERT_TRUE(content::ExecJs(panel, R"(document.querySelector('protections-app')
+      .shadowRoot.querySelector('#settings').click())"));
+  content::WebContents* settings = added.Wait();
+  ASSERT_TRUE(content::WaitForLoadStop(settings));
+  EXPECT_EQ(settings->GetLastCommittedURL(), GURL("chrome://settings/protections"));
+  EXPECT_EQ(Tab(browser()), settings);
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, AnOffDefaultTurnsTheButtonOff) {
+  browser()->GetProfile()->GetPrefs()->SetString(privacy_policy::kDefaultLevelPref, "off");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Page("news.test")));
+  LoadImages(browser(), "tracker.test", 3);
+  ProtectionsButton* button = Button(browser());
+  EXPECT_TRUE(button->shows_off_for_testing());
+  EXPECT_EQ(button->badge_text_for_testing(), u"");
+  EXPECT_EQ(button->GetTooltipText(), u"Protections: Off");
+}
+
 }  // namespace
 }  // namespace ghost::protections

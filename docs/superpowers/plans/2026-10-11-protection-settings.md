@@ -760,7 +760,7 @@ void ProtectionsPageHandler::OpenSettings() {
 **Files:**
 - Modify: `browser/ui/settings/protection_settings_browsertest.cc`, `browser/ui/protections/protections_panel_browsertest.cc`
 
-- [ ] **Step 1:** Add a JS helper that finds an element through shadow roots, and a poll:
+- [x] **Step 1:** Add a JS helper that finds an element through shadow roots, and a poll:
 
 ```cpp
 // The first element matching |selector| in the page, looking inside every
@@ -785,7 +785,7 @@ function waitDeep(selector) {
 ```
 
   Each test runs `content::EvalJs(Tab(), base::StrCat({kFindDeep, "; (async () => { ... })()"}))`.
-- [ ] **Step 2:** Write the tests, each opening `chrome://settings/protections` first:
+- [x] **Step 2:** Write the tests, each opening `chrome://settings/protections` first:
   1. `TheSectionIsThere`: `waitDeep('shade-protections-page')`; three `shade-level-card`s in its shadow root; Standard checked; two `cr-toggle`s; `shade-site-list` showing the empty text.
   2. `ChoosingStrictWritesTheDefault`: click the Strict card's radio; poll the pref in C++ until `GetString(kDefaultLevelPref) == "strict"`.
   3. `TheListFollowsThePanel`: `SetLevel(profile, https://news.test/, kOff)` after the page loaded; `waitDeep` for a row containing `news.test`; click its remove button; poll until the dict is empty.
@@ -796,8 +796,8 @@ function waitDeep(selector) {
   In `protections_panel_browsertest.cc`:
   7. `TheLinkOpensTheSettings`: open the bubble, click `#settings` in it, and wait (with `ui_test_utils::TabAddedWaiter`) for a tab at `chrome://settings/protections`.
   8. `AnOffDefaultTurnsTheButtonOff`: set `kDefaultLevelPref` to `"off"`, open a page with three tracker images; the trackers load, the badge text is empty and the accessible name starts with "Protections: Off".
-- [ ] **Step 3:** Run `out\vanilla\ghost_browsertests --gtest_filter=ProtectionSettings*:ProtectionsPanel*`. Expected: pass. Then all of `ghost_browsertests` and `ghost_unittests`, with no retry.
-- [ ] **Step 4: Commit.** `settings: browser tests for Shade's section`.
+- [x] **Step 3:** Run `out\vanilla\ghost_browsertests --gtest_filter=ProtectionSettings*:ProtectionsPanel*`. Expected: pass. Then all of `ghost_browsertests` and `ghost_unittests`, with no retry.
+- [x] **Step 4: Commit.** `settings: browser tests for Shade's section`.
 
 ### Task 10: The look, with the user
 

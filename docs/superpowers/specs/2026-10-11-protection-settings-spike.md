@@ -69,3 +69,10 @@ What the wiring took, beyond the plan:
 ## Task 8: the panel's link, 2026-10-11
 
 - `PageHandler.OpenSettings()` opens `chrome://settings/protections` in a new foreground tab, from the bubble's active tab (`WebContents::OpenURL`, content API only), then closes the bubble (`ProtectionsUI::CloseUI`). The panel has a "Protection settings" link at its foot.
+
+## Task 9: browser tests, 2026-10-11
+
+- `ProtectionSettingsBrowserTest` has 7 tests: the prefs Settings sees, the section's controls, Strict writes the default, the list follows the panel then changes and removes a site, the campaign switch, GPC's Relaunch (it appears, then goes when GPC is back on), and search. `ProtectionsPanelBrowserTest` gains 2: the link opens the section in a new tab, and an Off default turns the button off.
+- The helpers find the section through Settings' nested shadow roots (`findDeep`) and poll (`waitFor`). The browser-side checks use `base::test::RunUntil`.
+- **The suites run on a hidden Windows desktop from now on.** The user's screen showed the tests' browser windows. A launcher creates a desktop (`CreateDesktop`) and starts the test there (`STARTUPINFO.lpDesktop`); child processes inherit it. Views and WebUI tests pass there unchanged.
+- Totals: 98 unit and 91 browser tests pass, with no retry.
