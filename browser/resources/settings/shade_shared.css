@@ -1,0 +1,38 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=//resources/cr_elements/cr_shared_vars.css.js
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+/* Shade's section: rounder and airier than Settings' rows. Colours come only
+   from --cr-* variables, so light, dark and high contrast follow Settings. */
+.group {
+  background: var(--cr-card-background-color);
+  border: 1px solid var(--cr-separator-color);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  padding: 10px 18px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--cr-separator-color);
+}
+
+.row:first-child {
+  border-top: none;
+}
+
+.sub {
+  color: var(--cr-secondary-text-color);
+  font-size: 0.9em;
+  margin-top: 2px;
+}

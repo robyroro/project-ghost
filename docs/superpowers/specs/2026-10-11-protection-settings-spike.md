@@ -50,3 +50,18 @@ What the wiring took, beyond the plan:
 
 - The levels' names and sentences moved from the panel's strings file into `//ghost/browser/ui/protections:level_strings`, which depends only on the policy component. The panel and the Settings section both read them. Settings can't depend on the panel's target, which links the toolbar.
 - `shadeGpcEnabledAtStartup` is `blink::IsGlobalPrivacyControlEnabled()` when the page loads: GPC as this process runs it.
+
+## Task 7: the section, 2026-10-11
+
+- **No handler: the site list writes through `settingsPrivate` too.** Chromium's WebUI lint (`no-restricted-properties`) refuses `chrome.send` in any WebUI not on a frozen list of legacy users (`build_webui.gni`, "DO NOT add new entries"). The other routes were a Mojo interface, at the cost of two more Settings patches (the interface's binder and `SettingsUI`), or joining that list. Instead, the list writes the dictionary through `PrefService` (`setPrefDictEntry`, and the dictionary without the key to remove). It only changes or removes keys the panel wrote, which are registrable domains already, and `settingsPrivate` checks the pref's type. Task 5's handler and its 4 tests are removed, and mutation M4 targets the list instead. The spec records the change.
+- **The level cards are the `cr-radio-button`s themselves.** The button's slot holds the chip, the summary, the details and the warning. The plan's separate `shade-level-card` element would have added nothing.
+- **The menu's shield is `settings20:shield`.** The `settings` iconset has none, so the first build showed no icon. This was fixed in patch 0038.
+- WebUI lint names: a `selected-changed` listener must be called `on<Context>SelectedChanged_`.
+- **Checked by hand** in the dev build (DevTools on a fresh profile):
+  - Standard is checked by default; clicking Strict writes `default_level` and opens Strict's card;
+  - a site written to the pref shows in the list without a reload; the list's menu changes its level; ✕ removes it, and the empty text shows;
+  - turning GPC off shows Relaunch, and turning it back on hides it;
+  - the campaign switch writes its pref;
+  - a search for "tracker" matches.
+  - The look in dark mode matches the approved mockup.
+- Totals: 98 unit tests (the 4 handler tests removed) and 83 browser tests pass, with no retry.

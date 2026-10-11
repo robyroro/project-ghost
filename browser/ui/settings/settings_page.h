@@ -13,9 +13,10 @@ class WebUIDataSource;
 namespace ghost::settings {
 
 // Called by chrome://settings' SettingsUI (patches/0038) once its data source
-// has upstream's strings: adds Shade's section's strings, its /shade/
-// resources (bundled into settings.js when optimize_webui), and its message
-// handler.
+// has upstream's strings: adds Shade's section's strings and its /shade/
+// resources (bundled into settings.js when optimize_webui). The section has no
+// message handler: it reads and writes prefs through settingsPrivate
+// (patches/0040), and Chromium allows no new chrome.send users.
 void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source);
 
 }  // namespace ghost::settings

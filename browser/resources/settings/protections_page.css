@@ -1,0 +1,103 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=./shade_shared.css.js
+ * #include=shade-shared
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+/* The approved look (vertical level cards, in the spirit of Firefox's
+   tracking protection): only Shade's section is styled this way; the rest of
+   Settings stays Chromium's. */
+:host {
+  display: block;
+  padding: 4px 0 24px;
+  color: var(--cr-primary-text-color);
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+
+.lead {
+  color: var(--cr-secondary-text-color);
+  margin-bottom: 8px;
+}
+
+h2 {
+  color: var(--cr-secondary-text-color);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 24px 0 8px;
+  text-transform: uppercase;
+}
+
+#levels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+cr-radio-button.card {
+  align-items: flex-start;
+  background: var(--cr-card-background-color);
+  border: 1.5px solid var(--cr-separator-color);
+  border-radius: 14px;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  width: 100%;
+  --cr-radio-button-label-spacing: 14px;
+}
+
+cr-radio-button.card[checked] {
+  border-color: var(--cr-checked-color);
+  box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--cr-checked-color) 20%, transparent);
+}
+
+.chip {
+  background: color-mix(in srgb, var(--cr-checked-color) 15%, transparent);
+  border-radius: 10px;
+  color: var(--cr-checked-color);
+  font-size: 11px;
+  font-weight: 600;
+  margin-inline-start: 8px;
+  padding: 1px 8px;
+}
+
+.summary {
+  color: var(--cr-secondary-text-color);
+  margin-top: 2px;
+}
+
+.details {
+  margin: 8px 0 0;
+  padding-inline-start: 18px;
+}
+
+.details li {
+  margin: 3px 0;
+}
+
+.warning {
+  color: var(--cr-secondary-text-color);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.note {
+  color: var(--cr-secondary-text-color);
+  font-size: 0.9em;
+  margin-top: 8px;
+}
+
+.text {
+  flex: 1;
+}

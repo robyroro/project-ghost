@@ -4,13 +4,8 @@
 
 #include "ghost/browser/ui/settings/settings_page.h"
 
-#include <memory>
-
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/buildflags.h"
-#include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
-#include "ghost/browser/ui/settings/protections_handler.h"
 #include "ghost/browser/ui/settings/settings_strings.h"
 
 #if !BUILDFLAG(OPTIMIZE_WEBUI)
@@ -25,7 +20,6 @@ void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source)
   source->AddResourcePaths(kShadeSettingsResources);
 #endif
   AddSettingsStrings(source);
-  web_ui->AddMessageHandler(std::make_unique<ProtectionsHandler>(Profile::FromWebUI(web_ui)));
 }
 
 }  // namespace ghost::settings

@@ -1,0 +1,33 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=//resources/cr_elements/cr_icons_lit.css.js
+ * #import=//resources/cr_elements/md_select_lit.css.js
+ * #import=./shade_shared.css.js
+ * #include=cr-icons-lit md-select-lit shade-shared
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+.site {
+  gap: 12px;
+}
+
+.favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background-repeat: no-repeat;
+  background-size: 16px;
+}
+
+.name {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  color: var(--cr-secondary-text-color);
+}

@@ -25,7 +25,7 @@ Decided by Claude, approved with the design:
 - **The site list shows the regular profile's choices.** Incognito's live in memory and end with the session. A row's level can be changed or the row removed; there is no "Add site": a site is set from the panel, on the site.
 - **Changing the default leaves the list alone.** A site set to Strict stays Strict when the default becomes Strict, and keeps it when the default changes back. The panel already clears a site's entry when the default is chosen there, so the list doesn't fill with duplicates.
 - **The panel follows the default**: its "default" label moves to the level chosen in Settings; with Off as the default the shield is grey everywhere. The panel gains a "Protection settings" link to the section.
-- **Reads go through `settingsPrivate`, list writes through our handler.** The cards and switches bind to the prefs as Settings' own controls do; the list reads the dictionary the same way, so a change made in the panel shows without a reload. Writes to the list go through `setSiteLevel` and `clearSiteLevel`, so the level and the registrable domain are validated in C++ (`site_levels`), not in TypeScript.
+- **Everything goes through `settingsPrivate`.** The cards and switches bind to the prefs as Settings' own controls do. The list reads the dictionary the same way, so a change made in the panel shows without a reload, and writes it back the same way: it only changes or removes keys the panel wrote, which are registrable domains already. *Amended while executing (Task 7):* the design had list writes go through a handler of ours (`chrome.send`), so that C++ would check the level and the site. Chromium's WebUI lint refuses `chrome.send` outside a frozen list of legacy pages, and a Mojo interface would mean two more Settings patches for no added check: `settingsPrivate` checks the pref's type, and the list never makes up a key.
 
 ## What the user sees
 
@@ -63,15 +63,14 @@ Rounded corners and more air than Chromium's rows; colours only from `--cr-*` an
 
 | Unit | What it does |
 |---|---|
-| `//ghost/browser/resources/settings/` | A TypeScript and Lit library with its own `build_ts`: `shade-protections-page`, `shade-level-card`, `shade-site-list`, and a browser proxy for the handler. Uses Chromium's `cr-radio-group`, `settings-toggle-button`, `cr-icon-button`, `cr-action-menu`, and `chrome://favicon2` for the favicons (local cache, no network). |
-| `//ghost/browser/ui/settings/protections_handler` | A `settings::SettingsPageUIHandler`: `setSiteLevel(site, level)` and `clearSiteLevel(site)` call `site_levels`; an unknown level or a site without a host is refused. |
+| `//ghost/browser/resources/settings/` | A TypeScript and Lit library with its own `build_ts`: `shade-protections-page` (the level cards are its `cr-radio-button`s, whose slot holds each card's text) and `shade-site-list`. Uses Chromium's `cr-radio-group`, `cr-toggle`, `cr-button`, `cr-icon-button`, a native `select` styled `md-select`, and `chrome://favicon2` for the favicons (local cache, no network). Reads and writes prefs through `settings_shared`'s `PrefService`. |
 | `//ghost/browser/ui/settings/settings_strings` | `AddSettingsStrings(WebUIDataSource*)`: the section's strings, English only, in C++ like the panel's. |
-| `//ghost/browser/ui/settings/settings_page` | `SetUpSettingsPage(WebUI*, WebUIDataSource*)`, the one call Settings makes into Ghost: strings, `/shade/` resources, the handler. |
+| `//ghost/browser/ui/settings/settings_page` | `SetUpSettingsPage(WebUI*, WebUIDataSource*)`, the one call Settings makes into Ghost: strings and `/shade/` resources. |
 | `//ghost/browser/resources/protections/` (3D-3) | The panel's "default" label follows the default level; a "Protection settings" link. |
 
 ### Patches (numbered in commit order, after 0037)
 
-Amended while planning ([plan](../plans/2026-10-11-protection-settings.md)): the section's patch also touches `router.ts`, `settings_main.ts`, `chrome_paks.gni` and `resource_ids.spec`. One hook in `settings_ui.cc` (`ghost::settings::SetUpSettingsPage`) adds the strings, the resources and the handler, so `settings_localized_strings_provider.cc` isn't touched.
+Amended while planning ([plan](../plans/2026-10-11-protection-settings.md)): the section's patch also touches `router.ts`, `settings_main.ts`, `chrome_paks.gni` and `resource_ids.spec`. One hook in `settings_ui.cc` (`ghost::settings::SetUpSettingsPage`) adds the strings and the resources (the handler it also added was dropped in Task 7), so `settings_localized_strings_provider.cc` isn't touched.
 
 | Patch | Files | What it adds |
 |---|---|---|
@@ -93,7 +92,7 @@ Amended while planning ([plan](../plans/2026-10-11-protection-settings.md)): the
 - `GetLevel`: a site with its own level keeps it after the default changes.
 - The panel's state: "default" is the default level; choosing it in the panel clears the site's entry.
 - `AppendFeatureOverrides`: GPC is forced with `ghost.gpc.enabled` true and not with false.
-- The handler: `setSiteLevel` refuses an unknown level and a site without a host; it keys by registrable domain (`www.a.test` → `a.test`); `clearSiteLevel` removes the entry.
+- `level_strings`: the panel and the section show the same names and sentences (one source).
 
 **Browser** (`ghost_browsertests`):
 - `chrome://settings/protections` loads with the section, the three cards, the two switches and the list.
@@ -108,7 +107,7 @@ Amended while planning ([plan](../plans/2026-10-11-protection-settings.md)): the
 
 **The official build:** the section loads in `out/release` (bundled by `optimize_webui`), checked before the mutation checks.
 
-**Mutation checks**, each must fail: M1 `ModeDefault` ignores `default_level`; M2 Incognito follows `default_level`; M3 GPC is forced when the pref is false; M4 the handler keys by the full host instead of the registrable domain; M5 the site list isn't on `settingsPrivate`'s allow-list.
+**Mutation checks**, each must fail: M1 `ModeDefault` ignores `default_level`; M2 Incognito follows `default_level`; M3 GPC is forced when the pref is false; M4 removing a site from the list writes the dictionary unchanged; M5 the site list isn't on `settingsPrivate`'s allow-list.
 
 **The egress audit** stays at no unexpected host: the section makes no network request.
 

@@ -6,25 +6,18 @@
 # of chrome's settings_ui.cc (patches/0038).
 source_set("settings") {
   sources = [
-    "protections_handler.cc",
-    "protections_handler.h",
     "settings_page.cc",
     "settings_page.h",
     "settings_strings.cc",
     "settings_strings.h",
   ]
 
-  public_deps = [ "//chrome/browser/ui/webui/settings" ]
-
   deps = [
     "//base",
-    "//chrome/browser/profiles:profile",
     "//chrome/common:buildflags",
     "//content/public/browser",
-    "//ghost/browser/privacy_policy",
     "//ghost/browser/resources/settings:resources",
     "//ghost/browser/ui/protections:level_strings",
     "//third_party/blink/public/common",
-    "//url",
   ]
 }

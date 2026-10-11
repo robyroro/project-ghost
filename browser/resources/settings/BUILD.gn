@@ -12,16 +12,23 @@ build_webui("build") {
   grd_resource_path_prefix = "shade"
   grit_output_dir = "$root_gen_dir/ghost"
 
+  css_files = [
+    "protections_page.css",
+    "shade_shared.css",
+    "site_list.css",
+  ]
+
   ts_files = [
     "protections_page.html.ts",
     "protections_page.ts",
     "search.ts",
+    "site_list.html.ts",
+    "site_list.ts",
   ]
 
   ts_composite = true
   ts_definitions = [
     "//tools/typescript/definitions/chrome_event.d.ts",
-    "//tools/typescript/definitions/chrome_send.d.ts",
     "//tools/typescript/definitions/settings_private.d.ts",
   ]
   ts_deps = [

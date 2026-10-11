@@ -127,7 +127,7 @@ index 7ff1c061b5a6bc9dbd1868ed155214ca97508efc..423eb8e4568e1434153e8c74822479c6
  import '../default_browser_page/default_browser_page.js';
  
 diff --git a/chrome/browser/resources/settings/settings_menu/settings_menu.html b/chrome/browser/resources/settings/settings_menu/settings_menu.html
-index dd30b5046d72725249b90621d1346a2d23ba71f0..d4b0d77cceb8139f22ebe7c60901189bab3539bb 100644
+index dd30b5046d72725249b90621d1346a2d23ba71f0..d0858f16bb7870eeb9cc443dc0786ddfbc73eb72 100644
 --- a/chrome/browser/resources/settings/settings_menu/settings_menu.html
 +++ b/chrome/browser/resources/settings/settings_menu/settings_menu.html
 @@ -67,6 +67,12 @@
@@ -136,7 +136,7 @@ index dd30b5046d72725249b90621d1346a2d23ba71f0..d4b0d77cceb8139f22ebe7c60901189b
          </a>
 +        <a role="menuitem" id="protections" href="/protections"
 +            class="cr-nav-menu-item">
-+          <cr-icon icon="settings:shield"></cr-icon>
++          <cr-icon icon="settings20:shield"></cr-icon>
 +          $i18n{shadeProtectionsTitle}
 +          <cr-ripple></cr-ripple>
 +        </a>

@@ -32,7 +32,7 @@
 
   The spec listed `settings_localized_strings_provider.cc`; it isn't touched.
 - **The section's route needs `router.ts` too.** `SettingsRoutes` is an interface listing every route, so it needs `PROTECTIONS: Route`. `settings_main.ts` imports our element (`import '/shade/protections_page.js';`).
-- **The menu icon is `settings:shield`**, already in Settings' icon set.
+- **The menu icon is `settings20:shield`**, already in Settings' icon set.
 - **The relaunch indicator follows Settings' hardware acceleration toggle.** A load-time boolean `shadeGpcEnabledAtStartup` is `blink::IsGlobalPrivacyControlEnabled()` at page load. The Relaunch button shows while the pref differs from it.
 - **The panel opens the section with `WebContents::OpenURL`** on the tab, in a new foreground tab. This is content API, so `//ghost/browser/ui/protections` gains no dependency on `chrome_pages`. The panel's "default" label already follows `ModeDefault` through `GetPanelState`, so it needs no change.
 - **Patch numbers follow commit order:** 0038 is the spike's section patch (bundle, route, menu, view, hook), 0040 the allow-list, 0039 Local State.
@@ -186,7 +186,7 @@ void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source)
 ```html
         <a role="menuitem" id="protections" href="/protections"
             class="cr-nav-menu-item">
-          <cr-icon icon="settings:shield"></cr-icon>
+          <cr-icon icon="settings20:shield"></cr-icon>
           $i18n{shadeProtectionsTitle}
           <cr-ripple></cr-ripple>
         </a>
@@ -496,7 +496,7 @@ IN_PROC_BROWSER_TEST_F(ProtectionSettingsBrowserTest, SettingsSeesShadesPrefs) {
 - [x] **Step 4: Run the test.** Expected: pass.
 - [x] **Step 5: Commit.** In webops: `settings: Shade's prefs reach chrome://settings (patch 0040)`. Re-export; `patches.py check`.
 
-### Task 5: The handler for the site list
+### Task 5: The handler for the site list (done, then dropped in Task 7: see the progress notes)
 
 **Files:**
 - Create: `browser/ui/settings/protections_handler.{h,cc}`
@@ -649,7 +649,7 @@ GURL SitePage(const base::Value& site) {
 - Create: `browser/resources/settings/level_card.{ts,html.ts,css}`, `site_list.{ts,html.ts,css}`, `protections_browser_proxy.ts`, `protections_page.css`
 - Modify: `protections_page.ts`, `protections_page.html.ts`, `BUILD.gn` (`ts_files`, `css_files`)
 
-- [ ] **Step 1:** `protections_browser_proxy.ts`:
+- [x] **Step 1:** `protections_browser_proxy.ts`:
 
 ```ts
 export interface ProtectionsBrowserProxy {
@@ -678,7 +678,7 @@ export class ProtectionsBrowserProxyImpl implements ProtectionsBrowserProxy {
 let instance: ProtectionsBrowserProxy|null = null;
 ```
 
-- [ ] **Step 2:** `level_card.ts` defines `shade-level-card`, a `CrLitElement` with these properties:
+- [x] **Step 2:** `level_card.ts` defines `shade-level-card`, a `CrLitElement` with these properties:
   - `level` (`'off'|'standard'|'strict'`), `checked` (boolean, reflected), `recommended` (boolean);
   - `name`, `summary`, `details` (the sentence of the panel), `warning` (optional string).
 
@@ -695,7 +695,7 @@ let instance: ProtectionsBrowserProxy|null = null;
   - the chip uses `--cr-checked-color` on a 15% mix of it.
 
   There are no literal colours.
-- [ ] **Step 3:** `site_list.ts` defines `shade-site-list`, using `PrefServiceObserverMixinLit(CrLitElement)`:
+- [x] **Step 3:** `site_list.ts` defines `shade-site-list`, using `PrefServiceObserverMixinLit(CrLitElement)`:
   - `connectedCallback` calls `this.addPrefObserver('ghost.privacy_policy.site_levels', pref => this.sites_ = Object.entries(pref.value as Record<string, string>).sort(([a], [b]) => a.localeCompare(b)))`.
   - Each row:
     - a favicon (`style="background-image:${getFaviconForPageURL('https://' + site + '/', false)}"`);
@@ -705,7 +705,7 @@ let instance: ProtectionsBrowserProxy|null = null;
   - With no rows: `shadeSitesEmpty`.
 
   The list doesn't change its own state: the pref observer redraws it when the browser has written.
-- [ ] **Step 4:** `protections_page.ts` uses `PrefServiceObserverMixinLit(CrLitElement)` and renders, in order:
+- [x] **Step 4:** `protections_page.ts` uses `PrefServiceObserverMixinLit(CrLitElement)` and renders, in order:
   - the header (`h1` and lead);
   - the "Default level" heading;
   - the radio group of three cards, bound to `default_level` through `PrefService.getInstance().setPrefValue('ghost.privacy_policy.default_level', level)`, with Standard `recommended` and Off with the warning;
@@ -719,13 +719,13 @@ let instance: ProtectionsBrowserProxy|null = null;
   - headings `font-size: 22px; font-weight: 600` (title) and `12px` uppercase muted labels (sections), as in the approved mockup (`.superpowers/brainstorm/755-1791704169/content/style.html`, choice A);
   - groups `border-radius: 14px` on `--cr-card-background-color`, rows separated by `--cr-separator-color`;
   - colours only from `--cr-*` and `--color-sys-*`.
-- [ ] **Step 5:** Build and check by hand:
+- [x] **Step 5:** Build and check by hand:
   - choosing Strict writes `ghost.privacy_policy.default_level` (`chrome://prefs-internals`);
   - setting a site from the panel shows it in the list without reloading Settings;
   - the list's menu changes it and ✕ removes it;
   - turning GPC off shows Relaunch;
   - search "tracker" highlights the Standard card's text.
-- [ ] **Step 6: Commit.** `settings: Shade's protections section`.
+- [x] **Step 6: Commit.** `settings: Shade's protections section`.
 
 ### Task 8: The panel's link
 
@@ -818,7 +818,7 @@ function waitDeep(selector) {
   - **M1:** `ModeDefault` returns Standard for a regular profile whatever the pref says.
   - **M2:** `ModeDefault` reads the pref off the record too.
   - **M3:** `AppendFeatureOverrides` forces GPC whatever the pref says.
-  - **M4:** `HandleSetSiteLevel` stores `page.host()` instead of calling `SetLevel` (which keys by registrable domain).
+  - **M4:** the list's remove button writes the dictionary back unchanged (amended in Task 7: the handler M4 targeted was dropped).
   - **M5:** patch 0040 without the site-levels line (a change to `prefs_util.cc` in `chromium/src`, reverted with `git checkout` there).
 - [ ] **Full suites and the audit.** Run `ghost_unittests` and `ghost_browsertests` in full. Run the egress audit. Expected: 0 unexpected hosts.
 - [ ] **Docs.**
