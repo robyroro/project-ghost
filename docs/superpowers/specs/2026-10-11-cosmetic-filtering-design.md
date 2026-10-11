@@ -1,6 +1,6 @@
 # Cosmetic filtering: design
 
-- Status: design approved 2026-10-11.
+- Status: design approved 2026-10-11; amended while planning ([plan](../plans/2026-10-11-cosmetic-filtering.md)): the throttle that waits for the engine, the rules inherited by initial empty documents, the style sheet built in the browser, no `$elemhide`.
 - Phase 4, sub-project 4A ([roadmap](../../roadmap.md#phases-to-public-alpha)); builds on [3A, the blocking engine](2026-10-10-blocking-engine-design.md) and [3D-1, the protection levels](2026-10-10-protection-levels-design.md)
 - Phase 4 is split (decided 2026-10-11): **4A** cosmetic filtering (element hiding); **4B** scriptlets and procedural rules (one in-page script layer for both); **4C** CNAME uncloaking; **4D** breakage controls and the compatibility corpus.
 
@@ -21,7 +21,7 @@ Elements the lists mark as ads are hidden in every frame of a page: the site-spe
 - **Selectors containing `{`, `}`, `;`, `@`, `/*` or `*/` are dropped** before they reach CSS: lists will arrive by update (3E), and a selector that closes its rule would inject arbitrary style.
 - **The scanner is our own small JavaScript in an isolated world of its own**: a world id added to `chrome/common/chrome_isolated_world_ids.h` by a patch, before the extensions' range. It sees the DOM, not the page's scripts, and the page can't see it. It reaches C++ through a gin object installed only in that world. The script is compiled into the binary by `tools/embed_text.py` (as 3B's list), so no grd or pak.
 - **Not in 4A:** scriptlets (EasyList has none) and EasyList's 295 procedural rules (`:has-text`, `:-abp-has`) go to 4B, which builds the in-page script layer both need. The engine parses every rule type now; the rules it can't act on are ignored. Hidden elements aren't counted on the shield: its number stays requests blocked, which the browser knows for certain.
-- **Exceptions honored:** `#@#`, `$generichide` and `$elemhide` (adblock-rust folds `$elemhide` into the same answers).
+- **Exceptions honored:** `#@#` and `$generichide`. *Amended while planning:* adblock-rust 0.13 has no `$elemhide` or `$specifichide`, and EasyList and EasyPrivacy use neither.
 
 ## Components
 
@@ -29,16 +29,16 @@ Elements the lists mark as ads are hidden in every frame of a page: the site-spe
 |---|---|
 | `components/blocking/rust/lib.rs` | Two bridge functions: `cosmetic_resources(url) -> CosmeticResources { hide_selectors: Vec<String>, exceptions: Vec<String>, generichide: bool }` and `generic_selectors(classes: &[String], ids: &[String], exceptions: &[String]) -> Vec<String>`. The engine is built with `RuleTypes::All`. |
 | `BlockingEngine` | `GetCosmeticRules(GURL, reply)` and `GetGenericSelectors(classes, ids, exceptions, reply)`, on the engine's sequence; like `Check`, they wait while the engine loads, and a failed engine answers empty. |
-| `//ghost/components/cosmetic_filters` | No `//content`: `StyleSheetFor(selectors)` (drops unsafe selectors, one rule each); `ValidateNames(classes, ids)` (at most 1,000 names in a call, each at most 256 bytes, UTF-8, non-empty). |
-| `//ghost/browser/cosmetic_filters` | `CosmeticFiltersHost`, a `content::DocumentService` per document implementing `ghost.mojom.CosmeticFiltersHost`. Resolves the page's level (3D-1's `GetLevel` on the outermost main frame's URL); keeps the document's exceptions and `generichide`; answers `GetGenericSelectors(classes, ids) => (selectors)`; a call that fails `ValidateNames` is reported with `ReportBadMessage`. |
-| `//ghost/renderer/cosmetic_filters` | `CosmeticFiltersAgent`, a `content::RenderFrameObserver`: receives the document's rules, inserts them at `DidCreateDocumentElement`, starts the scanner unless the level is Off or `generichide` is set, forwards its batches to the host and inserts the selectors returned. |
-| `//ghost/renderer/cosmetic_filters/resources/scanner.js` | Puts a `MutationObserver` on the document at its start; collects class and id names into a set; sends only names not sent before: the first batch at once, then at most one batch every 100 ms. |
-| `//ghost/common/cosmetic_filters.mojom` | `CosmeticFiltersHost` (renderer to browser); `CosmeticFiltersAgent` (browser to renderer: `SetRules(string style_sheet, bool scan)`), channel-associated if the spike proves the ordering (below). |
-| Patches | The agent created in `ChromeContentRendererClient::RenderFrameCreated`; the host bound in the frame binders (as patch 0036); Shade's isolated world id. Numbers follow commit order. |
+| `//ghost/components/cosmetic_filters` | No `//content`: `StyleSheetFor(selectors)` (drops unsafe selectors, one rule each); `IsValidName(name)` and `AreValidNames(classes, ids)` (at most 1,000 names in a call, each 1 to 256 bytes of UTF-8). |
+| `//ghost/browser/cosmetic_filters` | `CosmeticFiltersThrottle`, a `NavigationThrottle` on every navigation: at `WillProcessResponse` and `WillCommitWithoutUrlLoader` it resolves the page's level (3D-1's `GetLevel` on the outermost main frame's URL) and, unless Off, defers until the engine gives the document's rules, kept on the navigation (`PreparedRules`). `CosmeticFiltersTabHelper` sends them to the frame's agent at `ReadyToCommitNavigation`. `CosmeticFiltersHost`, a `content::DocumentService` per document implementing `ghost.mojom.CosmeticFiltersHost`: keeps the document's exceptions and `generichide`; answers `GetGenericStyleSheet(classes, ids) => (style_sheet)`, built by `StyleSheetFor` in the browser; a call that fails the name limits is reported with `ReportBadMessageAndDeleteThis`. |
+| `//ghost/renderer/cosmetic_filters` | `CosmeticFiltersAgent`, a `content::RenderFrameObserver`: receives the document's rules, inserts them at `DidCreateDocumentElement`, starts the scanner unless the level is Off or `generichide` is set, forwards its batches to the host and inserts the style sheets returned. A document no navigation brought (a new frame's initial empty document, which a parent's script may write into) takes its local parent's rules. |
+| `//ghost/renderer/cosmetic_filters/scanner.js` | Puts a `MutationObserver` on the document at its start; collects class and id names into a set; sends only names not sent before: the first batch at once, then at most one batch every 100 ms. |
+| `//ghost/common/cosmetic_filters.mojom` | `CosmeticFiltersHost` (renderer to browser, per document); `CosmeticFiltersAgent` (browser to renderer, channel-associated: `SetRulesForNextDocument(string style_sheet, bool scan)`). |
+| Patches | Renderer (0041): Shade's isolated world id; the agent created in `ChromeContentRendererClient::RenderFrameCreated`. Browser (0042): the host bound in the frame binders; the throttle added in `CreateThrottlesForNavigation`. |
 
 ## Data flow
 
-1. **The site-specific rules (push).** At `ReadyToCommitNavigation`, `CosmeticFiltersHost` asks the engine for the document's rules and sends the stylesheet to the frame's agent over a channel-associated interface; the agent inserts it at `DidCreateDocumentElement`, before any element is parsed. If no rules have arrived by then, the agent inserts them when they do.
+1. **The site-specific rules (push).** The engine answers on its own sequence, and `ReadyToCommitNavigation` can't wait, so the throttle asks earlier: at `WillProcessResponse` (or `WillCommitWithoutUrlLoader` for `about:blank` and `srcdoc`) it defers the navigation until the engine answers, usually within microseconds. At `ReadyToCommitNavigation` the tab helper sends the stylesheet to the frame's agent over a channel-associated interface, as Chromium's subresource filter sends its activation; the agent inserts it at `DidCreateDocumentElement`, before any element is parsed.
 2. **The generic rules (scan).** The scanner starts at the document's start, so it sees elements as they're parsed. Each batch goes to the host, which answers with the matching selectors, kept out of the exceptions; the agent adds them to the same stylesheet.
 3. **The levels.** Off: no stylesheet, no scanner. A change of level takes effect at the next load; the panel already reloads the page.
 
@@ -46,15 +46,15 @@ An element added by script can show until its batch's answer arrives, as in Brav
 
 ## For the spike
 
-1. **The order of push and commit.** Whether a message on a channel-associated interface sent at `ReadyToCommitNavigation` reaches the agent before `DidCreateDocumentElement`, given that `CommitNavigation` travels on `NavigationClient`, a separate pipe. If not guaranteed: the agent pulls the rules at the document's start, and the spike measures what can paint before the answer; the acceptance test below decides.
-2. **The isolated world and the gin object.** Creating the world at `DidCreateDocumentElement` (or `DidCreateScriptContext` for the main world), running the scanner there before the page's scripts, and that the page's world sees neither the object nor the observer.
+1. **The order of push and commit.** Whether a message on a channel-associated interface sent at `ReadyToCommitNavigation` reaches the agent before `DidCreateDocumentElement`, as `subresource_filter.mojom` relies on, given that `CommitNavigation` travels on `NavigationClient`, a separate pipe. If not guaranteed: the agent pulls the rules at the document's start, and the spike measures what can paint before the answer; the acceptance test below decides.
+2. **The isolated world and the gin object.** Running the scanner in its world at `DidCreateDocumentElement`, before the page's scripts; the function installed at `DidCreateScriptContext`; the page's world sees neither. Which observer hooks fire for a frame without `src`, a `srcdoc` frame and a frame a parent writes into.
 3. **The measurements:** the engine's memory and compile time with every rule type (now about 6 MiB and 80 ms); and the rejected option, every generic rule as one stylesheet, on the heavy fixture page, for the record.
 
 ## Errors
 
 - The engine loading: the rules wait for it, so the first pages after startup are filtered. The engine failed: no rules, nothing hidden, a log line.
 - The isolated world can't be created: the site-specific rules stay, a log line.
-- A renderer that sends names failing `ValidateNames`: `ReportBadMessage`, which ends the renderer.
+- A renderer that sends names failing `AreValidNames`: `ReportBadMessageAndDeleteThis`, which ends the renderer. The agent drops names outside the limits before sending, so only a compromised renderer trips it.
 
 ## Performance budgets
 
@@ -70,9 +70,10 @@ Measured in the official build, reported; changed only with the user's agreement
 ## Testing
 
 **Unit tests** (`ghost_unittests`):
-- the bridge: site-specific selectors for a host, exceptions, `generichide`, `$elemhide`, generic selectors for classes and ids, an exception removing a generic one;
+- the bridge: site-specific selectors for a host, exceptions, `generichide`, generic selectors for classes and ids, an exception removing a generic one;
 - `BlockingEngine`'s two methods, while loading and after a failed load;
-- `StyleSheetFor` (unsafe selectors dropped, one rule each) and `ValidateNames` (limits, UTF-8, empty names);
+- `StyleSheetFor` (unsafe selectors dropped, one rule each) and the name limits (count, length, UTF-8, empty names);
+- `CosmeticFiltersHost` in `ChromeRenderViewHostTestHarness`: 1,001 names are a bad message; without the engine nothing is hidden;
 - a fuzzer for the cosmetic queries, run 30 minutes.
 
 **Browser tests** (`ghost_browsertests`, `CosmeticFiltersBrowserTest`) with a test list:
@@ -82,7 +83,8 @@ Measured in the official build, reported; changed only with the user's agreement
 - Off: nothing hidden; Incognito (Strict): hidden;
 - a cross-site iframe: filtered by its own document's rules;
 - the page sees neither the gin object nor our stylesheet (`document.styleSheets`), and its own `!important` style doesn't show a hidden element;
-- a renderer sending 1,001 names is ended as a bad message.
+- a page whose CSP forbids scripts is still scanned;
+- a frame without `src` that its parent writes into takes the parent's rules.
 
 **Mutation checks**, each must fail: M1 exceptions ignored; M2 the Off level ignored; M3 no generic rules; M4 no limits on names; M5 unsafe selectors kept.
 
