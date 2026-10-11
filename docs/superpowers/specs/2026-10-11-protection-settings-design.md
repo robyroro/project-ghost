@@ -64,20 +64,20 @@ Rounded corners and more air than Chromium's rows; colours only from `--cr-*` an
 | Unit | What it does |
 |---|---|
 | `//ghost/browser/resources/settings/` | A TypeScript and Lit library with its own `build_ts`: `shade-protections-page`, `shade-level-card`, `shade-site-list`, and a browser proxy for the handler. Uses Chromium's `cr-radio-group`, `settings-toggle-button`, `cr-icon-button`, `cr-action-menu`, and `chrome://favicon2` for the favicons (local cache, no network). |
-| `//ghost/browser/ui/webui/settings/protections_handler` | A `settings::SettingsPageUIHandler`: `setSiteLevel(site, level)` and `clearSiteLevel(site)` call `site_levels`; an unknown level or a site without a host is refused. |
-| `//ghost/browser/ui/webui/settings/settings_strings` | `AddSettingsStrings(WebUIDataSource*)`: the section's strings, English only, in C++ like the panel's. |
-| `//ghost/browser/ui/webui/settings/settings_hooks` | `AddSettingsHandlers(WebUI*, Profile*)`, the one call Settings makes into Ghost for handlers. |
+| `//ghost/browser/ui/settings/protections_handler` | A `settings::SettingsPageUIHandler`: `setSiteLevel(site, level)` and `clearSiteLevel(site)` call `site_levels`; an unknown level or a site without a host is refused. |
+| `//ghost/browser/ui/settings/settings_strings` | `AddSettingsStrings(WebUIDataSource*)`: the section's strings, English only, in C++ like the panel's. |
+| `//ghost/browser/ui/settings/settings_page` | `SetUpSettingsPage(WebUI*, WebUIDataSource*)`, the one call Settings makes into Ghost: strings, `/shade/` resources, the handler. |
 | `//ghost/browser/resources/protections/` (3D-3) | The panel's "default" label follows the default level; a "Protection settings" link. |
 
 ### Patches (numbered in commit order, after 0037)
 
+Amended while planning ([plan](../plans/2026-10-11-protection-settings.md)): the section's patch also touches `router.ts`, `settings_main.ts`, `chrome_paks.gni` and `resource_ids.spec`. One hook in `settings_ui.cc` (`ghost::settings::SetUpSettingsPage`) adds the strings, the resources and the handler, so `settings_localized_strings_provider.cc` isn't touched.
+
 | Patch | Files | What it adds |
 |---|---|---|
-| Settings bundle | `chrome/browser/resources/settings/BUILD.gn` | Our library in `ts_deps` and a `ts_path_mappings` entry for `/shade/*`, the way `settings_shared` is mapped as `/shared/settings/*`; its files in the Settings pak. |
-| Settings section | `route.ts`, `settings_menu.html`, `settings_main.html` | The route `/protections`, the menu entry with the shield icon, the view that renders `shade-protections-page`. |
-| Settings prefs | `chrome/browser/extensions/api/settings_private/prefs_util.cc` | The four prefs on `settingsPrivate`'s allow-list: default level (string), campaign parameters (boolean), site levels (dictionary), GPC (boolean, Local State). |
-| Settings hooks | `settings_ui.cc`, `settings_localized_strings_provider.cc` | One line each: `ghost::AddSettingsHandlers`, `ghost::AddSettingsStrings`. |
-| Local State | `chrome/browser/prefs/browser_prefs.cc`, `chrome_feature_list_creator.cc` | `ghost::RegisterLocalStatePrefs`; `AppendFeatureOverrides` receives `*local_state_`. Patch 0003 stays as it is: the new patch changes its line. |
+| 0038, the section | `chrome/browser/resources/settings/BUILD.gn`, `route.ts`, `router.ts`, `settings_menu.html`, `settings_main.html`, `settings_main.ts`, `chrome/chrome_paks.gni`, `resource_ids.spec`, `settings_ui.cc` and its `BUILD.gn` | Our library mapped as `/shade/` the way `settings_shared` is mapped as `/shared/settings/` (`ts_deps`, `ts_path_mappings`, `optimize_webui_external_paths`; its pak only when `!optimize_webui`); the route `/protections`, the menu entry with the shield icon, the view that renders `shade-protections-page`; the call to `ghost::settings::SetUpSettingsPage`. |
+| 0039, the prefs | `chrome/browser/extensions/api/settings_private/prefs_util.cc` | The four prefs on `settingsPrivate`'s allow-list: default level (string), campaign parameters (boolean), site levels (dictionary), GPC (boolean, Local State). |
+| 0040, Local State | `chrome/browser/prefs/browser_prefs.cc`, `chrome_feature_list_creator.cc` | `ghost::RegisterLocalStatePrefs`; `AppendFeatureOverrides` receives `*local_state_`. Patch 0003 stays as it is: the new patch changes its line. |
 
 ## For the spike
 
