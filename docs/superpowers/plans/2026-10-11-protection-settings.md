@@ -49,7 +49,7 @@ The bundling is the uncertain part. Prove it with a section that only says "Shad
 - Create: patch 0038 in `chromium/src`, `git commit -s` with `Why:` and `Upstream:` trailers
 - Create: `docs/superpowers/specs/2026-10-11-protection-settings-spike.md` (progress notes)
 
-- [ ] **Step 1:** Write the library's target, on `settings_shared`'s model. In `browser/resources/settings/BUILD.gn`:
+- [x] **Step 1:** Write the library's target, on `settings_shared`'s model. In `browser/resources/settings/BUILD.gn`:
 
 ```gn
 import("//ui/webui/resources/tools/build_webui.gni")
@@ -88,7 +88,7 @@ build_webui("build") {
 }
 ```
 
-- [ ] **Step 2:** Write `search.ts`: one function used by the section and its tests.
+- [x] **Step 2:** Write `search.ts`: one function used by the section and its tests.
 
 ```ts
 import {findAndRemoveHighlights, highlight, stripDiacritics} from '//resources/js/search_highlight_utils.js';
@@ -137,8 +137,8 @@ export function searchTree(root: ShadowRoot, query: string): SearchResult {
 }
 ```
 
-- [ ] **Step 3:** Write `protections_page.ts`: a `CrLitElement` named `shade-protections-page`, which renders `<h1>${loadTimeData.getString('shadeProtectionsTitle')}</h1>` and implements `async searchContents(query: string): Promise<SearchResult> { await this.updateComplete; return searchTree(this.shadowRoot!, query); }`. Add a `declare global { interface HTMLElementTagNameMap { 'shade-protections-page': ... } }`.
-- [ ] **Step 4:** Write `browser/ui/settings/settings_page.{h,cc}`:
+- [x] **Step 3:** Write `protections_page.ts`: a `CrLitElement` named `shade-protections-page`, which renders `<h1>${loadTimeData.getString('shadeProtectionsTitle')}</h1>` and implements `async searchContents(query: string): Promise<SearchResult> { await this.updateComplete; return searchTree(this.shadowRoot!, query); }`. Add a `declare global { interface HTMLElementTagNameMap { 'shade-protections-page': ... } }`.
+- [x] **Step 4:** Write `browser/ui/settings/settings_page.{h,cc}`:
 
 ```cpp
 namespace ghost::settings {
@@ -155,7 +155,7 @@ void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source)
   In the `.cc`, under `#if !BUILDFLAG(OPTIMIZE_WEBUI)`, call `source->AddResourcePaths(kShadeSettingsResources)`, with includes `ghost/grit/shade_settings_resources.h` and `ghost/grit/shade_settings_resources_map.h`, and add `shadeProtectionsTitle` = "Shade protections".
 
   Its `BUILD.gn` is `source_set("settings")`, with deps `//base`, `//chrome/common:buildflags`, `//content/public/browser`, `//ghost/browser/resources/settings:resources`.
-- [ ] **Step 5:** Write patch 0038 in `chromium/src`:
+- [x] **Step 5:** Write patch 0038 in `chromium/src`:
   - `chrome/browser/resources/settings/BUILD.gn`:
     - `"//ghost/browser/resources/settings:build_ts"` in `ts_deps`;
     - in `ts_path_mappings`, `"/shade/*|" + rebase_path("$root_gen_dir/ghost/browser/resources/settings/tsc/*", target_gen_dir)`;
@@ -212,19 +212,19 @@ void SetUpSettingsPage(content::WebUI* web_ui, content::WebUIDataSource* source)
 ```
 
     Add `"//ghost/browser/ui/settings"` to the `deps` of the target in `chrome/browser/ui/webui/settings/BUILD.gn` that lists `settings_ui.cc`.
-- [ ] **Step 6:** Sync and build `chrome` in `out\vanilla`. Run it and open `chrome://settings/protections`. Expected:
+- [x] **Step 6:** Sync and build `chrome` in `out\vanilla`. Run it and open `chrome://settings/protections`. Expected:
   - the menu shows "Shade protections" with a shield, above "Privacy and security";
   - the section shows its title;
   - a search for "shade" highlights it and hides the sections without matches.
-- [ ] **Step 7:** Bundling check without a full official build: `autoninja -C out\release chrome/browser/resources/settings:build_bundle`. If that name doesn't exist, find the `optimize_webui` target with `gn ls out\release //chrome/browser/resources/settings:*`. Expected:
+- [x] **Step 7 (not needed, see the progress notes: `out\vanilla` has `optimize_webui = true` and bundles the section already):** Bundling check without a full official build: `autoninja -C out\release chrome/browser/resources/settings:build_bundle`. If that name doesn't exist, find the `optimize_webui` target with `gn ls out\release //chrome/browser/resources/settings:*`. Expected:
   - it succeeds;
   - `out\release\gen\chrome\browser\resources\settings\bundled\settings.rollup.js` (or the path printed) contains `shade-protections-page`;
   - it has no import left for `/shade/`.
 
   Record the target name and the path. Don't build anything else in `out\release`, and don't touch `chrome/VERSION`.
-- [ ] **Step 8:** Check the dictionary pref: in DevTools on `chrome://settings`, `chrome.settingsPrivate.getPref('ghost.privacy_policy.site_levels', console.log)`. Expected: `undefined` (not allow-listed yet). Record what `settingsPrivate` does with a dictionary pref in Task 4.
-- [ ] **Step 9:** Check Local State timing: in `chrome_feature_list_creator.cc`, confirm `CreatePrefService()` (which registers all Local State prefs via `RegisterLocalState`) runs before `SetUpFieldTrials()`. Record the line numbers.
-- [ ] **Step 10:** Record the build time, every surprise, and the bundle check in the progress notes. Commit in webops: `settings: an empty Shade section end to end (patch 0038): spike`. Re-export the patches with `patches.py export`; `patches.py check` must pass.
+- [x] **Step 8:** Check the dictionary pref: in DevTools on `chrome://settings`, `chrome.settingsPrivate.getPref('ghost.privacy_policy.site_levels', console.log)`. Expected: `undefined` (not allow-listed yet). Record what `settingsPrivate` does with a dictionary pref in Task 4.
+- [x] **Step 9:** Check Local State timing: in `chrome_feature_list_creator.cc`, confirm `CreatePrefService()` (which registers all Local State prefs via `RegisterLocalState`) runs before `SetUpFieldTrials()`. Record the line numbers.
+- [x] **Step 10:** Record the build time, every surprise, and the bundle check in the progress notes. Commit in webops: `settings: an empty Shade section end to end (patch 0038): spike`. Re-export the patches with `patches.py export`; `patches.py check` must pass.
 
 ### Task 2: The default level
 

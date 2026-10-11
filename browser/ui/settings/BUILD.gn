@@ -1,0 +1,19 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Shade's section of chrome://settings, browser side: linked into the target
+# of chrome's settings_ui.cc (patches/0038).
+source_set("settings") {
+  sources = [
+    "settings_page.cc",
+    "settings_page.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/common:buildflags",
+    "//content/public/browser",
+    "//ghost/browser/resources/settings:resources",
+  ]
+}

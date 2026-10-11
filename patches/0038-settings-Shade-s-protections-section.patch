@@ -1,0 +1,210 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 11:05:45 +0300
+Subject: [PATCH] settings: Shade's protections section
+
+chrome://settings gets a "Shade protections" entry above "Privacy and
+security", at /protections. The section is a TypeScript library in
+//ghost/browser/resources/settings, mapped into the Settings bundle under
+/shade/ exactly as upstream maps its settings_shared library under
+/shared/settings/ (ts_deps, ts_path_mappings,
+optimize_webui_external_paths; its pak packed only when !optimize_webui,
+with its grd's resource ids). The route goes in route.ts and router.ts's
+SettingsRoutes, the entry in the menu, the view in settings_main, and
+SettingsUI calls ghost::settings::SetUpSettingsPage for the section's
+strings, resources and handler.
+
+Why: Settings lists its sections, routes and resources itself, with no hook.
+Upstream: not upstreamable: product-specific UI
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/resources/settings/BUILD.gn b/chrome/browser/resources/settings/BUILD.gn
+index 24115ed25cc9130ada7cf5ac572d4da715ba89ac..be611b92bd662651a8ac873755c815ab7f099101 100644
+--- a/chrome/browser/resources/settings/BUILD.gn
++++ b/chrome/browser/resources/settings/BUILD.gn
+@@ -503,6 +503,7 @@ build_webui("build") {
+ 
+   ts_deps = [
+     "//chrome/browser/resources/settings_shared:build_ts",
++    "//ghost/browser/resources/settings:build_ts",
+     "//third_party/lit/v3_0:build_ts",
+     "//third_party/polymer/v3_0:library",
+     "//ui/webui/resources/cr_components/color_change_listener:build_ts",
+@@ -524,10 +525,16 @@ build_webui("build") {
+     ts_deps += [ "//ash/webui/common/resources:build_ts" ]
+   }
+ 
+-  ts_path_mappings =
+-      [ "/shared/settings/*|" + rebase_path(
++  ts_path_mappings = [
++    "/shared/settings/*|" + rebase_path(
+             "$root_gen_dir/chrome/browser/resources/settings_shared/tsc/*",
+-            target_gen_dir) ]
++            target_gen_dir),
++
++    # Shade's section, mapped as settings_shared is (patches/0038).
++    "/shade/*|" + rebase_path(
++            "$root_gen_dir/ghost/browser/resources/settings/tsc/*",
++            target_gen_dir),
++  ]
+ 
+   if (is_chromeos) {
+     # TODO(crbug.com/1013466): Browser Settings should not depend on ash/webui/
+@@ -547,9 +554,13 @@ build_webui("build") {
+     ]
+     optimize_webui_excludes =
+         [ "chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js" ]
+-    optimize_webui_external_paths =
+-        [ "/shared/settings|" + rebase_path(
++    optimize_webui_external_paths = [
++      "/shared/settings|" + rebase_path(
+               "$root_gen_dir/chrome/browser/resources/settings_shared/tsc",
+-              root_build_dir) ]
++              root_build_dir),
++      "/shade|" + rebase_path(
++              "$root_gen_dir/ghost/browser/resources/settings/tsc",
++              root_build_dir),
++    ]
+   }
+ }
+diff --git a/chrome/browser/resources/settings/route.ts b/chrome/browser/resources/settings/route.ts
+index 98e81d33d5f39194b3af3304b03036425f1ef257..4c6b75ceaee5fca397e75be8f0c790cdb22fa35f 100644
+--- a/chrome/browser/resources/settings/route.ts
++++ b/chrome/browser/resources/settings/route.ts
+@@ -256,6 +256,11 @@ function createRoutes(): SettingsRoutes {
+     addPrivacyChildRoutes(r);
+   }
+ 
++  // Shade: its protections section (patches/0038).
++  r.PROTECTIONS = r.BASIC.createSection(
++      '/protections', 'protections',
++      loadTimeData.getString('shadeProtectionsTitle'));
++
+   // <if expr="not is_chromeos">
+   if (visibility.defaultBrowser !== false) {
+     r.DEFAULT_BROWSER = r.BASIC.createSection(
+diff --git a/chrome/browser/resources/settings/router.ts b/chrome/browser/resources/settings/router.ts
+index 7fb927120327cc9a208c374b007792425ef91a0a..cac14bcd13ab3da4a48aa504c75b78945fd09a2c 100644
+--- a/chrome/browser/resources/settings/router.ts
++++ b/chrome/browser/resources/settings/router.ts
+@@ -48,6 +48,7 @@ export interface SettingsRoutes {
+   PERFORMANCE: Route;
+   PRELOADING: Route;
+   PRIVACY: Route;
++  PROTECTIONS: Route;
+   PRIVACY_GUIDE: Route;
+   RESET: Route;
+   RESET_DIALOG: Route;
+diff --git a/chrome/browser/resources/settings/settings_main/settings_main.html b/chrome/browser/resources/settings/settings_main/settings_main.html
+index 703394559fbf325542e67245d87fd0585442b706..eadd4a610f39d0140a43f8309742b0355358cb4a 100644
+--- a/chrome/browser/resources/settings/settings_main/settings_main.html
++++ b/chrome/browser/resources/settings/settings_main/settings_main.html
+@@ -67,6 +67,13 @@
+     </div>
+   </template>
+ 
++  <div slot="view" id="protections">
++    <template is="dom-if" if="[[renderPlugin_(
++        routes_.PROTECTIONS, lastRoute_, inSearchMode_)]]">
++      <shade-protections-page></shade-protections-page>
++    </template>
++  </div>
++
+   <template is="dom-if" if="[[showPage_(pageVisibility_.privacy)]]">
+     <div slot="view" id="privacy">
+       <template is="dom-if" if="[[renderPlugin_(
+diff --git a/chrome/browser/resources/settings/settings_main/settings_main.ts b/chrome/browser/resources/settings/settings_main/settings_main.ts
+index 7ff1c061b5a6bc9dbd1868ed155214ca97508efc..423eb8e4568e1434153e8c74822479c6ba3ae2c4 100644
+--- a/chrome/browser/resources/settings/settings_main/settings_main.ts
++++ b/chrome/browser/resources/settings/settings_main/settings_main.ts
+@@ -21,6 +21,8 @@ import '../privacy_page/privacy_page_index.js';
+ import '../reset_page/reset_profile_banner.js';
+ import '../search_page/search_page_index.js';
+ import '../your_saved_info_page/your_saved_info_page_index.js';
++// Shade's protections section (patches/0038).
++import '/shade/protections_page.js';
+ // <if expr="not is_chromeos">
+ import '../default_browser_page/default_browser_page.js';
+ 
+diff --git a/chrome/browser/resources/settings/settings_menu/settings_menu.html b/chrome/browser/resources/settings/settings_menu/settings_menu.html
+index dd30b5046d72725249b90621d1346a2d23ba71f0..d4b0d77cceb8139f22ebe7c60901189bab3539bb 100644
+--- a/chrome/browser/resources/settings/settings_menu/settings_menu.html
++++ b/chrome/browser/resources/settings/settings_menu/settings_menu.html
+@@ -67,6 +67,12 @@
+           $i18n{autofillPageTitle}
+           <cr-ripple></cr-ripple>
+         </a>
++        <a role="menuitem" id="protections" href="/protections"
++            class="cr-nav-menu-item">
++          <cr-icon icon="settings:shield"></cr-icon>
++          $i18n{shadeProtectionsTitle}
++          <cr-ripple></cr-ripple>
++        </a>
+         <a role="menuitem" href="/privacy"
+             hidden="[[!pageVisibility_.privacy]]"
+             class="cr-nav-menu-item">
+diff --git a/chrome/browser/ui/webui/settings/BUILD.gn b/chrome/browser/ui/webui/settings/BUILD.gn
+index fc65badb87b480e64c70efc838653f313d82dbdc..ef5d037c61546b3bd262c96895ba68b380765bfa 100644
+--- a/chrome/browser/ui/webui/settings/BUILD.gn
++++ b/chrome/browser/ui/webui/settings/BUILD.gn
+@@ -180,6 +180,7 @@ source_set("impl") {
+   deps = [
+     ":settings",
+     "//chrome/app:command_ids",
++    "//ghost/browser/ui/settings",
+     "//chrome/app:generated_resources",
+     "//chrome/app/vector_icons",
+     "//chrome/browser:browser_process",
+diff --git a/chrome/browser/ui/webui/settings/settings_ui.cc b/chrome/browser/ui/webui/settings/settings_ui.cc
+index 5c7141365e8869373c507392792258ec0e11e667..7b1d202d9bd1780df252668b0d5f18675f9103d5 100644
+--- a/chrome/browser/ui/webui/settings/settings_ui.cc
++++ b/chrome/browser/ui/webui/settings/settings_ui.cc
+@@ -145,6 +145,7 @@
+ #include "content/public/browser/web_contents.h"
+ #include "content/public/browser/web_ui.h"
+ #include "content/public/browser/web_ui_data_source.h"
++#include "ghost/browser/ui/settings/settings_page.h"
+ #include "content/public/common/content_features.h"
+ #include "crypto/crypto_buildflags.h"
+ #include "device/vr/buildflags/buildflags.h"
+@@ -480,6 +481,8 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
+ #endif
+ 
+   AddLocalizedStrings(html_source, profile, web_ui->GetWebContents());
++  // Shade: its protections section (patches/0038).
++  ghost::settings::SetUpSettingsPage(web_ui, html_source);
+   AddSecurityData(html_source);
+ 
+   ManagedUIHandler::Initialize(web_ui, html_source);
+diff --git a/chrome/chrome_paks.gni b/chrome/chrome_paks.gni
+index 6aa12dc43bdcb1b589b51916c8545e3b34b61d01..81545e9df0d3494ca0c27b7bde14d149f6a04820 100644
+--- a/chrome/chrome_paks.gni
++++ b/chrome/chrome_paks.gni
+@@ -294,6 +294,10 @@ template("chrome_extra_paks") {
+         # resources are already bundled within the UIs that use them.
+         sources += [ "$root_gen_dir/chrome/settings_shared_resources.pak" ]
+         deps += [ "//chrome/browser/resources/settings_shared:resources" ]
++
++        # Shade's section of chrome://settings, bundled the same way.
++        sources += [ "$root_gen_dir/ghost/shade_settings_resources.pak" ]
++        deps += [ "//ghost/browser/resources/settings:resources" ]
+       }
+     }
+ 
+diff --git a/tools/gritsettings/resource_ids.spec b/tools/gritsettings/resource_ids.spec
+index 573359ad8e9dc3afcd45d604a89a7fa8e00b3c5f..76faddc92f42340eaa95e566b91cb5b16fbbd97d 100644
+--- a/tools/gritsettings/resource_ids.spec
++++ b/tools/gritsettings/resource_ids.spec
+@@ -1804,6 +1804,12 @@
+     "includes": [10240],
+   },
+ 
++  # Shade's section of chrome://settings.
++  "<(SHARED_INTERMEDIATE_DIR)/ghost/browser/resources/settings/resources.grd": {
++    "META": {"sizes": {"includes": [20]}},
++    "includes": [10260],
++  },
++
+   "<(SHARED_INTERMEDIATE_DIR)/THIS_IS_A_PLACEHOLDER.grd": {
+     "META": {"sizes": {"includes": [800]}},
+     "includes": [12000],
