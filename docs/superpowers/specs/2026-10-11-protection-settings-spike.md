@@ -39,3 +39,9 @@ What the wiring took, beyond the plan:
 - The four prefs are on `PrefsUtil::GetAllowlistedKeys()`. `//chrome/browser/extensions` depends on `//ghost/browser/features`, `privacy_policy` and `query_filter:prefs`, with no cycle: `gn check` passes on every touched target.
 - `SettingsSeesShadesPrefs` failed with every value `"null"` before the patch and passes after it. It reads the Local State pref too: `settingsPrivate` finds Local State prefs by itself (`PrefsUtil::FindServiceForPref`).
 - Totals: 98 unit and 83 browser tests pass, with no retry.
+
+## Task 5: the handler for the site list, 2026-10-11
+
+- `ProtectionsHandler` accepts only a bare host as the site. A path, a space, a non-string, an empty string or an unknown level is refused. It stores the site under its registrable domain through `site_levels`. 4 unit tests.
+- **At the pin, base's value types are `base::ListValue` and `base::DictValue`**; `base::Value::List` no longer exists. `content::TestWebUI::AddMessageHandler` registers the handler's messages itself.
+- `//ghost/browser/ui/settings` depends on `//chrome/browser/ui/webui/settings:settings` (the `SettingsPageUIHandler` base), which doesn't depend on `:impl`: no cycle, and `gn check` passes.

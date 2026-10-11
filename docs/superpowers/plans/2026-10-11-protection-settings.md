@@ -503,7 +503,7 @@ IN_PROC_BROWSER_TEST_F(ProtectionSettingsBrowserTest, SettingsSeesShadesPrefs) {
 - Modify: `browser/ui/settings/settings_page.cc` (adds the handler), `browser/ui/settings/BUILD.gn` (deps `//chrome/browser/ui/webui/settings:settings_page_ui_handler` or the target that has `settings_page_ui_handler.h`, `//ghost/browser/privacy_policy`, `//ghost/components/site`)
 - Test: `browser/ui/settings/protections_handler_unittest.cc` (add to `ghost_unittests`)
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
 
 ```cpp
 class ProtectionsHandlerTest : public ChromeRenderViewHostTestHarness {
@@ -553,8 +553,8 @@ TEST_F(ProtectionsHandlerTest, ClearsASite) {
 }
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Expected: a compile failure.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run them to see them fail.** Expected: a compile failure.
+- [x] **Step 3: Implement.**
 
 ```cpp
 namespace ghost::settings {
@@ -604,8 +604,8 @@ GURL SitePage(const base::Value& site) {
   `HandleSetSiteLevel` needs two args, a valid page and `privacy_policy::ParseProtectionLevel(args[1].GetString())`. It then calls `privacy_policy::SetLevel(profile_, page, *level)`, which keys by registrable domain. `HandleClearSiteLevel` calls `ClearLevel`. Register both with `web_ui()->RegisterMessageCallback("shadeSetSiteLevel", base::BindRepeating(&ProtectionsHandler::HandleSetSiteLevel, base::Unretained(this)))`, and the same for `shadeClearSiteLevel`.
 
   `SetUpSettingsPage` adds `web_ui->AddMessageHandler(std::make_unique<ProtectionsHandler>(Profile::FromWebUI(web_ui)))`.
-- [ ] **Step 4: Run the tests.** Expected: pass.
-- [ ] **Step 5: Commit.** `settings: the handler for Shade's site list`.
+- [x] **Step 4: Run the tests.** Expected: pass.
+- [x] **Step 5: Commit.** `settings: the handler for Shade's site list`.
 
 ### Task 6: The strings
 
