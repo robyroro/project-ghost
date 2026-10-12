@@ -175,5 +175,26 @@ TEST_F(BlockingEngineTest, AnInvalidPageIsNoPage) {
   EXPECT_TRUE(Check(engine, std::move(request)).blocked);
 }
 
+TEST_F(BlockingEngineTest, CosmeticRulesCarryScriptletsAndProceduralRules) {
+  BlockingEngine engine;
+  engine.Load({"a.test##+js(set, shadeValue, true)\n"
+               "a.test#?#.box:has-text(Ad)\n"
+               "a.test##.styled:style(color: red)\n"});
+  base::test::TestFuture<CosmeticRules> rules;
+  engine.GetCosmeticRules(GURL("https://a.test/"), rules.GetCallback());
+  EXPECT_NE(rules.Get().scriptlet.find("setConstant("), std::string::npos);
+  EXPECT_EQ(rules.Get().procedural_filters.size(), 1u);
+  ASSERT_EQ(rules.Get().style_rules.size(), 1u);
+  EXPECT_EQ(rules.Get().style_rules[0].selector, ".styled");
+}
+
+TEST_F(BlockingEngineTest, ADecisionCarriesItsRedirect) {
+  BlockingEngine engine;
+  engine.Load({"||tracker.test^$script,redirect=noopjs\n"});
+  const Decision decision = Check(engine, TrackerScript());
+  EXPECT_TRUE(decision.blocked);
+  EXPECT_TRUE(decision.redirect.starts_with("data:application/javascript;base64,"));
+}
+
 }  // namespace
 }  // namespace ghost::blocking

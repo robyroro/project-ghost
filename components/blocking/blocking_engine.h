@@ -29,9 +29,18 @@ struct Decision {
   bool blocked = false;
   // The rule that matched, for the console; may be empty.
   std::string filter;
+  // When a redirect rule blocked the request: what to answer with instead,
+  // as a data: URL (Phase 4B). Empty otherwise.
+  std::string redirect;
 };
 
-// A document's cosmetic rules (Phase 4A).
+// An action rule CSS can express: a selector and its :style() declarations.
+struct StyleRule {
+  std::string selector;
+  std::string style;
+};
+
+// A document's cosmetic rules (Phases 4A, 4B).
 struct CosmeticRules {
   CosmeticRules();
   CosmeticRules(CosmeticRules&&);
@@ -45,6 +54,12 @@ struct CosmeticRules {
   std::vector<std::string> exceptions;
   // A $generichide exception: no generic rule applies.
   bool generichide = false;
+  // The site's scriptlets as one script, for the page's own world (4B).
+  std::string scriptlet;
+  // Action rules CSS can express, and the procedural and action rules it
+  // can't (adblock-rust's JSON, one per rule).
+  std::vector<StyleRule> style_rules;
+  std::vector<std::string> procedural_filters;
 };
 
 // adblock-rust's engine, on a sequence of its own: building it from the lists

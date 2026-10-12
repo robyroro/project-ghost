@@ -22,6 +22,7 @@
 - **Function-style resources:** adblock-rust calls a resource as `name("arg", …)` when its text matches `^function\s+NAME\s*\(` (`extract_function_name`), and JSON-escapes each argument (`stringify_arg::<true>`). A template resource has `{{1}}` replaced by the raw argument. Our files carry the MPL header, so the bridge strips leading `//` lines before giving them to the engine.
 - **Scriptlet and alias names end in `.js`:** the engine appends `.js` to the name in `+js(name, …)`. Redirect names don't (`redirect=noopjs`).
 - **A redirect is a `data:` URL** (`BlockerResult::redirect`, base64), set only when a `redirect=` rule matched. It applies only when `should_block()`.
+- **A procedural operator inside `:has()`** (*found in Task 1*): 63 EasyList rules nest `:has-text` in `:has()`, which adblock-rust passes through as CSS into `hide_selectors`. The bridge moves them to `procedural_filters` as one `css-selector` (Task 2); `procedural.js`'s `css-selector` step parses `:has()` with a procedural selector inside (Task 7).
 - **The executor's API:** gin functions in the isolated world: `filters()` (the document's procedural rules), and `hide(attribute)` and `style(attribute, declarations)`, which insert user-origin rules for a marker attribute, checked again in the renderer.
 
 **Conventions** (as in the earlier sub-projects):

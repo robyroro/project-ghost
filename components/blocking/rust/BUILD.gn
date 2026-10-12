@@ -9,11 +9,24 @@ import("//build/rust/rust_static_library.gni")
 rust_static_library("engine") {
   allow_unsafe = true  # The FFI that cxx generates.
   crate_root = "lib.rs"
-  sources = [ "lib.rs" ]
+  sources = [
+    "lib.rs",
+    "resources.rs",
+  ]
+  # Built in with include_bytes! (resources.rs).
+  inputs = [
+    "../resources/redirects/noop.js",
+    "../resources/scriptlets/set-constant.js",
+    "../resources/scriptlets/shade-chain.js",
+    "../resources/scriptlets/shade-safe.js",
+    "../resources/scriptlets/shade-trap.js",
+  ]
   cxx_bindings = [ "lib.rs" ]
   deps = [
     "//ghost/components/blocking:registrable_domain",
     "//ghost/third_party/rust/adblock/v0_13:lib",
+    "//third_party/rust/base64/v0_22:lib",
+    "//third_party/rust/serde_json/v1:lib",
   ]
   configs += [ "//ghost/build/config:rust_fuzz_coverage" ]
   visibility = [ "//ghost/*" ]

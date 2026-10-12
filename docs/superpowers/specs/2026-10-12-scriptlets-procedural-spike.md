@@ -29,3 +29,16 @@ Phase 4B ([design](2026-10-12-scriptlets-procedural-design.md), [plan](../plans/
   - a request's check: p50 152 µs, p99 373 µs;
   - a document's rules: p50 145 µs, p99 272 µs;
   - a batch of 1,000 names: p50 43 µs, p99 102 µs.
+- **What parses** (spike point 4; the shipped lists, 2026-10-10):
+  - 24,691 cosmetic lines; the validation refuses 7:
+    - EasyList's `:-abp-properties` rules, which adblock-rust 0.13 refuses (the 6 lines found);
+    - `abema.tv##^script:has-text(NREUM)`, which is HTML filtering and adblock-rust doesn't have.
+  - Of the 297 lines with a procedural operator or an action, the engine turns 220 distinct rules into JSON for 264 hosts: 224 `css-selector` steps, 219 `has-text`, 1 `remove`. 4 action rules are plain CSS (style rules).
+  - **63 rules put `:has-text` inside `:has()`** (`deliveroo.*#?#a[role="button"]:has(p:has-text(Sponsored))`). adblock-rust passes `:has()` through as CSS with its inside untouched, so these arrived in `hide_selectors`, where Blink drops them.
+    - Decision while executing: the bridge moves a hide selector that holds a procedural operator into the procedural rules, as one `css-selector`.
+    - `procedural.js` parses such a selector itself (Task 7).
+  - The host with the most procedural rules: bleepingcomputer.com (6). The largest scriptlet: accuweather.com (6,155 bytes with the dependencies).
+
+## Task 2: resources and bridge (2026-10-12)
+
+- **adblock-rust injects only `application/javascript` resources** (`supports_scriptlet_injection`); `fn/javascript` serves as a dependency only. The scriptlets are `application/javascript`, their helpers (`shade-safe`, `shade-chain`, `shade-trap`) `fn/javascript`. A scriptlet can therefore also be named as a redirect; it then answers with its function's source, which defines a function and runs nothing.

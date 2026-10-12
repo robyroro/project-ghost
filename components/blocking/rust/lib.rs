@@ -3,12 +3,15 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! adblock-rust behind a small cxx bridge: build an engine from list text,
-//! ask it about one request, or about a document's cosmetic rules.
-//! Everything else (threads, lifetimes, policy) is C++'s, in
-//! //ghost/components/blocking.
+//! ask it about one request, or about a document's cosmetic rules,
+//! scriptlets and procedural rules. Everything else (threads, lifetimes,
+//! policy) is C++'s, in //ghost/components/blocking.
+
+mod resources;
 
 use std::collections::HashSet;
 
+use adblock::cosmetic_filter_cache::ProceduralOrActionFilter;
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
 use adblock::url_parser::{set_domain_resolver, ResolvesDomain};
@@ -19,15 +22,32 @@ mod ffi {
     struct Verdict {
         blocked: bool,
         filter: String,
+        /// When a redirect rule blocked the request: the resource to answer
+        /// with instead, as a data: URL. Empty otherwise.
+        redirect: String,
     }
 
-    /// A document's cosmetic rules: what to hide on its site, and what the
-    /// generic rules mustn't hide there.
+    /// An action rule CSS can express: a plain selector and its :style().
+    /// (Not StyleRule: //ghost/components/blocking has one, in the same
+    /// namespace.)
+    struct CosmeticStyleRule {
+        selector: String,
+        style: String,
+    }
+
+    /// A document's cosmetic rules: what to hide on its site, what the
+    /// generic rules mustn't hide there, and (4B) what to run in it.
     struct CosmeticResources {
         hide_selectors: Vec<String>,
         exceptions: Vec<String>,
         /// A `$generichide` exception: no generic rule on this page.
         generichide: bool,
+        /// The site's scriptlets as one script, for the page's own world.
+        injected_script: String,
+        style_rules: Vec<CosmeticStyleRule>,
+        /// Procedural and action rules CSS can't express: adblock-rust's
+        /// JSON, one per rule.
+        procedural_filters: Vec<String>,
     }
 
     unsafe extern "C++" {
@@ -50,8 +70,9 @@ mod ffi {
             method: &str,
         ) -> Verdict;
         /// The site-specific selectors (and the generic ones too complex to
-        /// index) for a document's URL, its exceptions and generichide. A URL
-        /// the engine can't parse has none. Sorted, so answers are stable.
+        /// index) for a document's URL, its exceptions and generichide, its
+        /// scriptlets, style and procedural rules. A URL the engine can't
+        /// parse has none. Sorted, so answers are stable.
         fn cosmetic_resources(self: &Engine, url: &str) -> CosmeticResources;
         /// The generic selectors the class and id names match, less the
         /// document's exceptions. Sorted.
@@ -61,6 +82,15 @@ mod ffi {
             ids: &Vec<String>,
             exceptions: &Vec<String>,
         ) -> Vec<String>;
+        /// Problems in the resources built into Shade; none is expected.
+        fn resource_problems() -> Vec<String>;
+        /// The problem a resource would have, or an empty string.
+        fn resource_problem_for_testing(
+            name: &str,
+            mime: &str,
+            body: &str,
+            scriptlet: bool,
+        ) -> String;
     }
 }
 
@@ -82,11 +112,12 @@ fn new_engine(lists: &str) -> Box<Engine> {
     // The resolver is process-wide and set once; a second engine finds it set.
     let _ = set_domain_resolver(Box::new(ChromiumDomains));
     let mut filters = FilterSet::new(false);
-    // Every rule type: network rules for requests, cosmetic rules for pages
-    // (Phase 4A); scriptlets and procedural rules are parsed but not used
-    // until 4B.
+    // Every rule type: network rules for requests, cosmetic rules, scriptlets
+    // and procedural rules for pages (Phases 4A, 4B).
     filters.add_filter_list(lists.to_string(), ParseOptions::default());
-    Box::new(Engine(adblock::Engine::new_with_filter_set(filters)))
+    let mut engine = adblock::Engine::new_with_filter_set(filters);
+    engine.use_resources(resources::usable());
+    Box::new(Engine(engine))
 }
 
 impl Engine {
@@ -95,21 +126,54 @@ impl Engine {
         match Request::new(url, source_url, request_type, &method.to_ascii_lowercase()) {
             Ok(request) => {
                 let result = self.0.check_network_request(&request);
+                let blocked = result.should_block();
                 ffi::Verdict {
-                    blocked: result.should_block(),
+                    blocked,
                     filter: result.filter.map(|f| format!("{f:?}")).unwrap_or_default(),
+                    redirect: if blocked { result.redirect.unwrap_or_default() } else { String::new() },
                 }
             }
-            Err(_) => ffi::Verdict { blocked: false, filter: String::new() },
+            Err(_) => ffi::Verdict { blocked: false, filter: String::new(), redirect: String::new() },
         }
     }
 
     fn cosmetic_resources(&self, url: &str) -> ffi::CosmeticResources {
         let resources = self.0.url_cosmetic_resources(url);
+        let mut style_rules = Vec::new();
+        let mut procedural_filters = Vec::new();
+        for json in resources.procedural_actions {
+            match serde_json::from_str::<ProceduralOrActionFilter>(&json)
+                .ok()
+                .and_then(|filter| filter.as_css())
+            {
+                Some((selector, style)) => {
+                    style_rules.push(ffi::CosmeticStyleRule { selector, style })
+                }
+                None => procedural_filters.push(json),
+            }
+        }
+        // adblock-rust passes :has() through as CSS, a procedural operator
+        // inside it too (`a:has(p:has-text(Ad))`), which Blink would drop:
+        // such a selector goes to the executor, which parses it.
+        let (procedural, hide_selectors): (HashSet<String>, HashSet<String>) = resources
+            .hide_selectors
+            .into_iter()
+            .partition(|selector| has_procedural_operator(selector));
+        for selector in procedural {
+            procedural_filters.push(
+                serde_json::json!({"selector": [{"type": "css-selector", "arg": selector}]})
+                    .to_string(),
+            );
+        }
+        style_rules.sort_by(|a, b| (&a.selector, &a.style).cmp(&(&b.selector, &b.style)));
+        procedural_filters.sort();
         ffi::CosmeticResources {
-            hide_selectors: sorted(resources.hide_selectors),
+            hide_selectors: sorted(hide_selectors),
             exceptions: sorted(resources.exceptions),
             generichide: resources.generichide,
+            injected_script: resources.injected_script,
+            style_rules,
+            procedural_filters,
         }
     }
 
@@ -124,6 +188,39 @@ impl Engine {
         selectors.sort();
         selectors
     }
+}
+
+/// Whether a selector holds one of adblock-rust's procedural operators, which
+/// no browser's CSS knows.
+fn has_procedural_operator(selector: &str) -> bool {
+    const OPERATORS: &[&str] = &[
+        ":has-text(",
+        ":matches-attr(",
+        ":matches-css(",
+        ":matches-css-before(",
+        ":matches-css-after(",
+        ":matches-path(",
+        ":min-text-length(",
+        ":upward(",
+        ":xpath(",
+    ];
+    OPERATORS.iter().any(|operator| selector.contains(operator))
+}
+
+fn resource_problems() -> Vec<String> {
+    resources::problems()
+}
+
+fn resource_problem_for_testing(name: &str, mime: &str, body: &str, scriptlet: bool) -> String {
+    let entry = resources::Entry {
+        name,
+        aliases: &[],
+        mime,
+        dependencies: &[],
+        scriptlet,
+        body: body.as_bytes(),
+    };
+    resources::problem(&entry, &[]).unwrap_or_default()
 }
 
 fn sorted(set: HashSet<String>) -> Vec<String> {

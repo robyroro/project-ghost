@@ -95,6 +95,7 @@ class BlockingEngine::Core {
                                           ToAdblockType(request.destination), request.method);
       decision.blocked = verdict.blocked;
       decision.filter = std::string(verdict.filter);
+      decision.redirect = std::string(verdict.redirect);
     }
     std::move(reply).Run(std::move(decision));
   }
@@ -112,6 +113,13 @@ class BlockingEngine::Core {
         rules.exceptions.emplace_back(selector);
       }
       rules.generichide = resources.generichide;
+      rules.scriptlet = std::string(resources.injected_script);
+      for (const CosmeticStyleRule& rule : resources.style_rules) {
+        rules.style_rules.push_back({std::string(rule.selector), std::string(rule.style)});
+      }
+      for (const rust::String& filter : resources.procedural_filters) {
+        rules.procedural_filters.emplace_back(filter);
+      }
     }
     std::move(reply).Run(std::move(rules));
   }
