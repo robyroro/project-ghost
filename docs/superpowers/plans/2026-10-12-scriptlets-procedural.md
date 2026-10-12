@@ -10,6 +10,8 @@
 - **Renderer.** The agent runs the scriptlet in the main world at document start, wrapped in one function, and runs `procedural.js` in the isolated world beside the scanner.
 - **Patches.** None expected.
 
+**Status:** done 2026-10-12 ([progress notes](../specs/2026-10-12-scriptlets-procedural-spike.md)). Beyond the plan: patch 0043; `rust_vendor.py` learned `inputs` and renamed dependencies; scriptlets are `application/javascript` (adblock-rust injects no other type); `:has()` around a procedural operator; the scanner's names read in C++ after the official build showed 4A's scanner over budget; the scriptlet budget amended with the user.
+
 **Tech Stack:**
 - adblock-rust 0.13.3 with `css-validation` (cssparser 0.35, selectors 0.32, vendored by `tools/rust_vendor.py`), `serde_json`, `base64`;
 - Chromium 152.0.7977.158: `WebLocalFrame::ExecuteScript`, `ExecuteScriptInIsolatedWorld`, gin, mojo data pipes, `net::DataURL`;

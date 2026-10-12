@@ -1,6 +1,6 @@
 # Scriptlets and procedural rules: design
 
-- Status: design approved 2026-10-12; amended while planning ([plan](../plans/2026-10-12-scriptlets-procedural.md)): CSS validation turned on in adblock-rust, the operators 0.13 has, redirects as `data:` URLs, scriptlets wrapped in one function, pure-CSS action rules in the style sheet.
+- Status: done 2026-10-12 ([progress notes](2026-10-12-scriptlets-procedural-spike.md)); budgets measured in the official build, the scriptlets' one amended with the user, 4A's scanner optimized to meet its own. Design approved 2026-10-12; amended while planning ([plan](../plans/2026-10-12-scriptlets-procedural.md)): CSS validation turned on in adblock-rust, the operators 0.13 has, redirects as `data:` URLs, scriptlets wrapped in one function, pure-CSS action rules in the style sheet.
 - Phase 4, sub-project 4B ([roadmap](../../roadmap.md#phase-4-content-protections)); builds on [4A, cosmetic filtering](2026-10-11-cosmetic-filtering-design.md), [3A, the blocking engine](2026-10-10-blocking-engine-design.md) and [3D-1, the protection levels](2026-10-10-protection-levels-design.md).
 
 ## Goal
@@ -81,7 +81,7 @@ Measured in the official build and reported; changed only with the user's agreem
 | What | Budget |
 |---|---|
 | A document's rules, with the scriptlet and procedural rules (`ghost_blocking_perftests`) | p99 under 1 ms |
-| What cosmetic filtering adds to a small page's main thread on the lists' site with the most scriptlets (`tools/scanner_cost.py --site`; an upper bound on the scriptlets' run) | under 1 ms |
+| The scriptlets alone on the lists' site with the most scriptlets: what cosmetic filtering adds to `light.html` there, less what it adds at cosmetic.test (`tools/scanner_cost.py --site`) | under 1.5 ms (*amended with the user's agreement, 2026-10-12*: the first form, everything cosmetic filtering adds to the page under 1 ms, couldn't hold, since 4A alone takes 1.0 ms there) |
 | What procedural rules add to the 5,000-element fixture page on the lists' site with the most procedural rules (that site's cost less `cosmetic.test`'s) | under 5 ms |
 | The engine's memory and compile time with the resources | reported against 4A's; no budget |
 
@@ -118,10 +118,10 @@ privacy-model.md (what the levels apply; the GPC rules and the header), architec
 
 ## Done when
 
-- [ ] The tests pass with no retry and the mutation checks fail as required.
-- [ ] The budgets hold in the official build.
-- [ ] The egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The tests pass with no retry and the mutation checks fail as required.
+- [x] The budgets hold in the official build.
+- [x] The egress audit finds no unexpected host.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 

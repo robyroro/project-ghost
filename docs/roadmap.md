@@ -324,13 +324,38 @@ Sub-projects, in order (decided 2026-10-11), each with its own design and plan i
      - a document's rules: p99 159–166 µs;
      - a batch of 1,000 names: p99 81–95 µs (both budgets 1 ms);
      - a request's check, with every rule type now in the engine: p99 41–49 µs (budget 50 µs; 36–39 µs in 3A).
-   - **The scanner on a page that inserts 5,000 elements at once** was measured only in the dev build (111.5 ms). Scaled by the dev build's measured slowness, it is near its 5 ms budget; not yet measured in an official build.
+   - **The scanner on a page that inserts 5,000 elements at once** was measured only in the dev build (111.5 ms). Measured in an official build during 4B: 14.3 ms, over its 5 ms budget. Since 4B the agent reads the names in C++ and the scanner only reports what changed: about 4.1 ms.
    - **Checks:** five mutation checks fail as required; 117 unit and 103 browser tests pass with no retry; the fuzzer ran 30 minutes without a crash; the egress audit finds no unexpected host.
    - **Limitations:**
      - an element a page adds by script can show until its names' answer arrives;
      - hidden elements aren't counted on the shield;
      - EasyList exempts local addresses from generic rules.
-2. **4B. Scriptlets and procedural rules** (`+js()`, `:has-text()`), with the in-page script layer both need, and the lists that carry scriptlets.
+2. **4B. Scriptlets, procedural rules and redirects** (`+js()`, `:has-text()`, `$redirect=`), for the lists we ship.
+
+   **Done 2026-10-12.** [Design](superpowers/specs/2026-10-12-scriptlets-procedural-design.md), [progress notes](superpowers/specs/2026-10-12-scriptlets-procedural-spike.md).
+   - **Where it lives:**
+     - Shade's own scriptlets and redirect resources (`components/blocking/resources/`, MPL-2.0, written clean) built into the binary;
+     - adblock-rust with CSS validation: 19 more vendored crates, and patch 0043 for Chromium's `itoa` and `stable_deref_trait`; series = 43;
+     - `renderer/cosmetic_filters/procedural.js`; redirects answered in `RequestFilter`. No new hook patch.
+   - **What applies:**
+     - EasyPrivacy's scriptlets run in the page's world before its scripts, CSP or not, leaving nothing on `window`. Its GPC rules make `navigator.globalPrivacyControl` read `false` on about 55 sites while `Sec-GPC: 1` is still sent (the user's choice).
+     - EasyList's procedural rules run in Shade's world, 63 nested in `:has()` included.
+     - The lists' redirects answer scripts, images, JSON and `fetch()` in `cors` mode without the network.
+   - **Official build:**
+     - a document's rules: p99 294–328 µs, and on the 22 scriptlet sites p99 281–360 µs (budgets 1 ms);
+     - a request's check: p99 39–42 µs (budget 50 µs);
+     - procedural rules on the 5,000-element page: about 0.5 ms (budget 5 ms);
+     - the scriptlets of the site with the most (oregonlive.com, four): about 1.1 ms (budget 1.5 ms, amended with the user: the first form couldn't hold, since 4A alone takes 1.0 ms on that small page).
+   - **Optimized before the push** (the user's choice): the scanner's names are read in C++ (14.3 to about 4.1 ms), and `shadeSafe` takes only the natives most scriptlets share.
+   - **Checks:**
+     - six mutation checks fail as required;
+     - 137 unit and 127 browser tests pass with no retry;
+     - `ghost_cosmetic_procedural_fuzzer` ran 30 minutes without a crash;
+     - the egress audit finds no unexpected host.
+   - **Limitations:**
+     - `json-edit` (one rule) and HTML filtering (`##^`) aren't supported, nor are EasyList's 8 `:-abp-properties` rules;
+     - adblock-rust's CSS validation rewrites escapes such as `\d` in a procedural rule's regular expression (no shipped rule has one; to report upstream);
+     - a procedural rule's marker attribute is visible to the page.
 3. **4C. CNAME uncloaking:** trackers behind first-party subdomains, from the host resolver's DNS aliases.
 4. **4D. Breakage controls and the compatibility corpus.** Its pass rate with protections on must be no worse than vanilla Chromium's with blocking off.
 
