@@ -21,6 +21,7 @@ group("gn_all") {
 test("ghost_unittests") {
   sources = [
     "browser/component_updater/component_update_urls_unittest.cc",
+    "browser/cosmetic_filters/cosmetic_filters_host_unittest.cc",
     "browser/features/feature_overrides_unittest.cc",
     "browser/prefs/pref_defaults_unittest.cc",
     "browser/privacy_policy/site_levels_unittest.cc",
@@ -64,6 +65,8 @@ test("ghost_unittests") {
     "//content/test:test_support",
     "//extensions/browser",
     "//ghost/branding:keys",
+    "//ghost/browser/cosmetic_filters",
+    "//ghost/common:mojom",
     "//ghost/components/blocking:unit_tests",
     "//ghost/components/cosmetic_filters:unit_tests",
     "//ghost/components/privacy_policy:unit_tests",
@@ -76,6 +79,7 @@ test("ghost_unittests") {
     "//ghost/browser/startup",
     "//ghost/components/update_client:request_scrubber",
     "//ghost/version",
+    "//mojo/public/cpp/test_support:test_utils",
     "//services/network:test_support",
     "//testing/gtest",
     "//url",

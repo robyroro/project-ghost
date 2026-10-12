@@ -5,11 +5,14 @@
 #ifndef GHOST_BROWSER_COSMETIC_FILTERS_COSMETIC_FILTERS_HOST_H_
 #define GHOST_BROWSER_COSMETIC_FILTERS_COSMETIC_FILTERS_HOST_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "content/public/browser/document_service.h"
 #include "ghost/common/cosmetic_filters.mojom.h"
+#include "ghost/components/blocking/blocking_engine.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 
 namespace content {
@@ -39,6 +42,20 @@ class CosmeticFiltersHost final : public content::DocumentService<mojom::Cosmeti
   CosmeticFiltersHost(content::RenderFrameHost& frame,
                       mojo::PendingReceiver<mojom::CosmeticFiltersHost> receiver);
   ~CosmeticFiltersHost() override;
+
+  void OnRules(std::vector<std::string> classes,
+               std::vector<std::string> ids,
+               GetGenericStyleSheetCallback callback,
+               blocking::CosmeticRules rules);
+  void Select(std::vector<std::string> classes,
+              std::vector<std::string> ids,
+              GetGenericStyleSheetCallback callback);
+
+  // The document's exceptions, once the engine gave them.
+  std::optional<std::vector<std::string>> exceptions_;
+  // A $generichide exception: every answer is empty.
+  bool generichide_ = false;
+  base::WeakPtrFactory<CosmeticFiltersHost> weak_factory_{this};
 };
 
 }  // namespace ghost::cosmetic_filters
