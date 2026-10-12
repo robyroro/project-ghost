@@ -19,10 +19,15 @@ source_set("cosmetic_filters") {
   public_deps = [
     "//content/public/browser",
     "//ghost/common:mojom",
+    "//ghost/components/blocking",
     "//mojo/public/cpp/bindings",
   ]
   deps = [
     "//base",
+    "//ghost/browser/blocking",
+    "//ghost/browser/privacy_policy",
+    "//ghost/components/cosmetic_filters",
+    "//ghost/components/privacy_policy",
     "//third_party/blink/public/common",
     "//url",
   ]

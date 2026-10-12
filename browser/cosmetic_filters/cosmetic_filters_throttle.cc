@@ -5,13 +5,41 @@
 #include "ghost/browser/cosmetic_filters/cosmetic_filters_throttle.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
+#include "base/functional/bind.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
+#include "ghost/browser/blocking/blocking_service.h"
 #include "ghost/browser/cosmetic_filters/cosmetic_filters_tab_helper.h"
 #include "ghost/browser/cosmetic_filters/prepared_rules.h"
+#include "ghost/browser/privacy_policy/site_levels.h"
+#include "ghost/components/blocking/blocking_engine.h"
+#include "ghost/components/cosmetic_filters/style_sheet.h"
+#include "ghost/components/privacy_policy/protection_level.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 namespace ghost::cosmetic_filters {
+namespace {
+
+// The URL whose rules the document gets: its own, or for about:blank and
+// about:srcdoc, the origin that made it (their content is that site's).
+GURL DocumentUrl(content::NavigationHandle& navigation) {
+  const GURL& url = navigation.GetURL();
+  if (url.SchemeIsHTTPOrHTTPS()) {
+    return url;
+  }
+  if ((url.IsAboutBlank() || url.IsAboutSrcdoc()) && navigation.GetInitiatorOrigin()) {
+    return navigation.GetInitiatorOrigin()->GetTupleOrPrecursorTupleIfOpaque().GetURL();
+  }
+  return GURL();
+}
+
+}  // namespace
 
 // static
 void CosmeticFiltersThrottle::MaybeCreateAndAdd(content::NavigationThrottleRegistry& registry) {
@@ -38,10 +66,37 @@ const char* CosmeticFiltersThrottle::GetNameForLogging() {
 }
 
 content::NavigationThrottle::ThrottleCheckResult CosmeticFiltersThrottle::Prepare() {
-  // Spike: fixed rules (Task 5 asks the engine).
+  content::NavigationHandle& navigation = *navigation_handle();
+  const GURL document = DocumentUrl(navigation);
+  // Browser pages, files, extensions: no rules.
+  if (!document.SchemeIsHTTPOrHTTPS()) {
+    return PROCEED;
+  }
+  // The level is the page's: its outermost main frame's (as for requests).
+  const GURL page = navigation.IsInOutermostMainFrame()
+                        ? document
+                        : navigation.GetParentFrameOrOuterDocument()
+                              ->GetOutermostMainFrame()
+                              ->GetLastCommittedURL();
+  if (privacy_policy::GetLevel(navigation.GetWebContents()->GetBrowserContext(), page) ==
+      privacy_policy::ProtectionLevel::kOff) {
+    PreparedRules::CreateForNavigationHandle(navigation, std::string(), false);
+    return PROCEED;
+  }
+  blocking::BlockingService* service = blocking::BlockingService::GetIfStarted();
+  if (!service) {
+    return PROCEED;
+  }
+  service->engine().GetCosmeticRules(
+      document, base::BindOnce(&CosmeticFiltersThrottle::OnRules, weak_factory_.GetWeakPtr()));
+  return DEFER;
+}
+
+void CosmeticFiltersThrottle::OnRules(blocking::CosmeticRules rules) {
   PreparedRules::CreateForNavigationHandle(*navigation_handle(),
-                                           ".shade-spike{display:none !important}\n", true);
-  return PROCEED;
+                                           StyleSheetFor(rules.hide_selectors),
+                                           !rules.generichide);
+  Resume();
 }
 
 }  // namespace ghost::cosmetic_filters

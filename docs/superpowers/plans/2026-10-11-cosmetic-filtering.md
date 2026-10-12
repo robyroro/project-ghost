@@ -1880,6 +1880,10 @@ class CosmeticFiltersBrowserTest : public InProcessBrowserTest {
     host_resolver()->AddRule("*", "127.0.0.1");
     embedded_test_server()->RegisterRequestHandler(base::BindRepeating(&Serve));
     ASSERT_TRUE(embedded_test_server()->Start());
+    // Incognito's strict HTTPS-First (3C) warns before any HTTP page.
+    embedded_https_test_server().SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+    embedded_https_test_server().RegisterRequestHandler(base::BindRepeating(&Serve));
+    ASSERT_TRUE(embedded_https_test_server().Start());
     ASSERT_TRUE(blocking::BlockingService::GetIfStarted());
     blocking::BlockingService::GetIfStarted()->SetListsForTesting({kTestList});
   }
@@ -1967,7 +1971,7 @@ IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, GenerichideTurnsGenericRulesO
 }
 
 IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, OffHidesNothing) {
-  privacy_policy::SetLevel(browser()->profile(), Url("a.test", "/"),
+  privacy_policy::SetLevel(GetProfile(), Url("a.test", "/"),
                            privacy_policy::ProtectionLevel::kOff);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/site.html")));
   EXPECT_EQ(content::EvalJs(Tab(), "window.seenAtParse"), "block");
@@ -1978,7 +1982,8 @@ IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, OffHidesNothing) {
 
 IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, IncognitoHides) {
   Browser* incognito = CreateIncognitoBrowser();
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, Url("a.test", "/site.html")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      incognito, embedded_https_test_server().GetURL("a.test", "/site.html")));
   EXPECT_EQ(content::EvalJs(Tab(incognito), "window.seenAtParse"), "none");
 }
 
