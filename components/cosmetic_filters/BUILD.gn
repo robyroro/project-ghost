@@ -1,0 +1,27 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Cosmetic filtering's logic that needs no browser
+# (docs/superpowers/specs/2026-10-11-cosmetic-filtering-design.md).
+source_set("cosmetic_filters") {
+  sources = [
+    "names.cc",
+    "names.h",
+    "style_sheet.cc",
+    "style_sheet.h",
+  ]
+  deps = [ "//base" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "names_unittest.cc",
+    "style_sheet_unittest.cc",
+  ]
+  deps = [
+    ":cosmetic_filters",
+    "//testing/gtest",
+  ]
+}
