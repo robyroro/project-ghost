@@ -23,8 +23,10 @@ class ArithmeticTest(unittest.TestCase):
 
 class OffPreferencesTest(unittest.TestCase):
     def test_sets_the_served_site_off(self):
-        self.assertEqual(scanner_cost.off_preferences(),
+        self.assertEqual(scanner_cost.off_preferences("cosmetic.test"),
                          {"ghost": {"privacy_policy": {"site_levels": {"cosmetic.test": "off"}}}})
+        self.assertEqual(scanner_cost.off_preferences("oregonlive.com"),
+                         {"ghost": {"privacy_policy": {"site_levels": {"oregonlive.com": "off"}}}})
 
 
 class CommandLineTest(unittest.TestCase):

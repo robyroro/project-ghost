@@ -123,19 +123,64 @@ TEST(BlockingPerfTest, CosmeticRulesWithinBudget) {
   }
   std::vector<base::TimeDelta> times;
   size_t largest = 0;
+  size_t largest_script = 0;
+  size_t most_procedural = 0;
   for (int pass = 0; pass < 100; ++pass) {
     for (const std::string& page : pages) {
       const base::TimeTicks start = base::TimeTicks::Now();
       const CosmeticResources resources = engine->cosmetic_resources(page);
       times.push_back(base::TimeTicks::Now() - start);
       largest = std::max(largest, resources.hide_selectors.size());
+      largest_script = std::max(largest_script, resources.injected_script.size());
+      most_procedural = std::max(most_procedural, resources.procedural_filters.size());
     }
   }
   const auto [p50, p99] = Percentiles(std::move(times));
   LOG(INFO) << "Cosmetic rules: " << pages.size() << " pages, at most " << largest
-            << " selectors; p50 " << p50.InMicrosecondsF() << " us, p99 "
+            << " selectors, " << most_procedural << " procedural rules, a script of "
+            << largest_script << " bytes; p50 " << p50.InMicrosecondsF() << " us, p99 "
             << p99.InMicrosecondsF() << " us (budget " << kCosmeticBudgetP99.InMicroseconds()
             << " us).";
+#if defined(OFFICIAL_BUILD)
+  EXPECT_LT(p99, kCosmeticBudgetP99);
+#endif
+}
+
+// Sites EasyPrivacy's scriptlet rules name (the 2026-10-10 list).
+constexpr const char* kScriptletPages[] = {
+    "https://www.madewell.com/",     "https://www.visible.com/",
+    "https://www.usaa.com/",         "https://bolighub.dk/",
+    "https://www.ranker.com/",       "https://www.oregonlive.com/",
+    "https://www.reuters.com/",      "https://www.mensjournal.com/",
+    "https://www.cbsnews.com/",      "https://www.usatoday.com/",
+    "https://www.fedex.com/",        "https://mwed.jp/",
+    "https://www.nicovideo.jp/",     "https://abema.tv/",
+    "https://coomer.st/",            "https://www.ncbi.nlm.nih.gov/",
+    "https://x.com/",                "https://www.aliexpress.com/",
+    "https://open.spotify.com/",     "https://techcrunch.com/",
+    "https://www.al.com/",           "https://nypost.com/",
+};
+
+// The rules a document gets on the sites with scriptlets: their scripts are
+// assembled per document (Phase 4B).
+TEST(BlockingPerfTest, ScriptletSitesWithinBudget) {
+  rust::Box<Engine> engine = new_engine(ShippedLists());
+  std::vector<base::TimeDelta> times;
+  size_t largest = 0;
+  for (int pass = 0; pass < 100; ++pass) {
+    for (const char* page : kScriptletPages) {
+      const base::TimeTicks start = base::TimeTicks::Now();
+      const CosmeticResources resources = engine->cosmetic_resources(page);
+      times.push_back(base::TimeTicks::Now() - start);
+      largest = std::max(largest, resources.injected_script.size());
+    }
+  }
+  const auto [p50, p99] = Percentiles(std::move(times));
+  LOG(INFO) << "Scriptlet sites: " << std::size(kScriptletPages) << " pages, scripts up to "
+            << largest << " bytes; p50 " << p50.InMicrosecondsF() << " us, p99 "
+            << p99.InMicrosecondsF() << " us (budget " << kCosmeticBudgetP99.InMicroseconds()
+            << " us).";
+  EXPECT_GT(largest, 0u);
 #if defined(OFFICIAL_BUILD)
   EXPECT_LT(p99, kCosmeticBudgetP99);
 #endif

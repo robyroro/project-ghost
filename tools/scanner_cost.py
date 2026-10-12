@@ -2,16 +2,24 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Measures what cosmetic filtering costs a heavy page's main thread.
+"""Measures what cosmetic filtering costs a page's main thread.
 
     scanner_cost.py --chrome out/release/chrome.exe [--runs 5] [--launcher hidden.ps1]
+                    [--site cosmetic.test] [--page heavy.html]
 
-Loads test/cosmetic/heavy.html (5,000 elements at once), served as
-http://cosmetic.test, in two fresh profiles:
-one at the default level, one with the page's site set to Off, which inserts
-no rules and runs no scanner. Each load's script and task time come from
-DevTools' Performance.getMetrics; the difference of the medians is the cost.
-Phase 4A's budget for the scanner is 5 ms in an official build.
+Loads a page of test/cosmetic/ (heavy.html: 5,000 elements at once), served
+as http://<site>, in two fresh profiles: one at the default level, one with
+the site set to Off, which inserts no rules and runs no script. Each load's
+script and task time come from DevTools' Performance.getMetrics; the
+difference of the medians is the cost.
+
+The site is a registrable domain the lists name, so the page gets that
+site's rules:
+- Phase 4A: cosmetic.test (no site rules: the scanner), heavy.html; budget
+  5 ms in an official build.
+- Phase 4B: the site with the most scriptlets with light.html (budget 1 ms),
+  and the site with the most procedural rules with heavy.html, less
+  cosmetic.test's cost (budget 5 ms).
 
 --launcher runs each browser through a script that takes -CommandLine (on the
 development PC, the hidden-desktop launcher, so no window shows).
@@ -42,9 +50,9 @@ METRICS = ("ScriptDuration", "TaskDuration")
 SITE = "cosmetic.test"
 
 
-def off_preferences() -> dict:
+def off_preferences(site: str) -> dict:
     """A profile's Preferences with the measured site at Off (3D-1's pref)."""
-    return {"ghost": {"privacy_policy": {"site_levels": {SITE: "off"}}}}
+    return {"ghost": {"privacy_policy": {"site_levels": {site: "off"}}}}
 
 
 def metric_deltas(before: dict[str, float], after: dict[str, float]) -> dict[str, float]:
@@ -76,17 +84,17 @@ def _wait_for(url: str, timeout: float = 60) -> object:
             time.sleep(0.5)
 
 
-def measure_profile(chrome: Path, page: str, runs: int, off: bool, port: int,
+def measure_profile(chrome: Path, site: str, page: str, runs: int, off: bool, port: int,
                     launcher: Path | None) -> list[dict[str, float]]:
     with tempfile.TemporaryDirectory() as profile:
         if off:
             default = Path(profile, "Default")
             default.mkdir()
-            Path(default, "Preferences").write_text(json.dumps(off_preferences()),
+            Path(default, "Preferences").write_text(json.dumps(off_preferences(site)),
                                                     encoding="utf-8")
         args = [str(chrome), f"--user-data-dir={profile}", "--no-first-run",
                 "--no-default-browser-check", f"--remote-debugging-port={port}",
-                f"--host-resolver-rules=MAP {SITE} 127.0.0.1", "about:blank"]
+                f"--host-resolver-rules=MAP {site} 127.0.0.1", "about:blank"]
         if launcher:
             process = subprocess.Popen(["powershell", "-NoProfile", "-File", str(launcher),
                                         "-CommandLine", command_line(args)])
@@ -130,16 +138,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--launcher", type=Path)
     parser.add_argument("--port", type=int, default=9334)
+    parser.add_argument("--site", default=SITE)
+    parser.add_argument("--page", default="heavy.html")
     args = parser.parse_args(argv)
 
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(PAGES))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    page = f"http://{SITE}:{server.server_address[1]}/heavy.html"
+    page = f"http://{args.site}:{server.server_address[1]}/{args.page}"
     try:
         results = {}
         for name, off in (("on", False), ("off", True)):
-            rows = measure_profile(args.chrome, page, args.runs, off, args.port, args.launcher)
+            rows = measure_profile(args.chrome, args.site, page, args.runs, off, args.port,
+                                   args.launcher)
             results[name] = medians(rows)
             print(f"{name:>3}: " + ", ".join(f"{k} {v:.1f} ms" for k, v in results[name].items()))
         cost = {k: results["on"][k] - results["off"][k] for k in METRICS}
