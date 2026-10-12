@@ -2099,6 +2099,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
   const std::vector<std::string_view> lines =
       base::SplitStringPiece(input, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+  // An empty input splits into no lines at all.
+  if (lines.empty()) {
+    return 0;
+  }
   ghost::blocking::Engine& engine = ShippedEngine();
   const ghost::blocking::CosmeticResources resources =
       engine.cosmetic_resources(rust::Str(lines[0].data(), lines[0].size()));
