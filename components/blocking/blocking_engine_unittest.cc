@@ -10,6 +10,7 @@
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -116,6 +117,54 @@ TEST_F(BlockingEngineTest, AMethodThatIsNotUtf8IsBlocked) {
   CheckRequest request = TrackerScript();
   request.method = "G\xffT";
   EXPECT_TRUE(Check(engine, std::move(request)).blocked);
+}
+
+TEST_F(BlockingEngineTest, CosmeticRulesForADocument) {
+  BlockingEngine engine;
+  engine.Load({"a.test##.site-ad\n##.generic-ad\na.test#@#.generic-ad\n"});
+  base::test::TestFuture<CosmeticRules> rules;
+  engine.GetCosmeticRules(GURL("https://a.test/"), rules.GetCallback());
+  EXPECT_THAT(rules.Get().hide_selectors, testing::ElementsAre(".site-ad"));
+  EXPECT_THAT(rules.Get().exceptions, testing::ElementsAre(".generic-ad"));
+  EXPECT_FALSE(rules.Get().generichide);
+}
+
+TEST_F(BlockingEngineTest, GenericSelectorsLessExceptions) {
+  BlockingEngine engine;
+  engine.Load({"##.generic-ad\n###banner\n"});
+  base::test::TestFuture<std::vector<std::string>> selectors;
+  engine.GetGenericSelectors({"generic-ad"}, {"banner"}, {".generic-ad"}, selectors.GetCallback());
+  EXPECT_THAT(selectors.Get(), testing::ElementsAre("#banner"));
+}
+
+TEST_F(BlockingEngineTest, CosmeticQueriesBeforeLoadingAreAnsweredAfterIt) {
+  BlockingEngine engine;
+  base::test::TestFuture<CosmeticRules> rules;
+  engine.GetCosmeticRules(GURL("https://a.test/"), rules.GetCallback());
+  base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(rules.IsReady()) << "answered before the lists loaded";
+  engine.Load({"a.test##.site-ad\n"});
+  EXPECT_THAT(rules.Get().hide_selectors, testing::ElementsAre(".site-ad"));
+}
+
+TEST_F(BlockingEngineTest, AFailedEngineHidesNothing) {
+  BlockingEngine engine;
+  engine.Load({});
+  base::test::TestFuture<CosmeticRules> rules;
+  engine.GetCosmeticRules(GURL("https://a.test/"), rules.GetCallback());
+  EXPECT_TRUE(rules.Get().hide_selectors.empty());
+  base::test::TestFuture<std::vector<std::string>> selectors;
+  engine.GetGenericSelectors({"generic-ad"}, {}, {}, selectors.GetCallback());
+  EXPECT_TRUE(selectors.Get().empty());
+}
+
+// Names come from pages; cxx aborts on a Rust string that isn't UTF-8.
+TEST_F(BlockingEngineTest, NamesThatAreNotUtf8AreLeftOut) {
+  BlockingEngine engine;
+  engine.Load({"##.generic-ad\n"});
+  base::test::TestFuture<std::vector<std::string>> selectors;
+  engine.GetGenericSelectors({"\xff", "generic-ad"}, {"\xc3\x28"}, {}, selectors.GetCallback());
+  EXPECT_THAT(selectors.Get(), testing::ElementsAre(".generic-ad"));
 }
 
 TEST_F(BlockingEngineTest, AnInvalidPageIsNoPage) {

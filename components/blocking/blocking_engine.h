@@ -31,9 +31,26 @@ struct Decision {
   std::string filter;
 };
 
+// A document's cosmetic rules (Phase 4A).
+struct CosmeticRules {
+  CosmeticRules();
+  CosmeticRules(CosmeticRules&&);
+  CosmeticRules& operator=(CosmeticRules&&);
+  ~CosmeticRules();
+
+  // Selectors to hide on the document's site, and the generic ones too
+  // complex to look up by class or id.
+  std::vector<std::string> hide_selectors;
+  // Generic selectors the document's site excepts.
+  std::vector<std::string> exceptions;
+  // A $generichide exception: no generic rule applies.
+  bool generichide = false;
+};
+
 // adblock-rust's engine, on a sequence of its own: building it from the lists
-// takes about a second, and every check runs off the thread that asks. One
-// engine serves every profile and tab.
+// takes about a second, and every query runs off the thread that asks. One
+// engine serves every profile and tab, for requests (3A) and pages' cosmetic
+// rules (4A).
 class BlockingEngine {
  public:
   enum class State { kLoading, kReady, kFailed };
@@ -51,6 +68,18 @@ class BlockingEngine {
   // Answers on the calling sequence. A check made while the engine loads
   // waits for it, so the first pages after startup don't escape blocking.
   void Check(CheckRequest request, base::OnceCallback<void(Decision)> reply);
+
+  // A document's cosmetic rules; empty for a URL the engine can't parse, and
+  // from an engine that failed. Waits while the engine loads, as Check does.
+  void GetCosmeticRules(GURL document, base::OnceCallback<void(CosmeticRules)> reply);
+
+  // The generic selectors the class and id names match, less `exceptions`
+  // (a document's CosmeticRules::exceptions). Names that aren't UTF-8 are
+  // left out.
+  void GetGenericSelectors(std::vector<std::string> classes,
+                           std::vector<std::string> ids,
+                           std::vector<std::string> exceptions,
+                           base::OnceCallback<void(std::vector<std::string>)> reply);
 
   void GetStateForTesting(base::OnceCallback<void(State)> reply);
 

@@ -6,7 +6,9 @@
 
 #include <optional>
 #include <utility>
+#include <vector>
 
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/task/bind_post_task.h"
@@ -15,6 +17,11 @@
 #include "ghost/components/blocking/rust/lib.rs.h"
 
 namespace ghost::blocking {
+
+CosmeticRules::CosmeticRules() = default;
+CosmeticRules::CosmeticRules(CosmeticRules&&) = default;
+CosmeticRules& CosmeticRules::operator=(CosmeticRules&&) = default;
+CosmeticRules::~CosmeticRules() = default;
 
 class BlockingEngine::Core {
  public:
@@ -37,23 +44,43 @@ class BlockingEngine::Core {
       engine_ = new_engine(text);
       state_ = State::kReady;
     }
-    auto pending = std::move(pending_);
-    for (auto& [request, reply] : pending) {
-      Answer(request, std::move(reply));
+    for (base::OnceClosure& answer : std::exchange(pending_, {})) {
+      std::move(answer).Run();
     }
   }
 
   void Check(CheckRequest request, base::OnceCallback<void(Decision)> reply) {
-    if (state_ == State::kLoading) {
-      pending_.emplace_back(std::move(request), std::move(reply));
-      return;
-    }
-    Answer(request, std::move(reply));
+    WhenLoaded(base::BindOnce(&Core::Answer, base::Unretained(this), std::move(request),
+                              std::move(reply)));
+  }
+
+  void GetCosmeticRules(GURL document, base::OnceCallback<void(CosmeticRules)> reply) {
+    WhenLoaded(base::BindOnce(&Core::AnswerCosmeticRules, base::Unretained(this),
+                              std::move(document), std::move(reply)));
+  }
+
+  void GetGenericSelectors(std::vector<std::string> classes,
+                           std::vector<std::string> ids,
+                           std::vector<std::string> exceptions,
+                           base::OnceCallback<void(std::vector<std::string>)> reply) {
+    WhenLoaded(base::BindOnce(&Core::AnswerGenericSelectors, base::Unretained(this),
+                              std::move(classes), std::move(ids), std::move(exceptions),
+                              std::move(reply)));
   }
 
   State state() const { return state_; }
 
  private:
+  // Queries made while the engine loads wait for it, so the first pages after
+  // startup don't escape it. Core owns the closures, so Unretained is safe.
+  void WhenLoaded(base::OnceClosure answer) {
+    if (state_ == State::kLoading) {
+      pending_.push_back(std::move(answer));
+    } else {
+      std::move(answer).Run();
+    }
+  }
+
   void Answer(const CheckRequest& request, base::OnceCallback<void(Decision)> reply) {
     Decision decision;
     // The method comes from the renderer, unvalidated: the network service
@@ -72,9 +99,51 @@ class BlockingEngine::Core {
     std::move(reply).Run(std::move(decision));
   }
 
+  void AnswerCosmeticRules(const GURL& document,
+                           base::OnceCallback<void(CosmeticRules)> reply) {
+    CosmeticRules rules;
+    // Valid URLs' specs are ASCII.
+    if (state_ == State::kReady && document.is_valid()) {
+      CosmeticResources resources = (*engine_)->cosmetic_resources(document.spec());
+      for (const rust::String& selector : resources.hide_selectors) {
+        rules.hide_selectors.emplace_back(selector);
+      }
+      for (const rust::String& selector : resources.exceptions) {
+        rules.exceptions.emplace_back(selector);
+      }
+      rules.generichide = resources.generichide;
+    }
+    std::move(reply).Run(std::move(rules));
+  }
+
+  void AnswerGenericSelectors(const std::vector<std::string>& classes,
+                              const std::vector<std::string>& ids,
+                              const std::vector<std::string>& exceptions,
+                              base::OnceCallback<void(std::vector<std::string>)> reply) {
+    std::vector<std::string> selectors;
+    if (state_ == State::kReady) {
+      for (const rust::String& selector :
+           (*engine_)->generic_selectors(ToRust(classes), ToRust(ids), ToRust(exceptions))) {
+        selectors.emplace_back(selector);
+      }
+    }
+    std::move(reply).Run(std::move(selectors));
+  }
+
+  // The bridge's strings must be UTF-8: cxx aborts the process otherwise.
+  static rust::Vec<rust::String> ToRust(const std::vector<std::string>& strings) {
+    rust::Vec<rust::String> result;
+    for (const std::string& s : strings) {
+      if (base::IsStringUTF8AllowingNoncharacters(s)) {
+        result.push_back(rust::String(s));
+      }
+    }
+    return result;
+  }
+
   State state_ = State::kLoading;
   std::optional<rust::Box<Engine>> engine_;
-  std::vector<std::pair<CheckRequest, base::OnceCallback<void(Decision)>>> pending_;
+  std::vector<base::OnceClosure> pending_;
 };
 
 BlockingEngine::BlockingEngine()
@@ -91,6 +160,22 @@ void BlockingEngine::Load(std::vector<std::string> lists) {
 void BlockingEngine::Check(CheckRequest request, base::OnceCallback<void(Decision)> reply) {
   core_.AsyncCall(&Core::Check)
       .WithArgs(std::move(request), base::BindPostTaskToCurrentDefault(std::move(reply)));
+}
+
+void BlockingEngine::GetCosmeticRules(GURL document,
+                                      base::OnceCallback<void(CosmeticRules)> reply) {
+  core_.AsyncCall(&Core::GetCosmeticRules)
+      .WithArgs(std::move(document), base::BindPostTaskToCurrentDefault(std::move(reply)));
+}
+
+void BlockingEngine::GetGenericSelectors(
+    std::vector<std::string> classes,
+    std::vector<std::string> ids,
+    std::vector<std::string> exceptions,
+    base::OnceCallback<void(std::vector<std::string>)> reply) {
+  core_.AsyncCall(&Core::GetGenericSelectors)
+      .WithArgs(std::move(classes), std::move(ids), std::move(exceptions),
+                base::BindPostTaskToCurrentDefault(std::move(reply)));
 }
 
 void BlockingEngine::GetStateForTesting(base::OnceCallback<void(State)> reply) {
