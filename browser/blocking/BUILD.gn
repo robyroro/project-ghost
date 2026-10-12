@@ -7,6 +7,8 @@
 # which starts the service; so it must not depend on //chrome/browser.
 source_set("blocking") {
   sources = [
+    "alias_resolver.cc",
+    "alias_resolver.h",
     "blocking_service.cc",
     "blocking_service.h",
     "connection_filter.cc",
