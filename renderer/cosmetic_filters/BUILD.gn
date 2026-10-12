@@ -36,6 +36,7 @@ source_set("cosmetic_filters") {
     ":scanner_script",
     "//base",
     "//chrome/common",
+    "//ghost/components/cosmetic_filters",
     "//gin",
     "//third_party/blink/public:blink",
     "//url",

@@ -12,6 +12,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
+#include "ghost/components/cosmetic_filters/names.h"
 #include "ghost/renderer/cosmetic_filters/scanner_script.h"
 #include "gin/arguments.h"
 #include "gin/converter.h"
@@ -165,6 +166,13 @@ void CosmeticFiltersAgent::Report(gin::Arguments* arguments) {
   std::vector<std::string> classes;
   std::vector<std::string> ids;
   if (!arguments->GetNext(&classes) || !arguments->GetNext(&ids)) {
+    return;
+  }
+  // The browser ends a renderer that sends names outside the limits; a page
+  // may use odd names, so they're dropped here. The scanner keeps to the count.
+  std::erase_if(classes, [](const std::string& name) { return !IsValidName(name); });
+  std::erase_if(ids, [](const std::string& name) { return !IsValidName(name); });
+  if ((classes.empty() && ids.empty()) || !AreValidNames(classes, ids)) {
     return;
   }
   if (!host_.is_bound()) {
