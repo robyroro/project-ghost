@@ -226,7 +226,18 @@ Each item is covered by a test asserting that it is shared, so a change in behav
     - **A frame's initial empty document,** which no navigation brings and which a parent may write into, takes its local parent's rules; its scanner starts from a task.
   - `//ghost/components/cosmetic_filters`: `StyleSheetFor` (one rule per selector; selectors that could close their rule are dropped) and the limits on names, shared by the browser, which enforces them, and the renderer, which keeps to them. `//ghost/common:mojom` holds the two interfaces.
   - The engine now parses every rule type (`components/blocking/rust/lib.rs`); `cosmetic_resources` and `generic_selectors` answer on its sequence, through `BlockingEngine::GetCosmeticRules` and `GetGenericSelectors`.
-- **Scriptlets and procedural rules** (Phase 4B): the same agent and world, with an executor for the lists' `+js()` and `:has-text()` rules.
+- **Scriptlets, procedural rules and redirects as built (Phase 4B).** The same push, agent and world as 4A, with no new patch. [Design](superpowers/specs/2026-10-12-scriptlets-procedural-design.md), [progress notes](superpowers/specs/2026-10-12-scriptlets-procedural-spike.md).
+  - **The engine:**
+    - **CSS validation.** adblock-rust is built with `css-validation`, which parses procedural rules into operators. It needs servo's `cssparser` and `selectors`, vendored with their dependencies, and patch 0043 for Chromium's `itoa` and `stable_deref_trait`.
+    - **Resources.** `components/blocking/rust/resources.rs` builds Shade's resources (`components/blocking/resources/`) into the binary, strips their license headers and refuses any scriptlet that isn't function-style.
+    - **What the bridge returns.** `cosmetic_resources` also returns the site's scriptlets as one script, the action rules CSS can express (`style_rules`), and the procedural rules as adblock-rust's JSON. Hide selectors that hold a procedural operator, which adblock-rust leaves inside `:has()`, go to the procedural rules too. `check` returns a redirect's resource as a `data:` URL.
+  - **The browser.**
+    - The throttle sends a `DocumentRules` struct: the style sheet (with the style rules, each checked by `IsSafeStyle`), the scan flag, the scriptlet and the procedural rules (checked by `SafeProceduralFilters`).
+    - `RequestFilter` answers a redirect itself, with a `URLResponseHead` whose response type is what the network would have given (`basic`, `opaque` or `cors`), so a `fetch()` in `cors` mode reads it.
+  - **The renderer.**
+    - **The scriptlet runs in the page's own world.** At `RunScriptsAtDocumentStart`, before the scanner, the agent runs it with `WebLocalFrame::ExecuteScript`, wrapped in one function so its helpers leave no name on `window`. It runs in the page's world because scriptlets change what the page's scripts see.
+    - **The helpers.** They take their natives (`Reflect.apply`, `Object.defineProperty`, `RegExp.prototype.test`...) before any page script. Blink sanitizes the errors of a script run this way, so a scriptlet's deliberate exception is kept out of the console by a flag, not by its message.
+    - **`procedural.js`** runs in Shade's isolated world, beside the scanner. Gin functions give it the rules (`filters()`) and let it insert user-origin rules for the marker attributes it sets (`hide()`, `style()`), which the agent checks again. It runs at the start, then at most every 100 ms as the DOM changes.
 - **Lists and other data.** Filter lists, parameter lists and our own list are components delivered by Chromium's component updater from our update server ([Updates](#updates-and-signed-data)).
 - **Fingerprinting** (Phase 7).
   - Blink supplements on `ExecutionContext` hold the effective fingerprint policy and the per-site noise key. Both are pushed from the browser for frames, dedicated workers, shared workers and service workers.

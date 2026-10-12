@@ -39,17 +39,17 @@ Every release must:
 3. Add `README.chromium` metadata: `Name`, `URL`, `Version`, `License`, `License File`, `Security Critical`, `Shipped`. This feeds the credits page and the SBOM.
 4. Two maintainers approve ([CONTRIBUTING.md](../CONTRIBUTING.md#review-requirements)).
 
-**Rust crates.** `tools/rust_vendor.py` vendors the crates `//ghost` needs and Chromium lacks into `third_party/rust/<crate>/v<epoch>/`, from the pinned `third_party/rust/Cargo.lock`, and writes each crate's `README.chromium` and `BUILD.gn`. A crate Chromium already ships is always Chromium's copy, never a second one in the binary; patch 0028 opens three of them to `//ghost` and adds the features adblock-rust needs. Since Phase 3A, sixteen crates are vendored, all under allowed licenses:
+**Rust crates.** `tools/rust_vendor.py` vendors the crates `//ghost` needs and Chromium lacks into `third_party/rust/<crate>/v<epoch>/`, from the pinned `third_party/rust/Cargo.lock`, and writes each crate's `README.chromium` and `BUILD.gn`. A crate Chromium already ships is always Chromium's copy, never a second one in the binary; patches 0028 and 0043 open some of them to `//ghost` and add the features adblock-rust needs. Thirty-five crates are vendored (sixteen since Phase 3A; nineteen more in 4B for adblock-rust's CSS validation), all under allowed licenses:
 
 | License | Crates |
 |---|---|
-| MPL-2.0 | adblock 0.13.3 |
-| MIT OR Apache-2.0 | arrayvec, form_urlencoded, idna, idna_adapter, percent-encoding, regex, regex-automata, rustc-hash, thiserror and thiserror-impl (v1; Chromium has v2), url |
+| MPL-2.0 | adblock 0.13.3; cssparser, cssparser-macros, dtoa-short, selectors, servo_arc (4B) |
+| MIT OR Apache-2.0 | arrayvec, form_urlencoded, idna, idna_adapter, percent-encoding, regex, regex-automata, rustc-hash, thiserror and thiserror-impl (v1; Chromium has v2), url; dtoa, rand and rand_core (v0.8 and v0.6; Chromium has others), rustc_version, semver, siphasher (4B) |
 | Apache-2.0 | flatbuffers |
-| MIT | precomputed-hash, seahash |
+| MIT | precomputed-hash, seahash; derive_more, derive_more-impl, new_debug_unreachable, phf, phf_codegen, phf_generator, phf_macros, phf_shared (4B) |
 | Unlicense OR MIT (used under MIT) | aho-corasick |
 
-`regex`, `regex-automata` and `aho-corasick` are ours although Chromium has them: Chromium's copies are test-only.
+`regex`, `regex-automata` and `aho-corasick` are ours although Chromium has them: Chromium's copies are test-only. `selectors` ships no license file; its MPL-2.0 text is the one `cssparser`, from the same project, ships (`third_party/rust/licenses/selectors/`). `rand`, `rand_core`, `phf_generator`, `phf_codegen`, `rustc_version` and `semver` serve proc macros and build scripts only.
 
 **Credits.** Chromium's `licenses.py` builds `about:credits` from directories under its own `third_party/` only. Patch 0031 has it read `//ghost/build/credits.gni` as well, which names every vendored crate (the list `rust_vendor.py` generates) and the filter lists. The SBOM finds the crates through GN, and `tools/sbom.py` names the lists' directory. A crate that ships no license file is named one in `vendor_config.toml`, or vendoring stops.
 
@@ -76,7 +76,8 @@ Every release must:
   - **uBlock Origin's filter lists** (GPL-3.0) may be offered as optional, user-enabled lists, distributed separately. This needs legal confirmation before release.
   - **Other lists**, such as regional and annoyance lists, are reviewed one by one. Some community lists restrict commercial redistribution.
 - **Scriptlets are code.**
-  - uBlock Origin's scriptlet and redirect resources are GPL-3.0, so we write our own under MPL-2.0.
+  - uBlock Origin's scriptlet and redirect resources are GPL-3.0, so we write our own under MPL-2.0. Since Phase 4B they are in `components/blocking/resources/`: the scriptlets and redirects the lists we ship use, under the names and argument orders those lists write.
+  - They are written from the behavior uBlock Origin's wiki describes publicly, never from uBlock Origin's or AdGuard's code: a contributor to them doesn't read `scriptlets.js` or AdGuard's scriptlets.
   - Lists that reference uBlock-only scriptlets degrade gracefully: the rule is skipped.
   - Aggregating uBlock's resources as a separate optional component needs legal review first.
 

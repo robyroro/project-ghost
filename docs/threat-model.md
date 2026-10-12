@@ -29,6 +29,15 @@ This document says what Ghost protects, from whom, how, and where protection end
   - **Cosmetic filtering (Phase 4A)** adds one renderer-to-browser interface, `ghost.mojom.CosmeticFiltersHost`, bound per document. A renderer can only send class and id names and receive the generic hiding rules they match for its own document. The document's URL, level and exceptions are the browser's, so a renderer can't ask for another site's rules or get around an exception.
   - **Limits:** at most 1,000 names in a call, each 1 to 256 bytes of UTF-8. A call outside them is a bad message and ends the renderer (`CosmeticFiltersHostTest`); names reach the Rust engine only as valid UTF-8.
   - **The style sheets are built in the browser,** one rule per selector. Selectors that could close their rule or open another (`{`, `}`, `;`, `@`, comments, a trailing backslash, newlines) are dropped, so a list delivered by update (3E) can't inject arbitrary style (`StyleSheetTest`).
+  - **Scriptlets (Phase 4B) are code Shade runs in the page's own world.**
+    - Only the browser chooses them, for the renderer's own document, pushed with its style sheet; no new interface was added.
+    - The code is Shade's own, built into the binary. A list contributes only the scriptlets' names and arguments, and adblock-rust passes each argument as a JSON string literal to a function. A resource that would paste an argument into code (a template) is refused (`EngineBridgeTest.OnlyFunctionStyleScriptletsAreAccepted`).
+    - A page sees what the scriptlets change, by design. Before any of its scripts runs, they take the natives they rely on, so it can't defeat them by replacing one.
+  - **Procedural rules run in Shade's isolated world,** where the page can't see or change the executor.
+    - They read the page's text and styles; they never run them.
+    - A `:style()` action's declarations are checked in the browser (`IsSafeStyle`: nothing that closes the rule, no `url(` or `image-set(`, which would load) and again in the renderer before they become a user-origin rule. So are the marker attributes the executor asks rules for.
+    - Their regular expressions come only from the lists we ship (signed from 3E): a slow one is the list's risk, as for network rules. There is no separate time limit.
+  - **Redirect answers** come from the browser, with bodies built into the binary; a page can't choose them.
 - **Extensions are trusted only as far as their granted permissions.**
 - **Downloaded data is trusted only when signed** by a key the build pins.
 

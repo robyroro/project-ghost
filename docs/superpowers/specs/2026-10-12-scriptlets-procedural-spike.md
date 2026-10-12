@@ -69,3 +69,39 @@ Phase 4B ([design](2026-10-12-scriptlets-procedural-design.md), [plan](../plans/
 - **Spike point 3, answers without the network.** The request filter answers a redirect itself with a `URLResponseHead` (status 200, the resource's MIME type, `Access-Control-Allow-Origin: *`) and its response type set as the network would have: `basic` for the page's own origin, `opaque` for a `no-cors` request elsewhere, `cors` otherwise. The page runs the redirected script (`onload` fires), shows the 1x1 image (`naturalWidth` 1), reads `{}` from a `fetch()` in `cors` mode, and Google Tag Manager's stand-in calls the `eventCallback` the page pushes; none of the four requests reaches the server (`RedirectBrowserTest`). The first approach worked: nothing to change.
 - `fetch()` is checked as `xmlhttprequest`, so EasyList's `$xhr` redirects apply to it.
 - At the pin, `URLLoaderCompletionStatus::decoded_body_length` is a `base::ByteSize`.
+
+## Task 9: budgets, dev build (2026-10-12)
+
+- **The sites to measure.** The most scriptlets: oregonlive.com, with 4 rules (`acs`, `aost` twice, `rmnt`; techcrunch.com, pennlive.com, mlive.com and al.com have 4 too). The most procedural rules: openalternative.co, with 16 (Task 1's count, which saw only rules that reach the JSON, missed the ones nested in `:has()`).
+- **`ghost_blocking_perftests`** (`out\vanilla`, Rust with debug assertions; reported, not judged):
+  - compile 186 ms, about 8 MiB;
+  - a request's check: p50 152 µs, p99 365 µs;
+  - a document's rules for the corpus' 20 pages, now with scripts of up to 8,050 bytes: p50 288 µs, p99 464 µs (145 and 272 µs before the scriptlets);
+  - the 22 scriptlet sites (scripts up to 9,898 bytes): p50 285 µs, p99 454 µs;
+  - a batch of 1,000 names: p50 43 µs, p99 111 µs.
+- **`scanner_cost.py`** (`out\vanilla`, five loads per profile, on the hidden desktop):
+  - oregonlive.com, `light.html`: +8.9 ms of script, +23.5 ms of task time against Off;
+  - openalternative.co, `heavy.html`: +128.7 ms of script;
+  - cosmetic.test, `heavy.html`: +149.8 ms of script.
+
+  The procedural rules' cost is lost in the dev build's noise, which is larger than it: only an official build can judge it.
+- **The official build:** `out\release` had not been built since the security drill (2026-10-09), and 3A–4B's patches touch widely included headers: 28,837 actions, about 7–9 hours. Started, then stopped cleanly at the user's request after 605 actions (13,732 remaining, `.siso_fs_state` written), to run overnight; the budgets are measured from it before the push.
+
+## Task 10: mutation checks, suites, audit (2026-10-12)
+
+- **Mutation checks**, each failing as required (`mutate4b.py`: each mutant built before its tests ran):
+
+  | Mutant | Fails |
+  |---|---|
+  | M1 the scriptlet runs at `DOMContentLoaded` | `ScriptletsBrowserTest.TheFirstScriptAlreadySeesTheScriptlet` |
+  | M2 a template or non-function scriptlet accepted | `EngineBridgeTest.OnlyFunctionStyleScriptletsAreAccepted` |
+  | M3 Off pages get the full rules | `ScriptletsBrowserTest.OffRunsNone`, `ProceduralBrowserTest.OffAppliesNone` |
+  | M4 `IsSafeStyle` accepts any declarations | `StyleSheetTest.SafeStylesStayInTheirRule`, `ProceduralTest.DropsWhatCouldEscape` |
+  | M5 a redirect becomes a plain block | `RedirectBrowserTest.ResourcesAnswerWithoutTheNetwork` |
+  | M6 the executor in the page's world | `ProceduralBrowserTest.ThePageSeesNoExecutor` |
+
+  M1's first form posted the scriptlet as a task from document start: the test still passed, because the task runs before the first chunk of HTML is parsed. That is no regression to guard against, so M1 moves the scriptlet to `DOMContentLoaded`, after the page's scripts.
+- After the mutants, `src/ghost` matches webops file for file.
+- **The suites** (`out\vanilla`, rebuilt clean): `ghost_unittests` 137 tests pass; `ghost_browsertests` 127 tests pass, none retried.
+- **The egress audit** (`out\vanilla`, on the hidden desktop): 0 unexpected hosts; not counted, as before, one route probe and the `wpad` lookups.
+- **Fuzzing:** `ghost_cosmetic_procedural_fuzzer` (`out\fuzz`), 30 minutes from three seeds (a procedural rule, a style, a marker): 7,755,913 runs, 4,306 a second, coverage 449, no crash, peak 869 MB.
