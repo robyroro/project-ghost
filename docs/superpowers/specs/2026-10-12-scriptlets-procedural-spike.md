@@ -105,3 +105,25 @@ Phase 4B ([design](2026-10-12-scriptlets-procedural-design.md), [plan](../plans/
 - **The suites** (`out\vanilla`, rebuilt clean): `ghost_unittests` 137 tests pass; `ghost_browsertests` 127 tests pass, none retried.
 - **The egress audit** (`out\vanilla`, on the hidden desktop): 0 unexpected hosts; not counted, as before, one route probe and the `wpad` lookups.
 - **Fuzzing:** `ghost_cosmetic_procedural_fuzzer` (`out\fuzz`), 30 minutes from three seeds (a procedural rule, a style, a marker): 7,755,913 runs, 4,306 a second, coverage 449, no crash, peak 869 MB.
+
+## Task 9: budgets, official build (2026-10-12)
+
+- **The official build** resumed at 14:24 and finished at 14:43: siso ran 505 of the 13,729 actions it listed; the rest were up to date (19m47s).
+- **`ghost_blocking_perftests`** (`out\release`, three runs), all within budget:
+  - compile 105–117 ms, about 7 MiB;
+  - a request's check: p50 6 µs, p99 39–42 µs (budget 50 µs; 41–49 µs in 4A);
+  - a document's rules for the corpus' 20 pages, with scripts of up to 8,050 bytes: p50 167–172 µs, p99 294–328 µs (budget 1 ms);
+  - the 22 scriptlet sites, scripts up to 9,898 bytes: p50 169–172 µs, p99 281–360 µs (budget 1 ms);
+  - a batch of 1,000 names: p50 29 µs, p99 86–93 µs (budget 1 ms).
+- **`scanner_cost.py`** (`out\release`, on the hidden desktop; script time against Off):
+
+  | Site, page | Loads per profile | Cost |
+  |---|---|---|
+  | oregonlive.com, `light.html` | 5; 9; 9 | 2.0; 1.9; 1.9 ms |
+  | cosmetic.test, `light.html` | 9; 9 | 0.9; 0.9 ms |
+  | openalternative.co, `heavy.html` | 5 | 14.6 ms |
+  | cosmetic.test, `heavy.html` | 5 | 14.3 ms |
+
+  - **Procedural rules:** openalternative.co less cosmetic.test, about 0.3 ms: within the 5 ms budget.
+  - **Scriptlets:** the spec's measure, what cosmetic filtering adds to a small page on the site with the most scriptlets, is 1.9 ms against a 1 ms budget: **missed**. Less cosmetic.test's cost on the same page (the style sheet and the scanner), the scriptlets alone take about 1.0 ms: about 10 KB of script compiled for each document (four scriptlets and their helpers), and `remove-node-text`'s observer while the page is parsed.
+  - **4A's scanner,** measured in an official build for the first time: 14.3 ms on `heavy.html`, against 4A's 5 ms budget: **missed**. 4A's estimate (5–6 ms) divided the dev build's 111.5 ms by a 19 times speed-up measured on other page script; the scanner gains less.
