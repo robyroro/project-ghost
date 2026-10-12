@@ -5,158 +5,61 @@
 // Cosmetic filtering through the browser, the renderer and the engine, with a
 // test list, on an embedded test server reached through host-resolver rules.
 
-#include <map>
-#include <memory>
 #include <string>
-#include <string_view>
 
-#include "base/functional/bind.h"
-#include "base/no_destructor.h"
-#include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
-#include "ghost/browser/blocking/blocking_service.h"
+#include "ghost/browser/cosmetic_filters/cosmetic_filters_test_base.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
-#include "net/dns/mock_host_resolver.h"
-#include "net/test/embedded_test_server/embedded_test_server.h"
-#include "net/test/embedded_test_server/http_request.h"
-#include "net/test/embedded_test_server/http_response.h"
 
 namespace ghost::cosmetic_filters {
 namespace {
 
-using net::test_server::BasicHttpResponse;
-using net::test_server::HttpRequest;
-using net::test_server::HttpResponse;
+constexpr char kGenericPage[] =
+    "<div class=\"generic-ad\" id=\"generic\">ad</div>"
+    "<div class=\"x\" id=\"banner\">ad</div>"
+    "<div class=\"allowed-ad\" id=\"allowed\">ad</div>"
+    "<div class=\"site-ad\" id=\"site\">ad</div>"
+    "<div class=\"plain\" id=\"plain\">text</div>";
 
-constexpr char kTestList[] =
-    "a.test##.site-ad\n"
-    "c.test##.frame-ad\n"
-    "nohide.test##.site-ad\n"
-    "##.generic-ad\n"
-    "###banner\n"
-    "##.allowed-ad\n"
-    "a.test#@#.allowed-ad\n"
-    "@@||nohide.test^$generichide\n";
-
-// The pages, by path.
-const std::map<std::string, std::string>& Pages() {
-  static const base::NoDestructor<std::map<std::string, std::string>> pages({
-      {"/site.html",
-       "<div class=\"site-ad\" id=\"site\">ad</div>"
-       "<script>window.seenAtParse ="
-       " getComputedStyle(document.getElementById('site')).display;</script>"},
-      {"/generic.html",
-       "<div class=\"generic-ad\" id=\"generic\">ad</div>"
-       "<div class=\"x\" id=\"banner\">ad</div>"
-       "<div class=\"allowed-ad\" id=\"allowed\">ad</div>"
-       "<div class=\"site-ad\" id=\"site\">ad</div>"
-       "<div class=\"plain\" id=\"plain\">text</div>"},
-      {"/override.html",
-       "<style>.site-ad{display:block !important}</style>"
-       "<div class=\"site-ad\" id=\"site\">ad</div>"},
-      {"/framed.html",
-       "<div class=\"frame-ad\" id=\"frame-ad\">ad</div>"
-       "<div class=\"site-ad\" id=\"site\">ad</div>"},
-      {"/written.html",
-       "<iframe id=\"f\"></iframe><script>"
-       "document.getElementById('f').contentDocument.body.innerHTML ="
-       " '<div class=\"site-ad\" id=\"inner\">ad</div>"
-       "<div class=\"generic-ad\" id=\"inner-generic\">ad</div>';</script>"},
-      {"/page.html", "<p>page</p>"},
-  });
-  return *pages;
-}
-
-std::unique_ptr<HttpResponse> Serve(const HttpRequest& request) {
-  auto response = std::make_unique<BasicHttpResponse>();
-  const GURL url = request.GetURL();
-  const std::string path(url.path() == "/csp.html" ? "/generic.html" : url.path());
-  auto page = Pages().find(path);
-  if (page == Pages().end()) {
-    response->set_code(net::HTTP_NOT_FOUND);
-    return response;
-  }
-  if (url.path() == "/csp.html") {
-    response->AddCustomHeader("Content-Security-Policy", "script-src 'none'");
-  }
-  response->set_content_type("text/html");
-  response->set_content("<!doctype html><html><body>" + page->second + "</body></html>");
-  return response;
-}
-
-class CosmeticFiltersBrowserTest : public InProcessBrowserTest {
+class CosmeticFiltersBrowserTest : public CosmeticFiltersTestBase {
  protected:
-  void SetUpOnMainThread() override {
-    host_resolver()->AddRule("*", "127.0.0.1");
-    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(&Serve));
-    ASSERT_TRUE(embedded_test_server()->Start());
-    // Incognito's strict HTTPS-First (3C) warns before any HTTP page.
-    embedded_https_test_server().SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
-    embedded_https_test_server().RegisterRequestHandler(base::BindRepeating(&Serve));
-    ASSERT_TRUE(embedded_https_test_server().Start());
-    ASSERT_TRUE(blocking::BlockingService::GetIfStarted());
-    blocking::BlockingService::GetIfStarted()->SetListsForTesting({kTestList});
+  std::string List() const override {
+    return "a.test##.site-ad\n"
+           "c.test##.frame-ad\n"
+           "nohide.test##.site-ad\n"
+           "##.generic-ad\n"
+           "###banner\n"
+           "##.allowed-ad\n"
+           "a.test#@#.allowed-ad\n"
+           "@@||nohide.test^$generichide\n";
   }
 
-  GURL Url(std::string_view host, std::string_view path) {
-    return embedded_test_server()->GetURL(host, path);
-  }
-
-  content::WebContents* Tab(Browser* browser = nullptr) {
-    return (browser ? browser : this->browser())->tab_strip_model()->GetActiveWebContents();
-  }
-
-  // The element's computed display, at once.
-  std::string Display(const content::ToRenderFrameHost& frame, std::string_view id) {
-    return content::EvalJs(frame, content::JsReplace(
-                                      "getComputedStyle(document.getElementById($1)).display", id))
-        .ExtractString();
-  }
-
-  // The display of the element `script` finds, once it is `expected`, or
-  // after 2 s: generic rules arrive after a round trip to the browser. The
-  // script is pasted in, not eval'd: a page's CSP may forbid eval.
-  std::string WaitForDisplayOf(const content::ToRenderFrameHost& frame,
-                               std::string_view script,
-                               std::string_view expected) {
-    return content::EvalJs(frame, base::StrCat({R"(new Promise(done => {
-               const start = performance.now();
-               (function poll() {
-                 const element = )",
-                                                script, R"(;
-                 const shown = element ? getComputedStyle(element).display : 'missing';
-                 if (shown === )",
-                                                content::JsReplace("$1", expected), R"( ||
-                     performance.now() - start > 2000) {
-                   done(shown);
-                 } else {
-                   requestAnimationFrame(poll);
-                 }
-               })();
-             }))"}))
-        .ExtractString();
-  }
-
-  std::string WaitForDisplay(const content::ToRenderFrameHost& frame,
-                             std::string_view id,
-                             std::string_view expected) {
-    return WaitForDisplayOf(frame, content::JsReplace("document.getElementById($1)", id),
-                            expected);
-  }
-
-  // Waits as long as a scanner would take to answer (20 times its batch
-  // interval), for checks that something stays shown.
-  void WaitForAScanner(content::WebContents* tab) {
-    ASSERT_TRUE(content::ExecJs(tab, "new Promise(done => setTimeout(done, 2000))"));
+  void AddPages() override {
+    AddPage("/site.html",
+            "<div class=\"site-ad\" id=\"site\">ad</div>"
+            "<script>window.seenAtParse ="
+            " getComputedStyle(document.getElementById('site')).display;</script>");
+    AddPage("/generic.html", kGenericPage);
+    AddPage("/csp.html", kGenericPage, {{"Content-Security-Policy", "script-src 'none'"}});
+    AddPage("/override.html",
+            "<style>.site-ad{display:block !important}</style>"
+            "<div class=\"site-ad\" id=\"site\">ad</div>");
+    AddPage("/framed.html",
+            "<div class=\"frame-ad\" id=\"frame-ad\">ad</div>"
+            "<div class=\"site-ad\" id=\"site\">ad</div>");
+    AddPage("/written.html",
+            "<iframe id=\"f\"></iframe><script>"
+            "document.getElementById('f').contentDocument.body.innerHTML ="
+            " '<div class=\"site-ad\" id=\"inner\">ad</div>"
+            "<div class=\"generic-ad\" id=\"inner-generic\">ad</div>';</script>");
+    AddPage("/page.html", "<p>page</p>");
   }
 };
 
@@ -218,7 +121,7 @@ IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, OffHidesNothing) {
 IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, IncognitoHides) {
   Browser* incognito = CreateIncognitoBrowser();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      incognito, embedded_https_test_server().GetURL("a.test", "/site.html")));
+      incognito, HttpsUrl("a.test", "/site.html")));
   EXPECT_EQ(content::EvalJs(Tab(incognito), "window.seenAtParse"), "none");
 }
 
