@@ -27,6 +27,16 @@ mod ffi {
         redirect: String,
     }
 
+    /// The verdict on a request's DNS aliases (Phase 4C).
+    struct AliasVerdict {
+        blocked: bool,
+        filter: String,
+        /// As in Verdict.
+        redirect: String,
+        /// The alias URL that was blocked; empty otherwise.
+        alias_url: String,
+    }
+
     /// An action rule CSS can express: a plain selector and its :style().
     /// (Not StyleRule: //ghost/components/blocking has one, in the same
     /// namespace.)
@@ -69,6 +79,18 @@ mod ffi {
             request_type: &str,
             method: &str,
         ) -> Verdict;
+        /// The verdict on a request's DNS aliases: `alias_urls` are its URL
+        /// with each alias as host. Nothing is blocked when an exception
+        /// matches `url` itself; otherwise the first alias URL a rule blocks
+        /// decides. Party is judged against `source_url`, as for any request.
+        fn check_aliases(
+            self: &Engine,
+            url: &str,
+            source_url: &str,
+            request_type: &str,
+            method: &str,
+            alias_urls: &Vec<String>,
+        ) -> AliasVerdict;
         /// The site-specific selectors (and the generic ones too complex to
         /// index) for a document's URL, its exceptions and generichide, its
         /// scriptlets, style and procedural rules. A URL the engine can't
@@ -135,6 +157,45 @@ impl Engine {
             }
             Err(_) => ffi::Verdict { blocked: false, filter: String::new(), redirect: String::new() },
         }
+    }
+
+    fn check_aliases(
+        &self,
+        url: &str,
+        source_url: &str,
+        request_type: &str,
+        method: &str,
+        alias_urls: &Vec<String>,
+    ) -> ffi::AliasVerdict {
+        let allowed = ffi::AliasVerdict {
+            blocked: false,
+            filter: String::new(),
+            redirect: String::new(),
+            alias_url: String::new(),
+        };
+        let Ok(request) =
+            Request::new(url, source_url, request_type, &method.to_ascii_lowercase())
+        else {
+            return allowed;
+        };
+        // adblock-rust looks for exceptions only once a blocking rule has
+        // matched: say one has, so an exception for the request's own URL
+        // shows even when no rule names it.
+        if self.0.check_network_request_subset(&request, true, false).exception.is_some() {
+            return allowed;
+        }
+        for alias_url in alias_urls {
+            let verdict = self.check(alias_url, source_url, request_type, method);
+            if verdict.blocked {
+                return ffi::AliasVerdict {
+                    blocked: true,
+                    filter: verdict.filter,
+                    redirect: verdict.redirect,
+                    alias_url: alias_url.clone(),
+                };
+            }
+        }
+        allowed
     }
 
     fn cosmetic_resources(&self, url: &str) -> ffi::CosmeticResources {

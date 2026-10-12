@@ -32,6 +32,9 @@ struct Decision {
   // When a redirect rule blocked the request: what to answer with instead,
   // as a data: URL (Phase 4B). Empty otherwise.
   std::string redirect;
+  // When one of the request's DNS aliases was blocked (Phase 4C): its URL,
+  // for the console. Empty otherwise.
+  std::string alias;
 };
 
 // An action rule CSS can express: a selector and its :style() declarations.
@@ -83,6 +86,13 @@ class BlockingEngine {
   // Answers on the calling sequence. A check made while the engine loads
   // waits for it, so the first pages after startup don't escape blocking.
   void Check(CheckRequest request, base::OnceCallback<void(Decision)> reply);
+  // The verdict on a request's DNS aliases (Phase 4C). `alias_urls` are its
+  // URL with each alias as host (dns_aliases.h). Not blocked when an
+  // exception matches the request's own URL; otherwise the first alias URL a
+  // rule blocks decides. Waits while the engine loads, as Check does.
+  void CheckAliases(CheckRequest request,
+                    std::vector<GURL> alias_urls,
+                    base::OnceCallback<void(Decision)> reply);
 
   // A document's cosmetic rules; empty for a URL the engine can't parse, and
   // from an engine that failed. Waits while the engine loads, as Check does.

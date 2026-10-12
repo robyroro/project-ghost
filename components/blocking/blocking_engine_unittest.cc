@@ -196,5 +196,46 @@ TEST_F(BlockingEngineTest, ADecisionCarriesItsRedirect) {
   EXPECT_TRUE(decision.redirect.starts_with("data:application/javascript;base64,"));
 }
 
+// Phase 4C.
+Decision CheckAliases(BlockingEngine& engine, std::vector<GURL> alias_urls) {
+  base::test::TestFuture<Decision> decision;
+  engine.CheckAliases({GURL("https://metrics.a.test/m.js"), GURL("https://a.test/"),
+                       network::mojom::RequestDestination::kScript, "GET"},
+                      std::move(alias_urls), decision.GetCallback());
+  return decision.Take();
+}
+
+TEST_F(BlockingEngineTest, AListedAliasBlocksAndIsNamed) {
+  BlockingEngine engine;
+  engine.Load({"||tracker.test^\n"});
+  const Decision decision = CheckAliases(engine, {GURL("https://a.tracker.test/m.js")});
+  EXPECT_TRUE(decision.blocked);
+  EXPECT_EQ(decision.alias, "https://a.tracker.test/m.js");
+}
+
+TEST_F(BlockingEngineTest, AliasChecksBeforeLoadingAreAnsweredAfterIt) {
+  BlockingEngine engine;
+  base::test::TestFuture<Decision> decision;
+  engine.CheckAliases({GURL("https://metrics.a.test/m.js"), GURL("https://a.test/"),
+                       network::mojom::RequestDestination::kScript, "GET"},
+                      {GURL("https://a.tracker.test/m.js")}, decision.GetCallback());
+  base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(decision.IsReady()) << "answered before the lists loaded";
+  engine.Load({"||tracker.test^\n"});
+  EXPECT_TRUE(decision.Get().blocked);
+}
+
+TEST_F(BlockingEngineTest, AFailedEngineBlocksNoAlias) {
+  BlockingEngine engine;
+  engine.Load({});
+  EXPECT_FALSE(CheckAliases(engine, {GURL("https://a.tracker.test/m.js")}).blocked);
+}
+
+TEST_F(BlockingEngineTest, AnInvalidAliasUrlIsLeftOut) {
+  BlockingEngine engine;
+  engine.Load({"||tracker.test^\n"});
+  EXPECT_FALSE(CheckAliases(engine, {GURL("not a url")}).blocked);
+}
+
 }  // namespace
 }  // namespace ghost::blocking

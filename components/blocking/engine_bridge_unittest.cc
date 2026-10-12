@@ -256,5 +256,60 @@ TEST(EngineBridgeTest, OnlyFunctionStyleScriptletsAreAccepted) {
                   .empty());
 }
 
+// Phase 4C: a request's DNS aliases, as URLs with the alias as host.
+
+rust::Vec<rust::String> Urls(std::initializer_list<const char*> urls) {
+  rust::Vec<rust::String> result;
+  for (const char* url : urls) {
+    result.push_back(rust::String(url));
+  }
+  return result;
+}
+
+AliasVerdict CheckAliases(const Engine& engine,
+                          std::initializer_list<const char*> alias_urls,
+                          const char* source = "https://a.test/") {
+  return engine.check_aliases("https://metrics.a.test/m.js", source, "script", "GET",
+                              Urls(alias_urls));
+}
+
+TEST(EngineBridgeTest, AListedAliasBlocksTheRequest) {
+  rust::Box<Engine> engine = new_engine("||tracker.test^\n");
+  const AliasVerdict verdict =
+      CheckAliases(*engine, {"https://cdn.test/m.js", "https://a.tracker.test/m.js"});
+  EXPECT_TRUE(verdict.blocked);
+  EXPECT_EQ(std::string(verdict.alias_url), "https://a.tracker.test/m.js");
+  EXPECT_FALSE(verdict.filter.empty());
+}
+
+TEST(EngineBridgeTest, NoListedAliasBlocksNothing) {
+  rust::Box<Engine> engine = new_engine("||tracker.test^\n");
+  const AliasVerdict verdict = CheckAliases(*engine, {"https://cdn.test/m.js"});
+  EXPECT_FALSE(verdict.blocked);
+  EXPECT_TRUE(verdict.alias_url.empty());
+  EXPECT_FALSE(CheckAliases(*engine, {}).blocked);
+}
+
+TEST(EngineBridgeTest, AnExceptionForTheRequestLeavesItsAliasesAlone) {
+  // No blocking rule names metrics.a.test: the exception must still count.
+  rust::Box<Engine> engine = new_engine("||tracker.test^\n@@||metrics.a.test^\n");
+  EXPECT_FALSE(CheckAliases(*engine, {"https://a.tracker.test/m.js"}).blocked);
+}
+
+TEST(EngineBridgeTest, AnAliasIsJudgedAgainstThePage) {
+  rust::Box<Engine> engine = new_engine("||tracker.test^$third-party\n");
+  EXPECT_TRUE(CheckAliases(*engine, {"https://a.tracker.test/m.js"}).blocked);
+  EXPECT_FALSE(CheckAliases(*engine, {"https://a.tracker.test/m.js"},
+                            "https://www.tracker.test/")
+                   .blocked);
+}
+
+TEST(EngineBridgeTest, AnAliasCanBeRedirected) {
+  rust::Box<Engine> engine = new_engine("||tracker.test^$script,redirect=noopjs\n");
+  const AliasVerdict verdict = CheckAliases(*engine, {"https://a.tracker.test/m.js"});
+  EXPECT_TRUE(verdict.blocked);
+  EXPECT_TRUE(std::string(verdict.redirect).starts_with("data:application/javascript;base64,"));
+}
+
 }  // namespace
 }  // namespace ghost::blocking

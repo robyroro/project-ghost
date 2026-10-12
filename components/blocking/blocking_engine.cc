@@ -54,6 +54,13 @@ class BlockingEngine::Core {
                               std::move(reply)));
   }
 
+  void CheckAliases(CheckRequest request,
+                    std::vector<GURL> alias_urls,
+                    base::OnceCallback<void(Decision)> reply) {
+    WhenLoaded(base::BindOnce(&Core::AnswerAliases, base::Unretained(this), std::move(request),
+                              std::move(alias_urls), std::move(reply)));
+  }
+
   void GetCosmeticRules(GURL document, base::OnceCallback<void(CosmeticRules)> reply) {
     WhenLoaded(base::BindOnce(&Core::AnswerCosmeticRules, base::Unretained(this),
                               std::move(document), std::move(reply)));
@@ -96,6 +103,32 @@ class BlockingEngine::Core {
       decision.blocked = verdict.blocked;
       decision.filter = std::string(verdict.filter);
       decision.redirect = std::string(verdict.redirect);
+    }
+    std::move(reply).Run(std::move(decision));
+  }
+
+  void AnswerAliases(const CheckRequest& request,
+                     const std::vector<GURL>& alias_urls,
+                     base::OnceCallback<void(Decision)> reply) {
+    Decision decision;
+    // As in Answer: a method that isn't UTF-8 mustn't reach the bridge.
+    if (!base::IsStringUTF8AllowingNoncharacters(request.method)) {
+      decision.blocked = true;
+    } else if (state_ == State::kReady && request.url.is_valid()) {
+      rust::Vec<rust::String> urls;
+      for (const GURL& url : alias_urls) {
+        if (url.is_valid()) {
+          urls.push_back(rust::String(url.spec()));
+        }
+      }
+      const std::string& page =
+          request.source_url.is_valid() ? request.source_url.spec() : base::EmptyString();
+      AliasVerdict verdict = (*engine_)->check_aliases(
+          request.url.spec(), page, ToAdblockType(request.destination), request.method, urls);
+      decision.blocked = verdict.blocked;
+      decision.filter = std::string(verdict.filter);
+      decision.redirect = std::string(verdict.redirect);
+      decision.alias = std::string(verdict.alias_url);
     }
     std::move(reply).Run(std::move(decision));
   }
@@ -168,6 +201,14 @@ void BlockingEngine::Load(std::vector<std::string> lists) {
 void BlockingEngine::Check(CheckRequest request, base::OnceCallback<void(Decision)> reply) {
   core_.AsyncCall(&Core::Check)
       .WithArgs(std::move(request), base::BindPostTaskToCurrentDefault(std::move(reply)));
+}
+
+void BlockingEngine::CheckAliases(CheckRequest request,
+                                  std::vector<GURL> alias_urls,
+                                  base::OnceCallback<void(Decision)> reply) {
+  core_.AsyncCall(&Core::CheckAliases)
+      .WithArgs(std::move(request), std::move(alias_urls),
+                base::BindPostTaskToCurrentDefault(std::move(reply)));
 }
 
 void BlockingEngine::GetCosmeticRules(GURL document,
