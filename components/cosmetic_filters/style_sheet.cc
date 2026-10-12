@@ -6,6 +6,9 @@
 
 #include <string_view>
 
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
+
 namespace ghost::cosmetic_filters {
 namespace {
 
@@ -29,6 +32,29 @@ std::string StyleSheetFor(const std::vector<std::string>& selectors) {
     if (IsSafe(selector)) {
       sheet += selector;
       sheet += "{display:none !important}\n";
+    }
+  }
+  return sheet;
+}
+
+bool IsSafeStyle(std::string_view declarations) {
+  if (declarations.empty()) {
+    return false;
+  }
+  for (std::string_view unsafe : {"{", "}", "@", "/*", "*/", "\\", "\n", "\r", "\f"}) {
+    if (declarations.find(unsafe) != std::string_view::npos) {
+      return false;
+    }
+  }
+  const std::string lower = base::ToLowerASCII(declarations);
+  return lower.find("url(") == std::string::npos && lower.find("image-set(") == std::string::npos;
+}
+
+std::string StyleSheetForActions(const std::vector<StyledSelector>& rules) {
+  std::string sheet;
+  for (const StyledSelector& rule : rules) {
+    if (IsSafe(rule.selector) && IsSafeStyle(rule.style)) {
+      base::StrAppend(&sheet, {rule.selector, "{", rule.style, "}\n"});
     }
   }
   return sheet;

@@ -28,5 +28,25 @@ TEST(StyleSheetTest, UnsafeSelectorsAreDropped) {
   }
 }
 
+TEST(StyleSheetTest, SafeStylesStayInTheirRule) {
+  EXPECT_TRUE(IsSafeStyle("color: red"));
+  EXPECT_TRUE(IsSafeStyle("position: absolute !important; top: -9999px !important"));
+  EXPECT_FALSE(IsSafeStyle(""));
+  for (const char* unsafe :
+       {"color: red}body{display:none", "a{", "@import x", "color: red /* x */",
+        "background: url(https://t.test/)", "background: URL(x)",
+        "background: image-set(x 1x)", "content: \"\\7d\"", "color: red\n}"}) {
+    EXPECT_FALSE(IsSafeStyle(unsafe)) << unsafe;
+  }
+}
+
+TEST(StyleSheetTest, StyleRulesOnePerSelector) {
+  EXPECT_EQ(StyleSheetForActions({{".a", "color: red"},
+                                  {".b{", "color: red"},
+                                  {".c", "x: y}"},
+                                  {".d", "margin: 0"}}),
+            ".a{color: red}\n.d{margin: 0}\n");
+}
+
 }  // namespace
 }  // namespace ghost::cosmetic_filters

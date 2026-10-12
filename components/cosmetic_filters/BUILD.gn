@@ -2,12 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import("//testing/libfuzzer/fuzzer_test.gni")
+
 # Cosmetic filtering's logic that needs no browser
 # (docs/superpowers/specs/2026-10-11-cosmetic-filtering-design.md).
 source_set("cosmetic_filters") {
   sources = [
     "names.cc",
     "names.h",
+    "procedural.cc",
+    "procedural.h",
     "style_sheet.cc",
     "style_sheet.h",
   ]
@@ -18,10 +22,17 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "names_unittest.cc",
+    "procedural_unittest.cc",
     "style_sheet_unittest.cc",
   ]
   deps = [
     ":cosmetic_filters",
     "//testing/gtest",
   ]
+}
+
+# libFuzzer, in a fuzzing build (docs/testing.md); elsewhere, nothing.
+fuzzer_test("ghost_cosmetic_procedural_fuzzer") {
+  sources = [ "fuzz/procedural_fuzzer.cc" ]
+  deps = [ ":cosmetic_filters" ]
 }
