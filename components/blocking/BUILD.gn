@@ -99,3 +99,13 @@ fuzzer_test("ghost_blocking_request_fuzzer") {
     "//ghost/components/blocking/rust:engine",
   ]
 }
+
+fuzzer_test("ghost_blocking_cosmetic_fuzzer") {
+  sources = [ "fuzz/blocking_cosmetic_fuzzer.cc" ]
+  deps = [
+    ":blocking",
+    "//base",
+    "//ghost/components/blocking/rust:engine",
+  ]
+  dict = "fuzz/filter_list.dict"
+}

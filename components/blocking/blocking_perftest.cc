@@ -11,7 +11,9 @@
 // slower (p50 150 µs instead of 9 µs), and it lacks ThinLTO.
 
 #include <algorithm>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/base_paths.h"
@@ -19,6 +21,7 @@
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/process/process_metrics.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/time/time.h"
 #include "ghost/components/blocking/filter_lists.h"
@@ -29,6 +32,8 @@ namespace ghost::blocking {
 namespace {
 
 constexpr base::TimeDelta kBudgetP99 = base::Microseconds(50);
+// Phase 4A's budget for a document's rules and for a batch of names.
+constexpr base::TimeDelta kCosmeticBudgetP99 = base::Milliseconds(1);
 // Each request is checked this many times, for enough samples at p99.
 constexpr int kPasses = 3;
 
@@ -52,17 +57,28 @@ std::vector<Row> ReadCorpus() {
   return rows;
 }
 
+std::string ShippedLists() {
+  std::string lists;
+  for (const std::string& list : ReadFilterLists(DefaultFilterListsDir())) {
+    lists += list;
+    lists += '\n';
+  }
+  return lists;
+}
+
+// p50 and p99 of the times.
+std::pair<base::TimeDelta, base::TimeDelta> Percentiles(std::vector<base::TimeDelta> times) {
+  std::sort(times.begin(), times.end());
+  return {times[times.size() / 2], times[times.size() * 99 / 100]};
+}
+
 uint64_t PrivateBytes() {
   auto info = base::ProcessMetrics::CreateCurrentProcessMetrics()->GetMemoryInfo();
   return info.has_value() ? info->private_bytes : 0;
 }
 
 TEST(BlockingPerfTest, ChecksWithinBudget) {
-  std::string lists;
-  for (const std::string& list : ReadFilterLists(DefaultFilterListsDir())) {
-    lists += list;
-    lists += '\n';
-  }
+  const std::string lists = ShippedLists();
   ASSERT_FALSE(lists.empty());
   const std::vector<Row> corpus = ReadCorpus();
   ASSERT_GT(corpus.size(), 1000u);
@@ -83,9 +99,7 @@ TEST(BlockingPerfTest, ChecksWithinBudget) {
       blocked += pass == 0 && verdict.blocked;
     }
   }
-  std::sort(times.begin(), times.end());
-  const base::TimeDelta p50 = times[times.size() / 2];
-  const base::TimeDelta p99 = times[times.size() * 99 / 100];
+  const auto [p50, p99] = Percentiles(std::move(times));
 
   LOG(INFO) << "Blocking engine: " << lists.size() / 1024 << " KiB of lists compiled in "
             << compile.InMilliseconds() << " ms, about "
@@ -97,6 +111,72 @@ TEST(BlockingPerfTest, ChecksWithinBudget) {
   EXPECT_GT(blocked, 0);
 #if defined(OFFICIAL_BUILD)
   EXPECT_LT(p99, kBudgetP99);
+#endif
+}
+
+// The rules a document gets at its commit.
+TEST(BlockingPerfTest, CosmeticRulesWithinBudget) {
+  rust::Box<Engine> engine = new_engine(ShippedLists());
+  std::set<std::string> pages;
+  for (const Row& row : ReadCorpus()) {
+    pages.insert(row.page);
+  }
+  std::vector<base::TimeDelta> times;
+  size_t largest = 0;
+  for (int pass = 0; pass < 100; ++pass) {
+    for (const std::string& page : pages) {
+      const base::TimeTicks start = base::TimeTicks::Now();
+      const CosmeticResources resources = engine->cosmetic_resources(page);
+      times.push_back(base::TimeTicks::Now() - start);
+      largest = std::max(largest, resources.hide_selectors.size());
+    }
+  }
+  const auto [p50, p99] = Percentiles(std::move(times));
+  LOG(INFO) << "Cosmetic rules: " << pages.size() << " pages, at most " << largest
+            << " selectors; p50 " << p50.InMicrosecondsF() << " us, p99 "
+            << p99.InMicrosecondsF() << " us (budget " << kCosmeticBudgetP99.InMicroseconds()
+            << " us).";
+#if defined(OFFICIAL_BUILD)
+  EXPECT_LT(p99, kCosmeticBudgetP99);
+#endif
+}
+
+// A batch as a heavy page sends it: 1,000 names, 50 of them listed.
+TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
+  const std::string lists = ShippedLists();
+  rust::Box<Engine> engine = new_engine(lists);
+  rust::Vec<rust::String> classes;
+  for (std::string_view line :
+       base::SplitStringPiece(lists, "\n", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+    if (classes.size() == 50) {
+      break;
+    }
+    // A generic rule on one class, ##.name.
+    if (line.starts_with("##.") && line.find_first_of(" :[>+~.#", 3) == std::string_view::npos) {
+      const std::string_view name = line.substr(3);
+      classes.push_back(rust::String(name.data(), name.size()));
+    }
+  }
+  ASSERT_EQ(classes.size(), 50u);
+  rust::Vec<rust::String> ids;
+  for (int i = 0; i < 950; ++i) {
+    ids.push_back(rust::String("element-" + base::NumberToString(i)));
+  }
+  const rust::Vec<rust::String> no_exceptions;
+  std::vector<base::TimeDelta> times;
+  size_t matched = 0;
+  for (int pass = 0; pass < 1000; ++pass) {
+    const base::TimeTicks start = base::TimeTicks::Now();
+    matched = engine->generic_selectors(classes, ids, no_exceptions).size();
+    times.push_back(base::TimeTicks::Now() - start);
+  }
+  const auto [p50, p99] = Percentiles(std::move(times));
+  LOG(INFO) << "Generic selectors: 1000 names, " << matched << " matched; p50 "
+            << p50.InMicrosecondsF() << " us, p99 " << p99.InMicrosecondsF() << " us (budget "
+            << kCosmeticBudgetP99.InMicroseconds() << " us).";
+  EXPECT_GT(matched, 0u);
+#if defined(OFFICIAL_BUILD)
+  EXPECT_LT(p99, kCosmeticBudgetP99);
 #endif
 }
 
