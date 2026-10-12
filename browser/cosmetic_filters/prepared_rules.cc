@@ -9,9 +9,8 @@
 namespace ghost::cosmetic_filters {
 
 PreparedRules::PreparedRules(content::NavigationHandle& navigation,
-                             std::string style_sheet,
-                             bool scan)
-    : style_sheet_(std::move(style_sheet)), scan_(scan) {}
+                             mojom::DocumentRulesPtr rules)
+    : rules_(std::move(rules)) {}
 
 PreparedRules::~PreparedRules() = default;
 

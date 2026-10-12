@@ -26,7 +26,7 @@ void CosmeticFiltersTabHelper::ReadyToCommitNavigation(content::NavigationHandle
   }
   mojo::AssociatedRemote<mojom::CosmeticFiltersAgent> agent;
   navigation->GetRenderFrameHost()->GetRemoteAssociatedInterfaces()->GetInterface(&agent);
-  agent->SetRulesForNextDocument(rules->style_sheet(), rules->scan());
+  agent->SetRulesForNextDocument(rules->rules().Clone());
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(CosmeticFiltersTabHelper);

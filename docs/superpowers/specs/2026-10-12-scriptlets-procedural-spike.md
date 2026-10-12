@@ -42,3 +42,12 @@ Phase 4B ([design](2026-10-12-scriptlets-procedural-design.md), [plan](../plans/
 ## Task 2: resources and bridge (2026-10-12)
 
 - **adblock-rust injects only `application/javascript` resources** (`supports_scriptlet_injection`); `fn/javascript` serves as a dependency only. The scriptlets are `application/javascript`, their helpers (`shade-safe`, `shade-chain`, `shade-trap`) `fn/javascript`. A scriptlet can therefore also be named as a redirect; it then answers with its function's source, which defines a function and runs nothing.
+
+## Task 3: browser checks (2026-10-12)
+
+- The overload `StyleSheetFor(std::vector<StyledSelector>)` made 4A's braced calls ambiguous: it is `StyleSheetForActions`.
+
+## Task 4: the push and the main-world scriptlet (2026-10-12)
+
+- **Spike point 1, the order.** `WebLocalFrame::ExecuteScript` at `RunScriptsAtDocumentStart` runs the scriptlet before the page's first inline script, and a page whose CSP allows only a nonce'd script still gets it: `ScriptletsBrowserTest.TheFirstScriptAlreadySeesTheScriptlet` and `APageCspDoesntStopIt` pass, and 4A's 12 tests pass on the shared harness.
+- **Spike point 2, frames.** A frame its parent writes into with `document.open()` and `document.write()` gets the parent's scriptlet before the written script runs (`AFrameItsParentWritesTakesTheParentsScriptlets`). No limitation to document.

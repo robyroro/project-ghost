@@ -9,6 +9,7 @@
 
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
@@ -39,6 +40,9 @@ namespace {
 constexpr int32_t kWorldId = ISOLATED_WORLD_ID_SHADE_COSMETIC_FILTERS;
 // The scanner's name in DevTools and traces; nothing loads it.
 constexpr char kScannerUrl[] = "shade://cosmetic-filters/scanner.js";
+// The scriptlets' name in DevTools and stack traces; abort-on-stack-trace
+// leaves out frames under shade://.
+constexpr char kScriptletsUrl[] = "shade://scriptlets/";
 // The object scanner.js calls, in its world only.
 constexpr char kApiName[] = "shadeCosmeticFilters";
 
@@ -68,7 +72,7 @@ CosmeticFiltersAgent::CosmeticFiltersAgent(content::RenderFrame* render_frame)
       InsertRules();
     }
     render_frame->GetTaskRunner(blink::TaskType::kInternalDefault)
-        ->PostTask(FROM_HERE, base::BindOnce(&CosmeticFiltersAgent::StartScanner,
+        ->PostTask(FROM_HERE, base::BindOnce(&CosmeticFiltersAgent::StartScripts,
                                              document_weak_factory_.GetWeakPtr()));
   }
 }
@@ -78,18 +82,20 @@ CosmeticFiltersAgent::~CosmeticFiltersAgent() = default;
 // static
 void CosmeticFiltersAgent::RunScriptsAtDocumentStart(content::RenderFrame* render_frame) {
   if (CosmeticFiltersAgent* agent = Get(render_frame)) {
-    agent->StartScanner();
+    agent->StartScripts();
   }
 }
 
-void CosmeticFiltersAgent::SetRulesForNextDocument(const std::string& style_sheet, bool scan) {
-  next_ = Rules{style_sheet, scan};
+void CosmeticFiltersAgent::SetRulesForNextDocument(mojom::DocumentRulesPtr rules) {
+  next_ = Rules{std::move(rules->style_sheet), rules->scan, std::move(rules->scriptlet),
+                std::move(rules->procedural_filters)};
 }
 
 void CosmeticFiltersAgent::DidCreateNewDocument() {
   document_weak_factory_.InvalidateWeakPtrs();
   host_.reset();
   inserted_ = false;
+  scriptlet_ran_ = false;
   scanning_ = false;
   current_ = next_ ? std::exchange(next_, std::nullopt) : InheritedRules();
 }
@@ -148,6 +154,24 @@ void CosmeticFiltersAgent::InsertRules() {
   }
   inserted_ = true;
   Insert(current_->style_sheet);
+}
+
+void CosmeticFiltersAgent::StartScripts() {
+  // The scriptlets first: they must run before anything else in the page.
+  RunScriptlet();
+  StartScanner();
+}
+
+void CosmeticFiltersAgent::RunScriptlet() {
+  if (!current_ || current_->scriptlet.empty() || scriptlet_ran_) {
+    return;
+  }
+  scriptlet_ran_ = true;
+  // One function around them all, so their helpers leave no name on window.
+  render_frame()->GetWebFrame()->ExecuteScript(blink::WebScriptSource(
+      blink::WebString::FromUtf8(
+          base::StrCat({"(function () {\n", current_->scriptlet, "\n})();"})),
+      GURL(kScriptletsUrl)));
 }
 
 void CosmeticFiltersAgent::StartScanner() {

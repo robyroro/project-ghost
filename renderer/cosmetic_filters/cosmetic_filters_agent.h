@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "base/memory/weak_ptr.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -22,11 +23,12 @@ class Arguments;
 
 namespace ghost::cosmetic_filters {
 
-// Hides what the lists mark in one frame: inserts the rules the browser sends
-// for each document as a user-origin style sheet, and runs the scanner
-// (scanner.js) in an isolated world of its own, which reports the document's
-// class and id names; the browser answers with the generic rules they match.
-// Owns itself; deleted with its frame.
+// Applies the lists' cosmetic rules in one frame: inserts the rules the
+// browser sends for each document as a user-origin style sheet, runs the
+// site's scriptlets in the page's own world before its scripts, and runs the
+// scanner (scanner.js) in an isolated world of its own, which reports the
+// document's class and id names; the browser answers with the generic rules
+// they match. Owns itself; deleted with its frame.
 class CosmeticFiltersAgent
     : public content::RenderFrameObserver,
       public content::RenderFrameObserverTracker<CosmeticFiltersAgent>,
@@ -37,19 +39,21 @@ class CosmeticFiltersAgent
   CosmeticFiltersAgent& operator=(const CosmeticFiltersAgent&) = delete;
   ~CosmeticFiltersAgent() override;
 
-  // Starts the frame's scanner for its new document: Blink allows scripts
-  // only from here, after the document element exists and before anything
-  // is parsed (ChromeContentRendererClient::RunScriptsAtDocumentStart,
-  // patches/0041).
+  // Runs the frame's scriptlets and starts its scanner for its new document:
+  // Blink allows scripts only from here, after the document element exists
+  // and before anything is parsed
+  // (ChromeContentRendererClient::RunScriptsAtDocumentStart, patches/0041).
   static void RunScriptsAtDocumentStart(content::RenderFrame* render_frame);
 
   // mojom::CosmeticFiltersAgent:
-  void SetRulesForNextDocument(const std::string& style_sheet, bool scan) override;
+  void SetRulesForNextDocument(mojom::DocumentRulesPtr rules) override;
 
  private:
   struct Rules {
     std::string style_sheet;
     bool scan = false;
+    std::string scriptlet;
+    std::vector<std::string> procedural_filters;
   };
 
   // content::RenderFrameObserver:
@@ -61,8 +65,11 @@ class CosmeticFiltersAgent
   void BindReceiver(mojo::PendingAssociatedReceiver<mojom::CosmeticFiltersAgent> receiver);
   // A document no navigation brought takes its local parent's rules.
   std::optional<Rules> InheritedRules();
-  // Each once per document: the rules' style sheet, the scanner.
+  // Each once per document: the rules' style sheet; the scripts, at its
+  // start: the scriptlet, then the scanner.
   void InsertRules();
+  void StartScripts();
+  void RunScriptlet();
   void StartScanner();
   // From the scanner: report(classes, ids).
   void Report(gin::Arguments* arguments);
@@ -71,6 +78,7 @@ class CosmeticFiltersAgent
   std::optional<Rules> next_;
   std::optional<Rules> current_;
   bool inserted_ = false;
+  bool scriptlet_ran_ = false;
   bool scanning_ = false;
   mojo::AssociatedReceiver<mojom::CosmeticFiltersAgent> receiver_{this};
   mojo::Remote<mojom::CosmeticFiltersHost> host_;

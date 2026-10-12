@@ -5,9 +5,8 @@
 #ifndef GHOST_BROWSER_COSMETIC_FILTERS_PREPARED_RULES_H_
 #define GHOST_BROWSER_COSMETIC_FILTERS_PREPARED_RULES_H_
 
-#include <string>
-
 #include "content/public/browser/navigation_handle_user_data.h"
+#include "ghost/common/cosmetic_filters.mojom.h"
 
 namespace ghost::cosmetic_filters {
 
@@ -16,15 +15,13 @@ class PreparedRules : public content::NavigationHandleUserData<PreparedRules> {
  public:
   ~PreparedRules() override;
 
-  const std::string& style_sheet() const { return style_sheet_; }
-  bool scan() const { return scan_; }
+  const mojom::DocumentRules& rules() const { return *rules_; }
 
  private:
   friend NavigationHandleUserData;
-  PreparedRules(content::NavigationHandle& navigation, std::string style_sheet, bool scan);
+  PreparedRules(content::NavigationHandle& navigation, mojom::DocumentRulesPtr rules);
 
-  const std::string style_sheet_;
-  const bool scan_;
+  const mojom::DocumentRulesPtr rules_;
 
   NAVIGATION_HANDLE_USER_DATA_KEY_DECL();
 };

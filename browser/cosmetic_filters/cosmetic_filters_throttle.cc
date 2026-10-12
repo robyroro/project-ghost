@@ -7,8 +7,10 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
+#include "base/strings/strcat.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -18,6 +20,7 @@
 #include "ghost/browser/cosmetic_filters/prepared_rules.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
 #include "ghost/components/blocking/blocking_engine.h"
+#include "ghost/components/cosmetic_filters/procedural.h"
 #include "ghost/components/cosmetic_filters/style_sheet.h"
 #include "ghost/components/privacy_policy/protection_level.h"
 #include "url/gurl.h"
@@ -80,7 +83,7 @@ content::NavigationThrottle::ThrottleCheckResult CosmeticFiltersThrottle::Prepar
                               ->GetLastCommittedURL();
   if (privacy_policy::GetLevel(navigation.GetWebContents()->GetBrowserContext(), page) ==
       privacy_policy::ProtectionLevel::kOff) {
-    PreparedRules::CreateForNavigationHandle(navigation, std::string(), false);
+    PreparedRules::CreateForNavigationHandle(navigation, mojom::DocumentRules::New());
     return PROCEED;
   }
   blocking::BlockingService* service = blocking::BlockingService::GetIfStarted();
@@ -93,9 +96,17 @@ content::NavigationThrottle::ThrottleCheckResult CosmeticFiltersThrottle::Prepar
 }
 
 void CosmeticFiltersThrottle::OnRules(blocking::CosmeticRules rules) {
-  PreparedRules::CreateForNavigationHandle(*navigation_handle(),
-                                           StyleSheetFor(rules.hide_selectors),
-                                           !rules.generichide);
+  std::vector<StyledSelector> styled;
+  for (blocking::StyleRule& rule : rules.style_rules) {
+    styled.push_back({std::move(rule.selector), std::move(rule.style)});
+  }
+  auto document = mojom::DocumentRules::New();
+  document->style_sheet =
+      base::StrCat({StyleSheetFor(rules.hide_selectors), StyleSheetForActions(styled)});
+  document->scan = !rules.generichide;
+  document->scriptlet = std::move(rules.scriptlet);
+  document->procedural_filters = SafeProceduralFilters(rules.procedural_filters);
+  PreparedRules::CreateForNavigationHandle(*navigation_handle(), std::move(document));
   Resume();
 }
 

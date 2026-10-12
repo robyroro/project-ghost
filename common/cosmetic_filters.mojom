@@ -4,14 +4,27 @@
 
 module ghost.mojom;
 
+// A document's cosmetic rules, pushed before it is parsed.
+struct DocumentRules {
+  // A user-origin style sheet (possibly empty): site rules, and action rules
+  // CSS can express.
+  string style_sheet;
+  // Whether to scan the document for the generic rules.
+  bool scan;
+  // The site's scriptlets as one script, for the page's own world; may be
+  // empty (Phase 4B).
+  string scriptlet;
+  // Procedural and action rules CSS can't express, adblock-rust's JSON, one
+  // per rule, checked by the browser (SafeProceduralFilters).
+  array<string> procedural_filters;
+};
+
 // Browser to renderer, per frame. Channel-associated and sent at
 // ReadyToCommitNavigation, so it arrives before the document it is for, as
 // subresource_filter's ActivateForNextCommittedLoad.
 interface CosmeticFiltersAgent {
-  // The hiding rules of the document the frame commits next: a user-origin
-  // style sheet (possibly empty), and whether to scan the document for the
-  // generic rules.
-  SetRulesForNextDocument(string style_sheet, bool scan);
+  // The rules of the document the frame commits next.
+  SetRulesForNextDocument(DocumentRules rules);
 };
 
 // Renderer to browser, per document (a DocumentService).
