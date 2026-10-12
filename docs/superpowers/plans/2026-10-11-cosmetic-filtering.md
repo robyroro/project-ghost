@@ -2285,4 +2285,4 @@ TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
   - `testing.md`: the cosmetic tests, the fuzzer, the budgets and `scanner_cost.py`.
   - `roadmap.md`: Phase 4 split into 4A–4D; 4A done, with numbers.
   - The progress notes; the status of the spec and of this plan.
-- [ ] **Push.** Ask the user before pushing. After the push, wait for both tooling jobs to finish; then update the memory.
+- [x] **Push.** Ask the user before pushing. After the push, wait for both tooling jobs to finish; then update the memory.

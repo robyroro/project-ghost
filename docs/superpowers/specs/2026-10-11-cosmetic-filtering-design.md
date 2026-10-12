@@ -99,7 +99,7 @@ privacy-model.md (what each level hides; Strict corrected), architecture.md (the
 - [x] The tests pass with no retry and the mutation checks fail as required.
 - [x] The engine's budgets hold in the official build; the scanner's was measured in the dev build only, at the user's choice.
 - [x] The egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 
