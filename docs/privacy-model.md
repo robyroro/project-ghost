@@ -35,7 +35,7 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
 - **Lists.** Network requests are matched against EasyList, EasyPrivacy and our own list. Our list covers first-party trackers, CNAME-cloaked trackers, and cases the community lists handle poorly.
 - **Levels.**
   - *Standard* blocks third-party trackers and ads.
-  - *Strict* also blocks first-party trackers, and applies cosmetic rules more aggressively.
+  - *Strict* also blocks first-party trackers. It hides the same elements as Standard (below); a stronger Strict waits for a list of our own (annoyances, cookie banners).
   - *Off* disables blocking for the site. Per-site overrides are one click from the protections panel.
 - **Breakage reports** are prepared on the user's machine and shown to the user before anything is sent. Nothing is reported automatically.
 - **The levels as built (Phase 3D-1).** Each site (the page's registrable domain) has a level; a site without the user's choice has its mode's: Standard in a regular profile, Strict in Incognito. The protections panel (below) sets them.
@@ -62,6 +62,13 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - **WebSocket and WebTransport connections are checked too** (since 3D-2), at the page's level: a blocked WebSocket is never opened, so its handshake never leaves the browser, and a blocked WebTransport is refused with `ERR_BLOCKED_BY_CLIENT`. A WebSocket opened by a shared or service worker is judged at the Standard level, since Chromium's hook gives no profile for it; one opened by a page or a dedicated worker follows its page (`ConnectionFilterBrowserTest`);
   - if the lists can't be loaded, nothing is blocked and the error is logged: a browser that loads nothing is worse. Until the lists are loaded at startup, requests that need a verdict wait.
   - Checks happen in the browser process; nothing about them leaves the machine.
+- **Hiding page elements (Phase 4A).** The lists' cosmetic rules hide what they mark as ads in every frame of a page, at Standard and Strict alike; Off hides nothing. A frame gets its own document's rules (a cross-site ad frame, its site's), at its page's level.
+  - **Site-specific rules** (`example.com##.ad`) and the generic rules too complex to look up by class or id are in place before the page is parsed: the page's own scripts never see those elements shown.
+  - **Generic rules** (`##.ad-banner`, the bulk of EasyList) are matched against the class and id names the page actually uses, which a small script of ours reports as elements appear. An element a page adds by script can show for a moment, until its names' answer arrives.
+  - The page can't see or undo the hiding: the rules are a user style sheet, which `document.styleSheets` doesn't list and the page's own `!important` styles don't override, and our script runs in a world of its own, which the page's scripts can't reach. A page's Content Security Policy doesn't stop it.
+  - The lists' exceptions are honored: `#@#` and `$generichide`. EasyList exempts `localhost` and private addresses from generic rules.
+  - Not yet: scriptlets and the lists' procedural rules (`:has-text()`), in 4B. Hidden elements aren't counted on the shield.
+  - Tests: `CosmeticFiltersBrowserTest`, `CosmeticFiltersHostTest`, `StyleSheetTest`, `NamesTest`, and the bridge's and engine's cosmetic cases.
 
 ### Cookies and storage
 

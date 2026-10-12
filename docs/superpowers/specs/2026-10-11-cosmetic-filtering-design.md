@@ -1,6 +1,6 @@
 # Cosmetic filtering: design
 
-- Status: design approved 2026-10-11; amended while planning ([plan](../plans/2026-10-11-cosmetic-filtering.md)): the throttle that waits for the engine, the rules inherited by initial empty documents, the style sheet built in the browser, no `$elemhide`.
+- Status: done 2026-10-12 ([progress notes](2026-10-11-cosmetic-filtering-spike.md)); the scanner's budget measured in the dev build only, at the user's choice. Design approved 2026-10-11; amended while planning ([plan](../plans/2026-10-11-cosmetic-filtering.md)): the throttle that waits for the engine, the rules inherited by initial empty documents, the style sheet built in the browser, no `$elemhide`.
 - Phase 4, sub-project 4A ([roadmap](../../roadmap.md#phases-to-public-alpha)); builds on [3A, the blocking engine](2026-10-10-blocking-engine-design.md) and [3D-1, the protection levels](2026-10-10-protection-levels-design.md)
 - Phase 4 is split (decided 2026-10-11): **4A** cosmetic filtering (element hiding); **4B** scriptlets and procedural rules (one in-page script layer for both); **4C** CNAME uncloaking; **4D** breakage controls and the compatibility corpus.
 
@@ -96,9 +96,9 @@ privacy-model.md (what each level hides; Strict corrected), architecture.md (the
 
 ## Done when
 
-- [ ] The tests pass with no retry and the mutation checks fail as required.
-- [ ] The budgets hold in the official build, or the user agreed to new ones.
-- [ ] The egress audit finds no unexpected host.
+- [x] The tests pass with no retry and the mutation checks fail as required.
+- [x] The engine's budgets hold in the official build; the scanner's was measured in the dev build only, at the user's choice.
+- [x] The egress audit finds no unexpected host.
 - [ ] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope

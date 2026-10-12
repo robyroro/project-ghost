@@ -52,3 +52,42 @@ The spike's rules were fixed: the throttle prepared `.shade-spike{display:none !
 - `trace.ps1`;
 - `sum_trace.py`;
 - `metrics.ps1` and `metrics.py`: DevTools metrics of a browser on the hidden desktop, stopping only that profile's processes.
+
+## Tasks 2–9: the engine, the browser and the renderer, 2026-10-12
+
+- **The bridge and the engine** (Tasks 2, 3) as planned. `BlockingEngine`'s queue of waiting checks became a queue of closures, so cosmetic queries wait for the lists the same way.
+- **The throttle** (Task 5) as planned. The Incognito test is served over HTTPS: Incognito's strict HTTPS-First (3C) warns before any HTTP page.
+- **The host** (Task 6) as planned; `CosmeticFiltersHostTest` observes the bad message with `mojo::test::BadMessageObserver`.
+- **The agent drops names outside the limits** (Task 7): before it did, a 300-character class name ended the renderer (`Terminating renderer for bad IPC message, reason 123`).
+- **Browser tests** (Task 8): twelve, which passed 36 of 36 runs (`--gtest_repeat=3`). Their waits paste the element's expression into the script instead of `eval`ing it, since a page's CSP may forbid `eval`.
+- **Full suites:** `ghost_unittests` 117 of 117, `ghost_browsertests` 103 of 103, no retry.
+- **EasyList exempts local addresses from generic hiding:** `@@://127.0.0.1$generichide`, `localhost`, `10.0.0.`, `192.168.`. A page served from 127.0.0.1 gets no scanner, which first made `tools/scanner_cost.py` measure nothing; it serves its page as `cosmetic.test`.
+- **The fuzzer's harness** assumed a first line: `SplitStringPiece` returns no element for an empty input, and the first run aborted on it. Fixed. Then `ghost_blocking_cosmetic_fuzzer` ran 30 minutes in `out\fuzz` from 20 seeds (each corpus page with 20 of EasyList's generic class names): 642,617 runs, no crash, coverage 10,059 edges.
+- **Dev-build numbers** (`out\vanilla`, reported, not judged; Rust runs with debug assertions):
+  - a document's rules: p50 191 µs, p99 1.6 ms;
+  - a batch of 1,000 names: p50 74 µs, p99 2.6 ms;
+  - the engine with every rule type: 244 ms to compile, about 7 MiB.
+
+## Task 10: the budgets, 2026-10-12
+
+The user chose the engine's budgets in the official build only (`ghost_blocking_perftests` in `out\release`, 1m12s to build); no official `chrome` was built.
+
+| Measure (official build, three runs) | p50 | p99 | Budget |
+|---|---|---|---|
+| A document's rules (20 pages, at most 453 selectors) | 80 µs | 159–166 µs | 1 ms |
+| A batch of 1,000 names (50 listed) | 29 µs | 81–95 µs | 1 ms |
+| A request's check (3A, now with every rule type in the engine) | 6 µs | 41–49 µs | 50 µs |
+
+- **The engine with every rule type** compiles in 98–103 ms (80 ms with network rules only) and holds about 6 MiB, as before.
+- **The request check's p99 moved from 36–39 µs (3A) to 41–49 µs.** It is still within ADR 0006's budget, but with less margin; one run of three came within 1 µs of it.
+- **The scanner, dev build only** (`tools/scanner_cost.py`, five loads per profile, `heavy.html`): 111.5 ms of script and 121.8 ms of task time over the same page at Off. The official build runs page script about 19 times faster on this machine (Task 1), which puts the scanner near its 5 ms budget for 5,000 elements inserted at once. This is an estimate: not measured in an official build.
+
+## Task 11: mutation checks, audit, 2026-10-12
+
+- **Mutation checks,** each built before its tests ran:
+  - **M2** (the throttle treats Strict as Off, so Off is ignored): `OffHidesNothing` fails.
+  - **M3** (no scanner): `GenericRulesHideByClassAndId` and `GenericRulesHideElementsAddedLater` fail.
+  - **M4** (the host skips the limits): `TooManyNamesAreABadMessage` and `ANameThatIsNotUtf8IsABadMessage` fail.
+  - **M5** (every selector safe): `StyleSheetTest.UnsafeSelectorsAreDropped` fails.
+  - **M1** (the host passes no exceptions): `AnExceptionShowsTheElementOnItsSite` fails, by hand and in a second scripted run. The first scripted run, right after M4 had changed and restored the same file, reported the test passing. The cause wasn't established; a stale object is the likely one.
+- **The egress audit** (`out\vanilla`, on the hidden desktop): 0 unexpected hosts.

@@ -26,6 +26,9 @@ This document says what Ghost protects, from whom, how, and where protection end
 ```
 
 - **The renderer is untrusted.** Everything that crosses from a renderer into the browser process is validated. No privacy or security decision depends on renderer-supplied data.
+  - **Cosmetic filtering (Phase 4A)** adds one renderer-to-browser interface, `ghost.mojom.CosmeticFiltersHost`, bound per document. A renderer can only send class and id names and receive the generic hiding rules they match for its own document. The document's URL, level and exceptions are the browser's, so a renderer can't ask for another site's rules or get around an exception.
+  - **Limits:** at most 1,000 names in a call, each 1 to 256 bytes of UTF-8. A call outside them is a bad message and ends the renderer (`CosmeticFiltersHostTest`); names reach the Rust engine only as valid UTF-8.
+  - **The style sheets are built in the browser,** one rule per selector. Selectors that could close their rule or open another (`{`, `}`, `;`, `@`, comments, a trailing backslash, newlines) are dropped, so a list delivered by update (3E) can't inject arbitrary style (`StyleSheetTest`).
 - **Extensions are trusted only as far as their granted permissions.**
 - **Downloaded data is trusted only when signed** by a key the build pins.
 

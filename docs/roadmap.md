@@ -308,3 +308,31 @@ Sub-projects, in order (decided 2026-10-10), each with its own design and plan i
 **Exit criteria** ([phases](#phases-to-public-alpha))
 - [ ] Blocking, parameter and egress tests green.
 - [x] Blocking overhead within budget (3A).
+
+## Phase 4: content protections
+
+Sub-projects, in order (decided 2026-10-11), each with its own design and plan in `docs/superpowers/`:
+
+1. **4A. Cosmetic filtering:** element hiding from the lists' site-specific and generic rules.
+
+   **Done 2026-10-12.** `//ghost/browser/cosmetic_filters`, `//ghost/renderer/cosmetic_filters` (Shade's first renderer code), `//ghost/components/cosmetic_filters`, `//ghost/common:mojom`, `tools/scanner_cost.py`; patches 0041 (the renderer's agent, its isolated world and its start at document start) and 0042 (the navigation throttle and the per-document host); [design](superpowers/specs/2026-10-11-cosmetic-filtering-design.md), [progress notes](superpowers/specs/2026-10-11-cosmetic-filtering-spike.md).
+   - Standard and Strict hide what EasyList marks, in every frame; Off hides nothing ([privacy-model.md](privacy-model.md#blocking)).
+   - Site-specific rules are pushed before the page is parsed. Generic rules are looked up for the class and id names a scanner in an isolated world reports.
+   - The page can't see or undo the hiding, and its CSP doesn't stop the scanner.
+   - The renderer sends only names, within limits the browser enforces.
+   - **Official build:**
+     - a document's rules: p99 159–166 µs;
+     - a batch of 1,000 names: p99 81–95 µs (both budgets 1 ms);
+     - a request's check, with every rule type now in the engine: p99 41–49 µs (budget 50 µs; 36–39 µs in 3A).
+   - **The scanner on a page that inserts 5,000 elements at once** was measured only in the dev build (111.5 ms). Scaled by the dev build's measured slowness, it is near its 5 ms budget; not yet measured in an official build.
+   - **Checks:** five mutation checks fail as required; 117 unit and 103 browser tests pass with no retry; the fuzzer ran 30 minutes without a crash; the egress audit finds no unexpected host.
+   - **Limitations:**
+     - an element a page adds by script can show until its names' answer arrives;
+     - hidden elements aren't counted on the shield;
+     - EasyList exempts local addresses from generic rules.
+2. **4B. Scriptlets and procedural rules** (`+js()`, `:has-text()`), with the in-page script layer both need, and the lists that carry scriptlets.
+3. **4C. CNAME uncloaking:** trackers behind first-party subdomains, from the host resolver's DNS aliases.
+4. **4D. Breakage controls and the compatibility corpus.** Its pass rate with protections on must be no worse than vanilla Chromium's with blocking off.
+
+**Exit criteria** ([phases](#phases-to-public-alpha))
+- [ ] Compatibility corpus pass rate no worse than vanilla Chromium with blocking off (4D).

@@ -10,6 +10,8 @@
 - **Browser, generic rules.** A per-document `DocumentService` turns the names into the matching generic rules, keeping the exceptions and the level in the browser.
 - **Patches.** 0041 (renderer) and 0042 (browser).
 
+**Status:** done 2026-10-12 ([progress notes](../specs/2026-10-11-cosmetic-filtering-spike.md)). Task 10: the user chose the engine's budgets in the official build only; the scanner was measured in the dev build.
+
 **Tech Stack:**
 - adblock-rust 0.13.3 through `cxx`;
 - Chromium 152.0.7977.158: `NavigationThrottle`, `DocumentService`, `RenderFrameObserver`, Blink's `WebDocument::InsertStyleSheet` and `ExecuteScriptInIsolatedWorld`, gin;
@@ -49,10 +51,10 @@
 
 ### Task 0: Tools
 
-- [ ] **Step 1:** Copy `hidden.ps1` and `sync.py` from `C:\Users\robyv\AppData\Local\Temp\claude\C--Users-robyv-Desktop-DLU-webops\4f2cca3f-b200-470d-a07f-7104a80791c1\scratchpad\` into this session's scratchpad. If they're gone, recreate them:
+- [x] **Step 1:** Copy `hidden.ps1` and `sync.py` from `C:\Users\robyv\AppData\Local\Temp\claude\C--Users-robyv-Desktop-DLU-webops\4f2cca3f-b200-470d-a07f-7104a80791c1\scratchpad\` into this session's scratchpad. If they're gone, recreate them:
   - `hidden.ps1`: `CreateDesktop("shade-tests")` plus `CreateProcess` with `lpDesktop="WinSta0\shade-tests"`; waits for the process and returns its exit code.
   - `sync.py`: copies every webops file (tracked or new) that differs into `chromium/src/ghost` with `shutil.copyfile`; reports files only `src/ghost` has.
-- [ ] **Step 2:** Check the state. Run `git -C chromium/src branch --show-current`; expected `ghost/152.0.7977.158`. Run `python tools\patches.py check`; expected to pass. Then `autoninja -C out\vanilla ghost_unittests ghost_browsertests`; expected: no work, or only a small amount.
+- [x] **Step 2:** Check the state. Run `git -C chromium/src branch --show-current`; expected `ghost/152.0.7977.158`. Run `python tools\patches.py check`; expected to pass. Then `autoninja -C out\vanilla ghost_unittests ghost_browsertests`; expected: no work, or only a small amount.
 
 ---
 
@@ -69,7 +71,7 @@ Prove the risky parts with the real structure and fixed rules: a site-specific s
 - Create: patches 0041 (renderer) and 0042 (browser) in `chromium/src`
 - Create: `docs/superpowers/specs/2026-10-11-cosmetic-filtering-spike.md`
 
-- [ ] **Step 1: The mojom.** `common/cosmetic_filters.mojom`:
+- [x] **Step 1: The mojom.** `common/cosmetic_filters.mojom`:
 
 ```
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -110,7 +112,7 @@ mojom("mojom") {
 }
 ```
 
-- [ ] **Step 2: The renderer agent.** `renderer/cosmetic_filters/cosmetic_filters_agent.h`:
+- [x] **Step 2: The renderer agent.** `renderer/cosmetic_filters/cosmetic_filters_agent.h`:
 
 ```cpp
 #ifndef GHOST_RENDERER_COSMETIC_FILTERS_COSMETIC_FILTERS_AGENT_H_
@@ -349,7 +351,7 @@ void CosmeticFiltersAgent::Insert(const std::string& style_sheet) {
 }  // namespace ghost::cosmetic_filters
 ```
 
-- [ ] **Step 3: The scanner.** `renderer/cosmetic_filters/scanner.js` (MPL header in `//` comments):
+- [x] **Step 3: The scanner.** `renderer/cosmetic_filters/scanner.js` (MPL header in `//` comments):
 
 ```js
 // Shade's cosmetic filtering: reports the class and id names of this
@@ -486,7 +488,7 @@ source_set("cosmetic_filters") {
 
 If `gn check` names a narrower target for `chrome_isolated_world_ids.h` (it is listed in `//chrome/common:common_lib`'s sources), use the one gn names.
 
-- [ ] **Step 4: The browser side, with fixed rules.**
+- [x] **Step 4: The browser side, with fixed rules.**
 
 `browser/cosmetic_filters/prepared_rules.h`:
 
@@ -834,7 +836,7 @@ source_set("cosmetic_filters") {
 }
 ```
 
-- [ ] **Step 5: Patch 0041 (renderer).** In `chromium/src`:
+- [x] **Step 5: Patch 0041 (renderer).** In `chromium/src`:
   - **`chrome/common/chrome_isolated_world_ids.h`:** before `ISOLATED_WORLD_ID_EXTENSIONS`, add:
 
     ```cpp
@@ -855,7 +857,7 @@ source_set("cosmetic_filters") {
       ```
 
   Commit `-s` with subject `chrome_content_renderer_client: Shade's cosmetic filters in every frame`, a body saying why (an observer per frame, an isolated world of its own), and the trailers `Why: renderer frames are created in Chromium's content renderer client only` and `Upstream: not upstreamable: product-specific`.
-- [ ] **Step 6: Patch 0042 (browser).**
+- [x] **Step 6: Patch 0042 (browser).**
   - **`chrome/browser/BUILD.gn`:** add `"//ghost/browser/cosmetic_filters"` to `source_set("core")`'s deps, next to `//ghost/browser/blocking`.
   - **`chrome/browser/chrome_browser_interface_binders.cc`:**
     - include `ghost/browser/cosmetic_filters/cosmetic_filters_host.h` and `ghost/common/cosmetic_filters.mojom.h`;
@@ -878,7 +880,7 @@ source_set("cosmetic_filters") {
       ```
 
   Commit `-s` with subject `chrome_content_browser_client: Shade's cosmetic filters' throttle and host` and the trailers `Why: navigation throttles and frame binders are registered in Chromium's lists only` and `Upstream: not upstreamable: product-specific`.
-- [ ] **Step 7: Spike tests.** Create `browser/cosmetic_filters/cosmetic_filters_browsertest.cc`. Use the fixture of Task 8 (server, `Tab()`, `Display()`; copy it from there) with these tests:
+- [x] **Step 7: Spike tests.** Create `browser/cosmetic_filters/cosmetic_filters_browsertest.cc`. Use the fixture of Task 8 (server, `Tab()`, `Display()`; copy it from there) with these tests:
   - `SpikeSiteSheetBeforeParse`: on `a.test`, the page is `<div class="shade-spike" id="x"></div><script>window.seen = getComputedStyle(document.getElementById('x')).display;</script>`. Expected: `EvalJs("window.seen") == "none"`. Repeat for 30 navigations alternating `a.test` and `b.test`, to force process swaps.
   - `SpikeGeneric`: append `<div class="shade-spike-generic" id="g">`. Expected: `WaitForDisplay("g", "none")`.
   - `SpikeWrittenFrame`: the parent writes `<div class="shade-spike" id="i">` into an iframe without `src`. Expected: hidden.
@@ -887,24 +889,24 @@ source_set("cosmetic_filters") {
   - `SpikePageCantSeeUs`: `typeof shadeCosmeticFilters` is `"undefined"` and `document.styleSheets.length` is `0`.
 
   Add the file to `ghost_browsertests`' sources in `BUILD.gn`, and `"//ghost/browser/cosmetic_filters"` to its deps.
-- [ ] **Step 8: Build and run.** Sync. Run `autoninja -C out\vanilla chrome ghost_browsertests`, then run `CosmeticFiltersBrowserTest.Spike*` on the hidden desktop. Record which pass. A failure tells what the spike found:
+- [x] **Step 8: Build and run.** Sync. Run `autoninja -C out\vanilla chrome ghost_browsertests`, then run `CosmeticFiltersBrowserTest.Spike*` on the hidden desktop. Record which pass. A failure tells what the spike found:
   - `SpikeSiteSheetBeforeParse` failing means the ordering isn't guaranteed. Switch to pull: the agent asks the host for the document's sheet at `DidCreateNewDocument` (add `GetRules() => (string style_sheet, bool scan)` to `CosmeticFiltersHost`), and measure how often the inline script sees `block`. **Stop and report to the user** before redesigning.
   - `SpikeWrittenFrame` failing: find which observer methods fire for the initial empty document. Add a temporary `LOG(INFO)` in each override, read the log, and move `Apply()` to the hook that fires; record it.
   - `SpikeCsp` failing: give the world a CSP through `WebIsolatedWorldInfo` (with `security_origin` set to the document's origin) and record why.
-- [ ] **Step 9: Tracing.** On `test/cosmetic/heavy.html` (Task 10, Step 1; create it now), trace the dev build:
+- [x] **Step 9: Tracing.** On `test/cosmetic/heavy.html` (Task 10, Step 1; create it now), trace the dev build:
 
   ```
   out\vanilla\chrome.exe --user-data-dir=<scratchpad>\trace-profile --no-first-run --trace-startup=devtools.timeline,v8 --trace-startup-file=<scratchpad>\trace.json --trace-startup-duration=8 http://127.0.0.1:<port>/heavy.html
   ```
 
   Serve `test/cosmetic` with `python -m http.server`, and launch through `hidden.ps1`. In `trace.json`, find the events attributed to `shade://cosmetic-filters/scanner.js`: their names (`FunctionCall`? `EvaluateScript`? `v8.callFunction`?) and the args that carry the URL. Record them; Task 10's script sums them.
-- [ ] **Step 10: The rejected option, for the record.**
+- [x] **Step 10: The rejected option, for the record.**
   - Write the CSS of every EasyList `##` rule that starts with `.` or `#` (one rule per selector) into `<scratchpad>\all-generic.css`, using a few lines of Python in the scratchpad.
   - Make a copy of `heavy.html` in the scratchpad with that sheet inlined in a `<style>`.
   - Trace it as in Step 9 in `out\vanilla`. Record `ParseAuthorStyleSheet` and `UpdateLayoutTree`/`RecalcStyle` totals against the original page, and the renderer's private memory from Task Manager or `--enable-logging`.
 
   Scratch only: nothing is committed.
-- [ ] **Step 11: Notes and commit.**
+- [x] **Step 11: Notes and commit.**
   - Write the progress notes `docs/superpowers/specs/2026-10-11-cosmetic-filtering-spike.md`: the results of Steps 8–10, build times, surprises.
   - Commit in webops: `cosmetic_filters: rules before parsing and a scanner in its world (patches 0041, 0042): spike`.
   - Re-export the patches; `patches.py check`.
@@ -918,7 +920,7 @@ source_set("cosmetic_filters") {
 - Modify: `components/blocking/engine_bridge_unittest.cc`
 - Modify: `components/blocking/BUILD.gn` (`unit_tests` gains `//testing/gmock`)
 
-- [ ] **Step 1: Write the failing tests.** Append to `engine_bridge_unittest.cc` (add `#include <string>`, `#include <vector>`, `#include "testing/gmock/include/gmock/gmock.h"`, and `using testing::ElementsAre; using testing::IsEmpty;` inside the namespace):
+- [x] **Step 1: Write the failing tests.** Append to `engine_bridge_unittest.cc` (add `#include <string>`, `#include <vector>`, `#include "testing/gmock/include/gmock/gmock.h"`, and `using testing::ElementsAre; using testing::IsEmpty;` inside the namespace):
 
 ```cpp
 std::vector<std::string> Strings(const rust::Vec<rust::String>& strings) {
@@ -989,8 +991,8 @@ TEST(EngineBridgeTest, AnUnparsableUrlHasNoCosmeticRules) {
 }
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Sync. Run `autoninja -C out\vanilla ghost_unittests`. Expected: a compile failure (no `cosmetic_resources`).
-- [ ] **Step 3: Implement.** In `lib.rs`:
+- [x] **Step 2: Run them to see them fail.** Sync. Run `autoninja -C out\vanilla ghost_unittests`. Expected: a compile failure (no `cosmetic_resources`).
+- [x] **Step 3: Implement.** In `lib.rs`:
   - Add `use std::collections::HashSet;`.
   - Inside `mod ffi`, after `Verdict`:
 
@@ -1060,8 +1062,8 @@ TEST(EngineBridgeTest, AnUnparsableUrlHasNoCosmeticRules) {
     ```
 
   - Update the module comment: `//! adblock-rust behind a small cxx bridge: build an engine from list text, ask it about one request, or about a document's cosmetic rules. Everything else (threads, lifetimes, policy) is C++'s, in //ghost/components/blocking.`.
-- [ ] **Step 4: Run them to see them pass.** Run `autoninja -C out\vanilla ghost_unittests`, then `out\vanilla\ghost_unittests.exe --gtest_filter=EngineBridgeTest.*`. Expected: all pass, the network tests included.
-- [ ] **Step 5: Commit** (webops): `blocking: the engine answers cosmetic queries`.
+- [x] **Step 4: Run them to see them pass.** Run `autoninja -C out\vanilla ghost_unittests`, then `out\vanilla\ghost_unittests.exe --gtest_filter=EngineBridgeTest.*`. Expected: all pass, the network tests included.
+- [x] **Step 5: Commit** (webops): `blocking: the engine answers cosmetic queries`.
 
 ---
 
@@ -1070,7 +1072,7 @@ TEST(EngineBridgeTest, AnUnparsableUrlHasNoCosmeticRules) {
 **Files:**
 - Modify: `components/blocking/blocking_engine.{h,cc}`, `blocking_engine_unittest.cc`
 
-- [ ] **Step 1: Write the failing tests.** Append to `blocking_engine_unittest.cc` (add gmock as in Task 2):
+- [x] **Step 1: Write the failing tests.** Append to `blocking_engine_unittest.cc` (add gmock as in Task 2):
 
 ```cpp
 TEST_F(BlockingEngineTest, CosmeticRulesForADocument) {
@@ -1122,8 +1124,8 @@ TEST_F(BlockingEngineTest, NamesThatAreNotUtf8AreLeftOut) {
 }
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Expected: a compile failure (no `CosmeticRules`).
-- [ ] **Step 3: Implement.** In `blocking_engine.h`, after `Decision`:
+- [x] **Step 2: Run them to see them fail.** Expected: a compile failure (no `CosmeticRules`).
+- [x] **Step 3: Implement.** In `blocking_engine.h`, after `Decision`:
 
 ```cpp
 // A document's cosmetic rules (Phase 4A).
@@ -1261,8 +1263,8 @@ void BlockingEngine::GetGenericSelectors(
 ```
 
 - Update the class comment: `adblock-rust's engine, on a sequence of its own: building it from the lists takes about a second, and every query runs off the thread that asks. One engine serves every profile and tab, for requests (3A) and pages' cosmetic rules (4A).`.
-- [ ] **Step 4: Run them to see them pass.** Run `out\vanilla\ghost_unittests.exe --gtest_filter=BlockingEngineTest.*:EngineBridgeTest.*`. Expected: all pass.
-- [ ] **Step 5: Commit:** `blocking: cosmetic queries on the engine's sequence`.
+- [x] **Step 4: Run them to see them pass.** Run `out\vanilla\ghost_unittests.exe --gtest_filter=BlockingEngineTest.*:EngineBridgeTest.*`. Expected: all pass.
+- [x] **Step 5: Commit:** `blocking: cosmetic queries on the engine's sequence`.
 
 ---
 
@@ -1272,7 +1274,7 @@ void BlockingEngine::GetGenericSelectors(
 - Create: `components/cosmetic_filters/BUILD.gn`, `style_sheet.{h,cc}`, `names.{h,cc}`, `style_sheet_unittest.cc`, `names_unittest.cc`
 - Modify: `BUILD.gn` (`ghost_unittests` deps += `//ghost/components/cosmetic_filters:unit_tests`)
 
-- [ ] **Step 1: Write the failing tests.** `style_sheet_unittest.cc`:
+- [x] **Step 1: Write the failing tests.** `style_sheet_unittest.cc`:
 
 ```cpp
 #include "ghost/components/cosmetic_filters/style_sheet.h"
@@ -1337,8 +1339,8 @@ TEST(NamesTest, ACall) {
 }  // namespace ghost::cosmetic_filters
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Add the BUILD.gn below with the sources missing, so the build fails.
-- [ ] **Step 3: Implement.** `style_sheet.h`:
+- [x] **Step 2: Run them to see them fail.** Add the BUILD.gn below with the sources missing, so the build fails.
+- [x] **Step 3: Implement.** `style_sheet.h`:
 
 ```cpp
 #ifndef GHOST_COMPONENTS_COSMETIC_FILTERS_STYLE_SHEET_H_
@@ -1477,8 +1479,8 @@ source_set("unit_tests") {
 }
 ```
 
-- [ ] **Step 4: Run them to see them pass.** Filter `StyleSheetTest.*:NamesTest.*`. Expected: pass.
-- [ ] **Step 5: Commit:** `cosmetic_filters: style sheets and the limits on names`.
+- [x] **Step 4: Run them to see them pass.** Filter `StyleSheetTest.*:NamesTest.*`. Expected: pass.
+- [x] **Step 5: Commit:** `cosmetic_filters: style sheets and the limits on names`.
 
 ---
 
@@ -1487,8 +1489,8 @@ source_set("unit_tests") {
 **Files:**
 - Modify: `browser/cosmetic_filters/cosmetic_filters_throttle.{h,cc}`, `BUILD.gn`
 
-- [ ] **Step 1: The tests.** The browser tests of Task 8 cover the throttle: site rules, Off, Incognito, frames. Write them now as failing tests: in Task 8's file, write `SiteRuleHidesBeforeThePageSeesIt`, `OffHidesNothing`, `IncognitoHides` and `ACrossSiteFrameHasItsOwnRules`, and delete the spike tests. Run them; expected: they fail, since the fixed spike rules hide `.shade-spike` only.
-- [ ] **Step 2: Implement.** In the `.cc` (`OnRules` is already declared):
+- [x] **Step 1: The tests.** The browser tests of Task 8 cover the throttle: site rules, Off, Incognito, frames. Write them now as failing tests: in Task 8's file, write `SiteRuleHidesBeforeThePageSeesIt`, `OffHidesNothing`, `IncognitoHides` and `ACrossSiteFrameHasItsOwnRules`, and delete the spike tests. Run them; expected: they fail, since the fixed spike rules hide `.shade-spike` only.
+- [x] **Step 2: Implement.** In the `.cc` (`OnRules` is already declared):
 
 ```cpp
 #include "ghost/browser/blocking/blocking_service.h"
@@ -1555,8 +1557,8 @@ Add the deps:
 - `public_deps`: `//ghost/components/blocking` (for `CosmeticRules`).
 - `deps`: `//ghost/browser/blocking`, `//ghost/browser/privacy_policy`, `//ghost/components/cosmetic_filters`, `//ghost/components/privacy_policy`.
 
-- [ ] **Step 3: Run them to see them pass.** Run `CosmeticFiltersBrowserTest.*` on the hidden desktop. Expected: the four tests pass.
-- [ ] **Step 4: Commit:** `cosmetic_filters: a document's rules from the engine, by the page's level`.
+- [x] **Step 3: Run them to see them pass.** Run `CosmeticFiltersBrowserTest.*` on the hidden desktop. Expected: the four tests pass.
+- [x] **Step 4: Commit:** `cosmetic_filters: a document's rules from the engine, by the page's level`.
 
 ---
 
@@ -1567,7 +1569,7 @@ Add the deps:
 - Create: `browser/cosmetic_filters/cosmetic_filters_host_unittest.cc`
 - Modify: `BUILD.gn` (`ghost_unittests`: the source; deps `//ghost/browser/cosmetic_filters`, `//ghost/common:mojom`, `//mojo/public/cpp/test_support:test_utils`)
 
-- [ ] **Step 1: Write the failing tests.** `cosmetic_filters_host_unittest.cc`:
+- [x] **Step 1: Write the failing tests.** `cosmetic_filters_host_unittest.cc`:
 
 ```cpp
 #include "ghost/browser/cosmetic_filters/cosmetic_filters_host.h"
@@ -1624,8 +1626,8 @@ TEST_F(CosmeticFiltersHostTest, WithoutTheEngineNothingIsHidden) {
 }  // namespace ghost::cosmetic_filters
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Expected: the two bad-message tests time out or fail; the spike host validates nothing.
-- [ ] **Step 3: Implement.** In the header, add to the private section:
+- [x] **Step 2: Run them to see them fail.** Expected: the two bad-message tests time out or fail; the spike host validates nothing.
+- [x] **Step 3: Implement.** In the header, add to the private section:
 
 ```cpp
   void OnRules(std::vector<std::string> classes,
@@ -1744,8 +1746,8 @@ void CosmeticFiltersHost::Select(std::vector<std::string> classes,
 ```
 
 In the header, add `#include "ghost/components/blocking/blocking_engine.h"` (for `CosmeticRules` by value), and remove the forward declaration.
-- [ ] **Step 4: Run them to see them pass.** Filter `CosmeticFiltersHostTest.*`. Expected: pass.
-- [ ] **Step 5: Commit:** `cosmetic_filters: the host answers a document's scanner`.
+- [x] **Step 4: Run them to see them pass.** Filter `CosmeticFiltersHostTest.*`. Expected: pass.
+- [x] **Step 5: Commit:** `cosmetic_filters: the host answers a document's scanner`.
 
 ---
 
@@ -1754,13 +1756,13 @@ In the header, add `#include "ghost/components/blocking/blocking_engine.h"` (for
 **Files:**
 - Modify: `renderer/cosmetic_filters/cosmetic_filters_agent.cc`, `BUILD.gn`
 
-- [ ] **Step 1: The test.** A page with a 300-character class name and a listed one on the same element must still hide it, and the renderer must survive. Add `ALongClassNameDoesntEndTheRenderer` to Task 8's file:
+- [x] **Step 1: The test.** A page with a 300-character class name and a listed one on the same element must still hide it, and the renderer must survive. Add `ALongClassNameDoesntEndTheRenderer` to Task 8's file:
   - the page appends `<div class="${'x'.repeat(300)} generic-ad" id="long">`;
   - wait for `#long` to be `none`;
   - `EXPECT_FALSE(Tab()->IsCrashed())`.
 
   Run it. Expected: it fails (the browser ends the renderer as a bad message).
-- [ ] **Step 2: Implement.** In `Report`, after reading the arguments:
+- [x] **Step 2: Implement.** In `Report`, after reading the arguments:
 
 ```cpp
   // The browser ends a renderer that sends names outside the limits; a page
@@ -1773,8 +1775,8 @@ In the header, add `#include "ghost/components/blocking/blocking_engine.h"` (for
 ```
 
 Include `ghost/components/cosmetic_filters/names.h`, and add `"//ghost/components/cosmetic_filters"` to the renderer target's deps.
-- [ ] **Step 3: Run it to see it pass.** Expected: pass.
-- [ ] **Step 4: Commit:** `cosmetic_filters: the agent keeps to the limits on names`.
+- [x] **Step 3: Run it to see it pass.** Expected: pass.
+- [x] **Step 4: Commit:** `cosmetic_filters: the agent keeps to the limits on names`.
 
 ---
 
@@ -1783,7 +1785,7 @@ Include `ghost/components/cosmetic_filters/names.h`, and add `"//ghost/component
 **Files:**
 - Modify: `browser/cosmetic_filters/cosmetic_filters_browsertest.cc`
 
-- [ ] **Step 1: The fixture and every test.** Some of these were written in Tasks 5 and 7; this is the whole file.
+- [x] **Step 1: The fixture and every test.** Some of these were written in Tasks 5 and 7; this is the whole file.
 
 ```cpp
 // Cosmetic filtering through the browser, the renderer and the engine, with a
@@ -2041,9 +2043,9 @@ IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, ALongClassNameDoesntEndTheRen
 ```
 
 `content::EvalJs` runs in the main world through the test harness, which CSP doesn't restrict. Add `#include "base/no_destructor.h"`.
-- [ ] **Step 2: Run them.** Run `CosmeticFiltersBrowserTest.*` on the hidden desktop, three times (`--gtest_repeat=3`). Expected: every test passes with no retry. A flaky `SiteRuleHidesBeforeThePageSeesIt` means the ordering isn't guaranteed: stop and report to the user.
-- [ ] **Step 3: The other suites.** Run all of `ghost_unittests` and `ghost_browsertests`. Expected: all pass with no retry. The request tests run on an engine that now holds cosmetic rules too.
-- [ ] **Step 4: Commit:** `cosmetic_filters: browser tests`.
+- [x] **Step 2: Run them.** Run `CosmeticFiltersBrowserTest.*` on the hidden desktop, three times (`--gtest_repeat=3`). Expected: every test passes with no retry. A flaky `SiteRuleHidesBeforeThePageSeesIt` means the ordering isn't guaranteed: stop and report to the user.
+- [x] **Step 3: The other suites.** Run all of `ghost_unittests` and `ghost_browsertests`. Expected: all pass with no retry. The request tests run on an engine that now holds cosmetic rules too.
+- [x] **Step 4: Commit:** `cosmetic_filters: browser tests`.
 
 ---
 
@@ -2053,7 +2055,7 @@ IN_PROC_BROWSER_TEST_F(CosmeticFiltersBrowserTest, ALongClassNameDoesntEndTheRen
 - Create: `components/blocking/fuzz/blocking_cosmetic_fuzzer.cc`
 - Modify: `components/blocking/BUILD.gn`, `components/blocking/blocking_perftest.cc`, `BUILD.gn` (`gn_all`)
 
-- [ ] **Step 1: The fuzzer.** `fuzz/blocking_cosmetic_fuzzer.cc`:
+- [x] **Step 1: The fuzzer.** `fuzz/blocking_cosmetic_fuzzer.cc`:
 
 ```cpp
 // Cosmetic queries against the lists Shade ships, with arbitrary input: a page
@@ -2130,7 +2132,7 @@ fuzzer_test("ghost_blocking_cosmetic_fuzzer") {
 ```
 
 Add `"//ghost/components/blocking:ghost_blocking_cosmetic_fuzzer"` to `gn_all` in `BUILD.gn`. Build it in `out\vanilla` (a no-op stub outside fuzzing builds). Then in `out\fuzz` run `autoninja -C out\fuzz ghost_blocking_cosmetic_fuzzer`, and fuzz for 30 minutes with `-max_total_time=1800`, seeded with a corpus dir holding `https://a.test/page\nad-banner\nsponsored`. Expected: no crash. Record executions and coverage in the notes.
-- [ ] **Step 2: The performance tests.** In `blocking_perftest.cc`:
+- [x] **Step 2: The performance tests.** In `blocking_perftest.cc`:
   - Factor `std::string ShippedLists()` out of `ChecksWithinBudget` (the concatenation loop) and use it there.
   - Add the two tests below. Add includes `<set>` and `base/strings/string_number_conversions.h`.
 
@@ -2211,14 +2213,14 @@ TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
 ```
 
   The existing `ChecksWithinBudget` now reports compile time and memory with every rule type.
-- [ ] **Step 3: Run them.** Run `autoninja -C out\vanilla ghost_blocking_perftests`, then `out\vanilla\ghost_blocking_perftests.exe`. Expected: pass (no budget in a dev build); record the numbers as dev-build numbers.
-- [ ] **Step 4: Commit:** `blocking: a cosmetic fuzzer and performance tests`.
+- [x] **Step 3: Run them.** Run `autoninja -C out\vanilla ghost_blocking_perftests`, then `out\vanilla\ghost_blocking_perftests.exe`. Expected: pass (no budget in a dev build); record the numbers as dev-build numbers.
+- [x] **Step 4: Commit:** `blocking: a cosmetic fuzzer and performance tests`.
 
 ---
 
 ### Task 10: The budgets in the official build
 
-- [ ] **Step 1: The fixture.** `test/cosmetic/heavy.html` (MPL header in an HTML comment, plain indented lines):
+- [x] **Step 1: The fixture.** `test/cosmetic/heavy.html` (MPL header in an HTML comment, plain indented lines):
 
 ```html
 <!doctype html>
@@ -2236,7 +2238,7 @@ TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
 </body>
 ```
 
-- [ ] **Step 2: The measuring script.** `tools/scanner_cost.py`, with the trace event names from the spike notes (Task 1, Step 9):
+- [x] **Step 2: The measuring script.** `tools/scanner_cost.py`, with the trace event names from the spike notes (Task 1, Step 9):
   - It takes `--chrome <exe>` and `--runs N` (default 5).
   - It serves `test/cosmetic` with `http.server` on a free port in a thread.
   - It launches the browser twice, each with a fresh `--user-data-dir`, `--no-first-run` and `--remote-debugging-port`. The second profile's `Default/Preferences` is written before launch with `{"ghost": {"privacy_policy": {"site_levels": {"127.0.0.1": "off"}}}}`, so its loads have no rules and no scanner.
@@ -2244,12 +2246,12 @@ TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
   - It stops only the processes of its own profiles (their command line names the profile directory).
 
   Stdlib only, as `tools/cdp.py`. The arithmetic is pure functions (`metric_deltas(before, after)`, `medians(rows)`, `off_preferences()`), tested in `tools/tests/test_scanner_cost.py` (OS-neutral paths), and run with `python -m unittest discover -s tools/tests -t tools`. It runs the browsers on the hidden desktop when given `--launcher <hidden.ps1>`.
-- [ ] **Step 3: Ask the user.** The official build takes hours, and `out\release` belongs to the release workflow. Offer two options:
+- [x] **Step 3: Ask the user.** The official build takes hours, and `out\release` belongs to the release workflow. Offer two options:
   - **(a)** `ghost_blocking_perftests` in `out\release`: minutes, decides the two engine budgets;
   - **(b)** also `chrome` in `out\release`: hours, for the scanner's budget.
 
   If the user declines (b): measure the scanner in `out\vanilla` (JavaScript isn't slowed like Rust there) and report it as a dev-build number.
-- [ ] **Step 4: Run.** Launch through `hidden.ps1`, with `chrome/VERSION` untouched:
+- [x] **Step 4: Run.** Launch through `hidden.ps1`, with `chrome/VERSION` untouched:
   - `autoninja -C out\release ghost_blocking_perftests`, then run them;
   - if approved, `autoninja -C out\release chrome` through WMI as in the release runbook, then `python tools\scanner_cost.py --chrome out\release\chrome.exe`.
 
@@ -2259,20 +2261,20 @@ TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
   - scanner median under 5 ms.
 
   Record every number and the engine's memory and compile time against 6 MiB and 80 ms in the progress notes. A missed budget: stop and report to the user (the spec allows changes only with their agreement).
-- [ ] **Step 5: Commit:** `cosmetic_filters: the budgets, measured`.
+- [x] **Step 5: Commit:** `cosmetic_filters: the budgets, measured`.
 
 ---
 
 ### Task 11: Mutation checks, audit, docs, push
 
-- [ ] **Mutation checks.** Each must make at least one test fail, and each mutant must build: check the build's success before trusting a red or green run. Undo each with `sync.py`, then compare `src/ghost` with webops.
+- [x] **Mutation checks.** Each must make at least one test fail, and each mutant must build: check the build's success before trusting a red or green run. Undo each with `sync.py`, then compare `src/ghost` with webops.
   - **M1:** `CosmeticFiltersHost::Select` passes `{}` instead of `*exceptions_`. Expected to fail: `AnExceptionShowsTheElementOnItsSite`.
   - **M2:** the throttle ignores the level (the `kOff` branch removed). Expected to fail: `OffHidesNothing`.
   - **M3:** the agent never runs the scanner (`current_->scan` treated as false). Expected to fail: `GenericRulesHideByClassAndId`, `GenericRulesHideElementsAddedLater`.
   - **M4:** the host skips `AreValidNames`. Expected to fail: `TooManyNamesAreABadMessage`, `ANameThatIsNotUtf8IsABadMessage`.
   - **M5:** `IsSafe` returns `!selector.empty()`. Expected to fail: `StyleSheetTest.UnsafeSelectorsAreDropped`.
-- [ ] **Full suites and the audit.** Run `ghost_unittests` and `ghost_browsertests` in full, the browser tests on the hidden desktop. Run the egress audit (`tools/egress` per `docs/testing.md`). Expected: 0 unexpected hosts.
-- [ ] **Docs.**
+- [x] **Full suites and the audit.** Run `ghost_unittests` and `ghost_browsertests` in full, the browser tests on the hidden desktop. Run the egress audit (`tools/egress` per `docs/testing.md`). Expected: 0 unexpected hosts.
+- [x] **Docs.**
   - `privacy-model.md`:
     - what each level hides (Off nothing; Standard and Strict the lists' site and generic rules);
     - the Strict sentence corrected;
