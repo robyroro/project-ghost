@@ -60,6 +60,7 @@ source_set("unit_tests") {
     ":registrable_domain",
     "//base/test:test_support",
     "//ghost/components/blocking/rust:engine",
+    "//testing/gmock",
     "//testing/gtest",
   ]
 }

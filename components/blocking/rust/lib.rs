@@ -3,10 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! adblock-rust behind a small cxx bridge: build an engine from list text,
-//! ask it about one request. Everything else (threads, lifetimes, policy)
-//! is C++'s, in //ghost/components/blocking.
+//! ask it about one request, or about a document's cosmetic rules.
+//! Everything else (threads, lifetimes, policy) is C++'s, in
+//! //ghost/components/blocking.
 
-use adblock::lists::{FilterSet, ParseOptions, RuleTypes};
+use std::collections::HashSet;
+
+use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
 use adblock::url_parser::{set_domain_resolver, ResolvesDomain};
 
@@ -16,6 +19,15 @@ mod ffi {
     struct Verdict {
         blocked: bool,
         filter: String,
+    }
+
+    /// A document's cosmetic rules: what to hide on its site, and what the
+    /// generic rules mustn't hide there.
+    struct CosmeticResources {
+        hide_selectors: Vec<String>,
+        exceptions: Vec<String>,
+        /// A `$generichide` exception: no generic rule on this page.
+        generichide: bool,
     }
 
     unsafe extern "C++" {
@@ -37,6 +49,18 @@ mod ffi {
             request_type: &str,
             method: &str,
         ) -> Verdict;
+        /// The site-specific selectors (and the generic ones too complex to
+        /// index) for a document's URL, its exceptions and generichide. A URL
+        /// the engine can't parse has none. Sorted, so answers are stable.
+        fn cosmetic_resources(self: &Engine, url: &str) -> CosmeticResources;
+        /// The generic selectors the class and id names match, less the
+        /// document's exceptions. Sorted.
+        fn generic_selectors(
+            self: &Engine,
+            classes: &Vec<String>,
+            ids: &Vec<String>,
+            exceptions: &Vec<String>,
+        ) -> Vec<String>;
     }
 }
 
@@ -58,12 +82,10 @@ fn new_engine(lists: &str) -> Box<Engine> {
     // The resolver is process-wide and set once; a second engine finds it set.
     let _ = set_domain_resolver(Box::new(ChromiumDomains));
     let mut filters = FilterSet::new(false);
-    // Network rules only: cosmetic filtering is Phase 4, and leaving its rules
-    // out keeps the engine smaller.
-    filters.add_filter_list(
-        lists.to_string(),
-        ParseOptions { rule_types: RuleTypes::NetworkOnly, ..Default::default() },
-    );
+    // Every rule type: network rules for requests, cosmetic rules for pages
+    // (Phase 4A); scriptlets and procedural rules are parsed but not used
+    // until 4B.
+    filters.add_filter_list(lists.to_string(), ParseOptions::default());
     Box::new(Engine(adblock::Engine::new_with_filter_set(filters)))
 }
 
@@ -81,4 +103,31 @@ impl Engine {
             Err(_) => ffi::Verdict { blocked: false, filter: String::new() },
         }
     }
+
+    fn cosmetic_resources(&self, url: &str) -> ffi::CosmeticResources {
+        let resources = self.0.url_cosmetic_resources(url);
+        ffi::CosmeticResources {
+            hide_selectors: sorted(resources.hide_selectors),
+            exceptions: sorted(resources.exceptions),
+            generichide: resources.generichide,
+        }
+    }
+
+    fn generic_selectors(
+        &self,
+        classes: &Vec<String>,
+        ids: &Vec<String>,
+        exceptions: &Vec<String>,
+    ) -> Vec<String> {
+        let exceptions: HashSet<String> = exceptions.iter().cloned().collect();
+        let mut selectors = self.0.hidden_class_id_selectors(classes, ids, &exceptions);
+        selectors.sort();
+        selectors
+    }
+}
+
+fn sorted(set: HashSet<String>) -> Vec<String> {
+    let mut strings: Vec<String> = set.into_iter().collect();
+    strings.sort();
+    strings
 }

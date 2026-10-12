@@ -4,11 +4,19 @@
 
 // adblock-rust through the cxx bridge, with small lists written here.
 
+#include <initializer_list>
+#include <string>
+#include <vector>
+
 #include "ghost/components/blocking/rust/lib.rs.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace ghost::blocking {
 namespace {
+
+using testing::ElementsAre;
+using testing::IsEmpty;
 
 bool Blocked(const Engine& engine, const char* url, const char* source,
              const char* type = "script") {
@@ -62,6 +70,73 @@ TEST(EngineBridgeTest, AnEmptyEngineAllowsEverything) {
 TEST(EngineBridgeTest, AnUnparsableUrlIsAllowed) {
   rust::Box<Engine> engine = new_engine("*\n");
   EXPECT_FALSE(Blocked(*engine, "not a url", "https://a.test/"));
+}
+
+std::vector<std::string> Strings(const rust::Vec<rust::String>& strings) {
+  std::vector<std::string> result;
+  for (const rust::String& s : strings) {
+    result.emplace_back(s);
+  }
+  return result;
+}
+
+rust::Vec<rust::String> RustStrings(std::initializer_list<const char*> strings) {
+  rust::Vec<rust::String> result;
+  for (const char* s : strings) {
+    result.push_back(rust::String(s));
+  }
+  return result;
+}
+
+TEST(EngineBridgeTest, SiteRulesApplyToTheirSite) {
+  rust::Box<Engine> engine = new_engine("a.test##.site-ad\n");
+  EXPECT_THAT(Strings(engine->cosmetic_resources("https://www.a.test/page").hide_selectors),
+              ElementsAre(".site-ad"));
+  EXPECT_THAT(Strings(engine->cosmetic_resources("https://b.test/").hide_selectors), IsEmpty());
+}
+
+TEST(EngineBridgeTest, ComplexGenericRulesComeWithEveryPage) {
+  rust::Box<Engine> engine = new_engine("##div[class*=\"Ads\"]\n");
+  EXPECT_THAT(Strings(engine->cosmetic_resources("https://b.test/").hide_selectors),
+              ElementsAre("div[class*=\"Ads\"]"));
+}
+
+TEST(EngineBridgeTest, GenericRulesMatchClassesAndIds) {
+  rust::Box<Engine> engine = new_engine("##.generic-ad\n###banner\n");
+  EXPECT_THAT(Strings(engine->generic_selectors(RustStrings({"generic-ad", "plain"}),
+                                                RustStrings({"banner"}), RustStrings({}))),
+              ElementsAre("#banner", ".generic-ad"));
+  EXPECT_THAT(Strings(engine->generic_selectors(RustStrings({"plain"}), RustStrings({}),
+                                                RustStrings({}))),
+              IsEmpty());
+}
+
+TEST(EngineBridgeTest, AnExceptionRemovesAGenericRuleOnItsSite) {
+  rust::Box<Engine> engine = new_engine("##.generic-ad\na.test#@#.generic-ad\n");
+  const CosmeticResources a = engine->cosmetic_resources("https://a.test/");
+  EXPECT_THAT(Strings(a.exceptions), ElementsAre(".generic-ad"));
+  EXPECT_THAT(Strings(engine->generic_selectors(RustStrings({"generic-ad"}), RustStrings({}),
+                                                a.exceptions)),
+              IsEmpty());
+  const CosmeticResources b = engine->cosmetic_resources("https://b.test/");
+  EXPECT_THAT(Strings(engine->generic_selectors(RustStrings({"generic-ad"}), RustStrings({}),
+                                                b.exceptions)),
+              ElementsAre(".generic-ad"));
+}
+
+TEST(EngineBridgeTest, GenerichideTurnsGenericRulesOff) {
+  rust::Box<Engine> engine = new_engine(
+      "##div[class*=\"Ads\"]\nnohide.test##.site-ad\n@@||nohide.test^$generichide\n");
+  const CosmeticResources resources = engine->cosmetic_resources("https://nohide.test/");
+  EXPECT_TRUE(resources.generichide);
+  // The site's own rules stay; the generic ones go.
+  EXPECT_THAT(Strings(resources.hide_selectors), ElementsAre(".site-ad"));
+  EXPECT_FALSE(engine->cosmetic_resources("https://b.test/").generichide);
+}
+
+TEST(EngineBridgeTest, AnUnparsableUrlHasNoCosmeticRules) {
+  rust::Box<Engine> engine = new_engine("##div[class*=\"Ads\"]\n");
+  EXPECT_THAT(Strings(engine->cosmetic_resources("not a url").hide_selectors), IsEmpty());
 }
 
 }  // namespace
