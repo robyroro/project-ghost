@@ -4,8 +4,10 @@
 
 #include "ghost/browser/blocking/request_filter.h"
 
+#include <algorithm>
 #include <utility>
 
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
@@ -18,12 +20,17 @@
 #include "ghost/components/blocking/blocking_engine.h"
 #include "ghost/components/site/registrable_domain.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/system/data_pipe.h"
+#include "net/base/data_url.h"
 #include "net/base/isolation_info.h"
 #include "net/base/net_errors.h"
+#include "net/http/http_response_headers.h"
+#include "net/http/http_version.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/cpp/url_loader_factory_builder.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 
@@ -44,6 +51,18 @@ privacy_policy::EffectivePolicy PolicyIfAlive(base::WeakPtr<content::BrowserCont
 bool HasCrossSiteReferrer(const network::ResourceRequest& request) {
   return request.referrer.is_valid() && request.referrer.has_host() &&
          RegistrableDomain(request.referrer.host()) != RegistrableDomain(request.url.host());
+}
+
+// The response type a page would see for this request had the network
+// answered (Fetch: basic for its own origin, opaque for a no-cors request
+// elsewhere, cors otherwise).
+network::mojom::FetchResponseType ResponseTypeFor(const network::ResourceRequest& request) {
+  if (request.request_initiator && request.request_initiator->IsSameOriginWith(request.url)) {
+    return network::mojom::FetchResponseType::kBasic;
+  }
+  return request.mode == network::mojom::RequestMode::kNoCors
+             ? network::mojom::FetchResponseType::kOpaque
+             : network::mojom::FetchResponseType::kCors;
 }
 
 }  // namespace
@@ -204,8 +223,44 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
   void Block(const Decision& decision) {
     VLOG(1) << "Blocked " << request_.url << " by " << decision.filter;
     protections::PageProtections::RecordBlocked(frame_);
-    client_->OnComplete(network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
+    if (decision.redirect.empty() || !Answer(decision.redirect)) {
+      client_->OnComplete(network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
+    }
     delete this;
+  }
+
+  // Answers with one of Shade's resources (a redirect rule), without the
+  // network. False if the data: URL doesn't parse or the pipe can't be made.
+  bool Answer(const std::string& data_url) {
+    std::string mime_type;
+    std::string charset;
+    std::string body;
+    if (!net::DataURL::Parse(GURL(data_url), &mime_type, &charset, &body)) {
+      return false;
+    }
+    mojo::ScopedDataPipeProducerHandle producer;
+    mojo::ScopedDataPipeConsumerHandle consumer;
+    if (mojo::CreateDataPipe(std::max<size_t>(body.size(), 1), producer, consumer) !=
+        MOJO_RESULT_OK) {
+      return false;
+    }
+    if (!body.empty() && producer->WriteAllData(base::as_byte_span(body)) != MOJO_RESULT_OK) {
+      return false;
+    }
+    auto head = network::mojom::URLResponseHead::New();
+    head->mime_type = mime_type;
+    head->charset = charset;
+    head->headers = net::HttpResponseHeaders::Builder(net::HttpVersion(1, 1), "200 OK")
+                        .AddHeader("Content-Type", mime_type)
+                        .AddHeader("Access-Control-Allow-Origin", "*")
+                        .Build();
+    head->response_type = ResponseTypeFor(request_);
+    head->content_length = body.size();
+    client_->OnReceiveResponse(std::move(head), std::move(consumer), std::nullopt);
+    network::URLLoaderCompletionStatus status(net::OK);
+    status.decoded_body_length = base::ByteSize(body.size());
+    client_->OnComplete(status);
+    return true;
   }
 
   // The page dropped the request: closing the network side cancels it.

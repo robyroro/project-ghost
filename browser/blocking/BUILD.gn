@@ -27,6 +27,7 @@ source_set("blocking") {
     "//ghost/browser/privacy_policy",
     "//ghost/browser/protections",
     "//ghost/components/site",
+    "//mojo/public/cpp/system",
     "//net",
     "//url",
   ]
