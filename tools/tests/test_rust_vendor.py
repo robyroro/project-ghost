@@ -207,6 +207,32 @@ class BuildGnTest(unittest.TestCase):
         self.assertIn('build_root = "crate/build.rs"', gn)
         self.assertIn('build_script_outputs = [ "private.rs" ]', gn)
 
+    def test_a_renamed_dependency_is_aliased(self):
+        # selectors: debug_unreachable = { package = "new_debug_unreachable" }.
+        metadata = {
+            "packages": [package("ghost_rust_deps", "0.0.0", deps=["seahash"]),
+                         package("seahash", "4.1.0", deps=["thiserror"]),
+                         package("thiserror", "1.0.69")],
+            "resolve": {"root": "ghost_rust_deps 0.0.0", "nodes": [
+                node("ghost_rust_deps 0.0.0", deps=[("seahash 4.1.0", None)]),
+                node("seahash 4.1.0", deps=[("thiserror 1.0.69", None)]),
+                node("thiserror 1.0.69"),
+            ]},
+        }
+        metadata["resolve"]["nodes"][1]["deps"][0]["name"] = "errors"
+        crates = rust_vendor.resolve(metadata)
+        gn = rust_vendor.render_build_gn(crates["seahash"], crates, self.tree, ["src/lib.rs"])
+        self.assertIn('deps = [ "//ghost/third_party/rust/thiserror/v1:lib" ]', gn)
+        self.assertIn('aliased_deps = {\n    errors = "//ghost/third_party/rust/thiserror/v1:lib"\n  }',
+                      gn)
+        self.assertNotIn("aliased_deps", self.render("adblock"))
+
+    def test_files_the_crate_includes_are_inputs(self):
+        # include_str!("../README.md"): siso refuses a read it wasn't told of.
+        gn = self.render("adblock", inputs=["README.md"])
+        self.assertIn('inputs = [ "crate/README.md" ]', gn)
+        self.assertIn("inputs = []", self.render("adblock"))
+
     def test_empty_lists_are_left_out(self):
         # Chromium's build-script runner passes `--features` followed by the
         # list: an empty one makes its argument parser fail (as gnrt, omit it).

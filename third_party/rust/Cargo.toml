@@ -13,6 +13,7 @@ path = "lib.rs"
 
 [dependencies]
 # The blocking engine (docs/adr/0006-blocking-engine-adblock-rust.md). No
-# public-suffix crates (Chromium resolves registrable domains) and no CSS
-# validation (cosmetic filtering is Phase 4).
-adblock = { version = "=0.13.3", default-features = false, features = ["full-regex-handling"] }
+# public-suffix crates (Chromium resolves registrable domains). CSS validation
+# (Phase 4B) parses procedural rules into operators and refuses invalid
+# selectors and :style() values.
+adblock = { version = "=0.13.3", default-features = false, features = ["full-regex-handling", "css-validation"] }

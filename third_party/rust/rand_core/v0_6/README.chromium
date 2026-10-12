@@ -1,0 +1,14 @@
+Name: rand_core
+URL: https://crates.io/crates/rand_core
+Version: 0.6.4
+Revision: 0.6.4
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Core random number generator traits and tools for implementation.
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

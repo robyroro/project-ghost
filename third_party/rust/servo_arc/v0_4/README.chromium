@@ -1,0 +1,14 @@
+Name: servo_arc
+URL: https://crates.io/crates/servo_arc
+Version: 0.4.3
+Revision: 0.4.3
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+A fork of std::sync::Arc with some extra functionality and without weak references
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

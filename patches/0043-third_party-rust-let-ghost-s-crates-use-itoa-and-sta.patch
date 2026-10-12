@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Mon, 12 Oct 2026 11:59:21 +0300
+Subject: [PATCH] third_party/rust: let //ghost's crates use itoa, and
+ stable_deref_trait with std
+
+Phase 4B turns on adblock-rust's CSS validation, which needs servo's
+selectors crate, and selectors needs servo_arc, which uses
+stable_deref_trait with its default features (std). Chromium builds
+stable_deref_trait with alloc only and makes it visible only within
+//third_party/rust. This adds the default and std features (std only adds
+impls for std types) and makes the crate visible to //ghost/third_party/rust,
+as patch 0028 does for other crates. cssparser needs itoa, which gnrt also
+made visible only within //third_party/rust.
+
+These are generated files: a milestone that regenerates them may conflict
+here, and patches.py canary shows it before the move.
+
+Why: the alternative is second copies of stable_deref_trait and itoa in one binary.
+Upstream: not upstreamable: a downstream crate set
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/third_party/rust/itoa/v1/BUILD.gn b/third_party/rust/itoa/v1/BUILD.gn
+index 8550382ad2eda07a888c2e060f66c718338d8cb5..87333ded23a91d14e13c32eeb669aff6be9e0585 100644
+--- a/third_party/rust/itoa/v1/BUILD.gn
++++ b/third_party/rust/itoa/v1/BUILD.gn
+@@ -32,7 +32,10 @@ cargo_crate("lib") {
+   # Only for usage from third-party crates. Add the crate to
+   # //third_party/rust/chromium_crates_io/Cargo.toml to use
+   # it from first-party code.
+-  visibility = [ "//third_party/rust/*" ]
++  visibility = [
++    "//ghost/third_party/rust/*",
++    "//third_party/rust/*",
++  ]
+ 
+   #####################################################################
+   # Tweaking which GN `config`s apply to this target.
+diff --git a/third_party/rust/stable_deref_trait/v1/BUILD.gn b/third_party/rust/stable_deref_trait/v1/BUILD.gn
+index 77cc9145746ef849ce1782fe09502c92d98f47a1..dc6dc3a7b5620d8c40dd56e64b259dc58d812259 100644
+--- a/third_party/rust/stable_deref_trait/v1/BUILD.gn
++++ b/third_party/rust/stable_deref_trait/v1/BUILD.gn
+@@ -26,12 +26,19 @@ cargo_crate("lib") {
+ 
+   allow_unsafe = true
+ 
+-  features = [ "alloc" ]
++  features = [
++    "alloc",
++    "default",
++    "std",
++  ]
+ 
+   # Only for usage from third-party crates. Add the crate to
+   # //third_party/rust/chromium_crates_io/Cargo.toml to use
+   # it from first-party code.
+-  visibility = [ "//third_party/rust/*" ]
++  visibility = [
++    "//ghost/third_party/rust/*",
++    "//third_party/rust/*",
++  ]
+ 
+   #####################################################################
+   # Tweaking which GN `config`s apply to this target.

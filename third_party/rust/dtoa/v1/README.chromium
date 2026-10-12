@@ -1,0 +1,14 @@
+Name: dtoa
+URL: https://crates.io/crates/dtoa
+Version: 1.0.11
+Revision: 1.0.11
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Fast floating point primitive to string conversion
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

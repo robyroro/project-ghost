@@ -1,0 +1,14 @@
+Name: selectors
+URL: https://crates.io/crates/selectors
+Version: 0.32.0
+Revision: 0.32.0
+License: MPL-2.0
+License File: //ghost/third_party/rust/licenses/selectors/LICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+CSS Selectors matching for Rust
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

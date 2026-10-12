@@ -1,0 +1,14 @@
+Name: derive_more
+URL: https://crates.io/crates/derive_more
+Version: 2.1.1
+Revision: 2.1.1
+License: MIT
+License File: crate/LICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+Adds #[derive(x)] macros for more traits
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

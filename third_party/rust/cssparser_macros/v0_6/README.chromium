@@ -1,0 +1,14 @@
+Name: cssparser-macros
+URL: https://crates.io/crates/cssparser-macros
+Version: 0.6.1
+Revision: 0.6.1
+License: MPL-2.0
+License File: crate/LICENSE
+Security Critical: yes
+Shipped: no
+
+Description:
+Procedural macros for cssparser
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

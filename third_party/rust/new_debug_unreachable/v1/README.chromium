@@ -1,0 +1,14 @@
+Name: new_debug_unreachable
+URL: https://crates.io/crates/new_debug_unreachable
+Version: 1.0.6
+Revision: 1.0.6
+License: MIT
+License File: crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+panic in debug, intrinsics::unreachable() in release (fork of debug_unreachable)
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

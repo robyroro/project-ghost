@@ -1,0 +1,14 @@
+Name: phf_generator
+URL: https://crates.io/crates/phf_generator
+Version: 0.11.3
+Revision: 0.11.3
+License: MIT
+License File: crate/LICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+PHF generation logic
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

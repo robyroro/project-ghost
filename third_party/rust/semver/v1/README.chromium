@@ -1,0 +1,14 @@
+Name: semver
+URL: https://crates.io/crates/semver
+Version: 1.0.28
+Revision: 1.0.28
+License: MIT OR Apache-2.0
+License File: crate/LICENSE-APACHE, crate/LICENSE-MIT
+Security Critical: yes
+Shipped: yes
+
+Description:
+Parser and evaluator for Cargo's flavor of Semantic Versioning
+
+Local Modifications:
+None. Vendored by tools/rust_vendor.py.

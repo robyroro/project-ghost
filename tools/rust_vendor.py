@@ -59,6 +59,9 @@ class Crate:
     authors: list[str] = field(default_factory=list)
     description: str = ""
     repository: str = ""
+    # Normal dependencies the crate names otherwise than their package:
+    # (name in its code, package name).
+    aliases: list[tuple[str, str]] = field(default_factory=list)
 
 
 def epoch(version: str) -> tuple[str, str]:
@@ -87,12 +90,16 @@ def resolve(metadata: dict) -> dict[str, Crate]:
     while pending:
         node = nodes[pending.pop()]
         deps = []
+        aliases = []
         for dep in node["deps"]:
             kinds = {k["kind"] for k in dep["dep_kinds"]}
             kind = None if None in kinds else "build" if "build" in kinds else "dev"
             if kind == "dev":
                 continue
-            deps.append((packages[dep["pkg"]]["name"], kind))
+            name = packages[dep["pkg"]]["name"]
+            deps.append((name, kind))
+            if kind is None and dep["name"] != directory(name):
+                aliases.append((dep["name"], name))
             if dep["pkg"] not in seen:
                 seen.add(dep["pkg"])
                 pending.append(dep["pkg"])
@@ -114,7 +121,7 @@ def resolve(metadata: dict) -> dict[str, Crate]:
             lib_root=Path(lib["src_path"]).relative_to(package_dir).as_posix(),
             package_dir=package_dir.as_posix(), authors=p.get("authors") or [],
             description=" ".join((p.get("description") or "").split()),
-            repository=p.get("repository") or "")
+            repository=p.get("repository") or "", aliases=sorted(aliases))
     return crates
 
 
@@ -255,7 +262,8 @@ def _gn_string(value: str) -> str:
 
 def render_build_gn(crate: Crate, crates: dict[str, Crate], tree: Path, sources: list[str],
                     build_sources: list[str] | None = None,
-                    build_script_outputs: list[str] = (), rustflags: list[str] = ()) -> str:
+                    build_script_outputs: list[str] = (), rustflags: list[str] = (),
+                    inputs: list[str] = ()) -> str:
     deps = sorted(label(crates[n], tree) for n, k in crate.deps if k is None)
     build_deps = sorted(label(crates[n], tree) for n, k in crate.deps if k == "build")
     value, _ = epoch(crate.version)
@@ -271,7 +279,7 @@ def render_build_gn(crate: Crate, crates: dict[str, Crate], tree: Path, sources:
            f'  crate_type = "{"proc-macro" if crate.proc_macro else "rlib"}"\n',
            f'  crate_root = "crate/{crate.lib_root}"\n',
            _gn_list("sources", [f"crate/{s}" for s in sources]),
-           "  inputs = []\n",
+           _gn_list("inputs", [f"crate/{i}" for i in inputs]) or "  inputs = []\n",
            "  build_native_rust_unit_tests = false\n",
            f'  edition = "{crate.edition}"\n',
            f'  cargo_pkg_authors = "{_gn_string(", ".join(crate.authors))}"\n',
@@ -282,6 +290,11 @@ def render_build_gn(crate: Crate, crates: dict[str, Crate], tree: Path, sources:
            "  allow_unsafe = true\n",
            _gn_list("features", crate.features),
            _gn_list("deps", deps)]
+    if crate.aliases:
+        # A dependency renamed in Cargo.toml: rustc gets it under that name.
+        out += ["  aliased_deps = {\n",
+                *(f'    {alias} = "{label(crates[name], tree)}"\n' for alias, name in crate.aliases),
+                "  }\n"]
     if crate.build_script:
         out += ['  build_root = "crate/build.rs"\n',
                 _gn_list("build_sources", [f"crate/{s}" for s in
@@ -433,7 +446,8 @@ def vendor(src: Path) -> int:
             crate, crates, tree, rust_sources(dest / "crate"),
             build_sources=settings.get("build_sources"),
             build_script_outputs=settings.get("build_script_outputs", []),
-            rustflags=settings.get("rustflags", [])), encoding="utf-8", newline="\n")
+            rustflags=settings.get("rustflags", []),
+            inputs=settings.get("inputs", [])), encoding="utf-8", newline="\n")
         (dest / "README.chromium").write_text(
             readme(crate, dest / "crate", settings.get("license_files")), encoding="utf-8",
             newline="\n")
