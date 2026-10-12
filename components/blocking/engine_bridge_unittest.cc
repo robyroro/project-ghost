@@ -225,6 +225,14 @@ TEST(EngineBridgeTest, ARedirectToAResourceWeDontHaveJustBlocks) {
   EXPECT_TRUE(verdict.redirect.empty());
 }
 
+TEST(EngineBridgeTest, EveryScriptletTheListsUseResolvesExceptJsonEdit) {
+  for (const char* name : {"set", "acs", "aost", "rmnt", "no-xhr-if", "no-fetch-if",
+                           "set-local-storage-item", "set-cookie", "cookie-remover"}) {
+    rust::Box<Engine> engine = new_engine(std::string("a.test##+js(") + name + ", x, true)\n");
+    EXPECT_FALSE(Script(*engine, "https://a.test/").empty()) << name;
+  }
+}
+
 TEST(EngineBridgeTest, ShippedResourcesHaveNoProblem) {
   for (const rust::String& problem : resource_problems()) {
     ADD_FAILURE() << std::string(problem);

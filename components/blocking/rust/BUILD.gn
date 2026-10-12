@@ -16,7 +16,15 @@ rust_static_library("engine") {
   # Built in with include_bytes! (resources.rs).
   inputs = [
     "../resources/redirects/noop.js",
+    "../resources/scriptlets/abort-current-script.js",
+    "../resources/scriptlets/abort-on-stack-trace.js",
+    "../resources/scriptlets/cookie-remover.js",
+    "../resources/scriptlets/no-fetch-if.js",
+    "../resources/scriptlets/no-xhr-if.js",
+    "../resources/scriptlets/remove-node-text.js",
     "../resources/scriptlets/set-constant.js",
+    "../resources/scriptlets/set-cookie.js",
+    "../resources/scriptlets/set-local-storage-item.js",
     "../resources/scriptlets/shade-chain.js",
     "../resources/scriptlets/shade-safe.js",
     "../resources/scriptlets/shade-trap.js",

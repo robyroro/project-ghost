@@ -51,3 +51,10 @@ Phase 4B ([design](2026-10-12-scriptlets-procedural-design.md), [plan](../plans/
 
 - **Spike point 1, the order.** `WebLocalFrame::ExecuteScript` at `RunScriptsAtDocumentStart` runs the scriptlet before the page's first inline script, and a page whose CSP allows only a nonce'd script still gets it: `ScriptletsBrowserTest.TheFirstScriptAlreadySeesTheScriptlet` and `APageCspDoesntStopIt` pass, and 4A's 12 tests pass on the shared harness.
 - **Spike point 2, frames.** A frame its parent writes into with `document.open()` and `document.write()` gets the parent's scriptlet before the written script runs (`AFrameItsParentWritesTakesTheParentsScriptlets`). No limitation to document.
+
+## Task 6: the other scriptlets (2026-10-12)
+
+- **Errors are sanitized.** `WebLocalFrame::ExecuteScript` creates the script with `SanitizeScriptErrors::kSanitize`, so the window's error event for an exception a scriptlet throws reads "Script error.", without its message. A marker in the message can't keep it out of the console. `shadeSafe().abort()` sets a flag just before the throw, which the scriptlets' own error listener checks and clears; a microtask clears it too, for a page that catches the exception and so gets no event. The test log shows no console error from the scriptlets.
+- **Natives need their `this`.** `safe.setTimeout(...)` called the native as a method of the helpers object: "Illegal invocation". It calls `setTimeout` with `window` now.
+- **`set-cookie`'s reload is deferred.** Blink allows no navigation while `RunScriptsAtDocumentStart` runs, so `location.reload()` there does nothing; the scriptlet reloads from a zero-delay timer. The reload often cuts the first load short before its own scripts run (the test checks the navigation's type, `reload`, and that no second reload follows).
+- 17 scriptlet browser tests and 12 of 4A's pass; `EveryScriptletTheListsUseResolvesExceptJsonEdit` passes.

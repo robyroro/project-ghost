@@ -20,6 +20,11 @@ function shadeSafe() {
   const weakMapSet = WeakMap.prototype.set;
   const addEventListener = EventTarget.prototype.addEventListener;
   const promiseResolve = Promise.resolve;
+  const setTimeoutNative = setTimeout;
+  const queueMicrotaskNative = queueMicrotask;
+  // Set while an exception a scriptlet threw on purpose may be on its way to
+  // the window's error event (abort()).
+  let aborting = false;
   const natives = {
     apply,
     defineProperty: Object.defineProperty,
@@ -35,7 +40,6 @@ function shadeSafe() {
     Event,
     MutationObserver,
     HTMLScriptElement,
-    setTimeout,
     addEventListener,
     dispatchEvent: EventTarget.prototype.dispatchEvent,
     currentScript: getOwnPropertyDescriptor(Document.prototype, 'currentScript').get,
@@ -57,6 +61,11 @@ function shadeSafe() {
     },
     resolved(value) {
       return apply(promiseResolve, Promise, [value]);
+    },
+    // A native called as a method of this object would throw "Illegal
+    // invocation": it needs window as `this`.
+    setTimeout(callback, delay) {
+      return apply(setTimeoutNative, window, [callback, delay]);
     },
     // Whether a list's pattern is a regular expression: /source/flags.
     isRegExp(text) {
@@ -85,14 +94,26 @@ function shadeSafe() {
       }
       return undefined;
     },
-    // Keeps the exceptions a scriptlet throws on purpose (they carry
-    // `marker`) out of the console.
-    quiet(marker) {
-      apply(addEventListener, window, ['error', event => {
-        if (typeof event.message === 'string' && event.message.includes(marker)) {
-          event.preventDefault();
-        }
+    // The exception that stops a script (acs, aost), kept out of the console.
+    // Scriptlets run as a script Blink sanitizes errors for, so the window's
+    // error event reads "Script error." whatever was thrown: the flag tells
+    // ours apart. It is dispatched before the next microtask, so the flag
+    // lasts until then; a page that catches the exception gets no event.
+    abort() {
+      if (!natives.quieting) {
+        natives.quieting = true;
+        apply(addEventListener, window, ['error', event => {
+          if (aborting) {
+            aborting = false;
+            event.preventDefault();
+          }
+        }]);
+      }
+      aborting = true;
+      apply(queueMicrotaskNative, window, [() => {
+        aborting = false;
       }]);
+      return new natives.ReferenceError('Shade stopped this script');
     },
     // A request filter (no-xhr-if, no-fetch-if): `url:<pattern>`,
     // `method:<pattern>` or a bare pattern for the URL, separated by spaces;
