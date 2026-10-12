@@ -8,15 +8,17 @@
 function noFetchIf(props = '') {
   const safe = shadeSafe();
   const matches = safe.requestMatcher(props);
-  window.fetch = new safe.Proxy(window.fetch, {
+  const {Proxy, Request, Response, URL, Promise} = window;
+  const resolve = Promise.resolve;
+  window.fetch = new Proxy(window.fetch, {
     apply(fetch, self, args) {
       const input = args[0];
       const init = args[1];
       let request;
       try {
-        const isRequest = input instanceof safe.Request;
+        const isRequest = input instanceof Request;
         request = {
-          url: new safe.URL(isRequest ? input.url : String(input), document.baseURI).href,
+          url: new URL(isRequest ? input.url : String(input), document.baseURI).href,
           method: String((init && init.method) || (isRequest ? input.method : 'GET'))
                       .toUpperCase(),
         };
@@ -26,7 +28,7 @@ function noFetchIf(props = '') {
       if (!matches(request)) {
         return safe.apply(fetch, self, args);
       }
-      return safe.resolved(new safe.Response('', {status: 200, statusText: 'OK'}));
+      return safe.apply(resolve, Promise, [new Response('', {status: 200, statusText: 'OK'})]);
     },
   });
 }

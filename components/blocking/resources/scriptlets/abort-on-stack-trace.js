@@ -11,7 +11,8 @@
 function abortOnStackTrace(chain = '', needle = '') {
   const safe = shadeSafe();
   const re = safe.pattern(needle);
-  const page = safe.documentUrl.split('#')[0];
+  const page = document.URL.split('#')[0];
+  safe.quiet();
   const frame = /^\s*at (?:(.*?) \()?(.*?)(?::\d+:\d+)?\)?$/;
   const stackOf = () => {
     // The page may have changed how stacks are made.

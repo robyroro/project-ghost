@@ -10,14 +10,15 @@ function removeNodeText(nodeName = '', needle = '') {
   if (!nodeName || !needle) {
     return;
   }
+  const text = safe.getOwnPropertyDescriptor(Node.prototype, 'textContent');
   const wanted = nodeName === '#text' ? '#text' : nodeName.toUpperCase();
   const re = safe.pattern(needle);
   const empty = node => {
-    if (safe.test(re, safe.apply(safe.textContent.get, node, []))) {
-      safe.apply(safe.textContent.set, node, ['']);
+    if (safe.test(re, safe.apply(text.get, node, []))) {
+      safe.apply(text.set, node, ['']);
     }
   };
-  new safe.MutationObserver(records => {
+  new MutationObserver(records => {
     for (let i = 0; i < records.length; i++) {
       const added = records[i].addedNodes;
       for (let j = 0; j < added.length; j++) {

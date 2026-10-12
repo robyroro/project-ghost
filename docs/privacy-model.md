@@ -64,7 +64,7 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - Checks happen in the browser process; nothing about them leaves the machine.
 - **Hiding page elements (Phase 4A).** The lists' cosmetic rules hide what they mark as ads in every frame of a page, at Standard and Strict alike; Off hides nothing. A frame gets its own document's rules (a cross-site ad frame, its site's), at its page's level.
   - **Site-specific rules** (`example.com##.ad`) and the generic rules too complex to look up by class or id are in place before the page is parsed: the page's own scripts never see those elements shown.
-  - **Generic rules** (`##.ad-banner`, the bulk of EasyList) are matched against the class and id names the page actually uses, which a small script of ours reports as elements appear. An element a page adds by script can show for a moment, until its names' answer arrives.
+  - **Generic rules** (`##.ad-banner`, the bulk of EasyList) are matched against the class and id names the page actually uses, which Shade reads as elements appear (a small script of ours reports what changed). An element a page adds by script can show for a moment, until its names' answer arrives.
   - The page can't see or undo the hiding: the rules are a user style sheet, which `document.styleSheets` doesn't list and the page's own `!important` styles don't override, and our script runs in a world of its own, which the page's scripts can't reach. A page's Content Security Policy doesn't stop it.
   - The lists' exceptions are honored: `#@#` and `$generichide`. EasyList exempts `localhost` and private addresses from generic rules.
   - Hidden elements aren't counted on the shield.

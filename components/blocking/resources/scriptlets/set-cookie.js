@@ -19,8 +19,9 @@ function setCookie(name = '', value = '', path = '', ...options) {
       !(path === '' || path === 'none' || safe.test(/^\/[^;\s]*$/, path))) {
     return;
   }
+  const cookie = safe.getOwnPropertyDescriptor(Document.prototype, 'cookie');
   const read = () => {
-    const cookies = safe.apply(safe.cookie.get, document, []).split(';');
+    const cookies = safe.apply(cookie.get, document, []).split(';');
     for (let i = 0; i < cookies.length; i++) {
       const pair = cookies[i].trim();
       const eq = pair.indexOf('=');
@@ -34,7 +35,7 @@ function setCookie(name = '', value = '', path = '', ...options) {
     return;
   }
   const where = path === 'none' ? '' : `; path=${path || '/'}`;
-  safe.apply(safe.cookie.set, document, [`${name}=${value}${where}`]);
+  safe.apply(cookie.set, document, [`${name}=${value}${where}`]);
   let reload = false;
   for (let i = 0; i + 1 < options.length; i += 2) {
     if (options[i] === 'reload' && options[i + 1] === '1') {

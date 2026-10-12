@@ -4,12 +4,14 @@
 
 #include "ghost/renderer/cosmetic_filters/cosmetic_filters_agent.h"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
@@ -102,6 +104,10 @@ void CosmeticFiltersAgent::DidCreateNewDocument() {
   scriptlet_ran_ = false;
   scanning_ = false;
   procedural_started_ = false;
+  seen_classes_.clear();
+  seen_ids_.clear();
+  classes_.clear();
+  ids_.clear();
   current_ = next_ ? std::exchange(next_, std::nullopt) : InheritedRules();
 }
 
@@ -124,8 +130,8 @@ void CosmeticFiltersAgent::DidCreateScriptContext(v8::Local<v8::Context> context
         .Check();
   };
   const base::WeakPtr<CosmeticFiltersAgent> agent = document_weak_factory_.GetWeakPtr();
-  add("report", gin::CreateFunctionTemplate(
-                    isolate, base::BindRepeating(&CosmeticFiltersAgent::Report, agent)));
+  add("scan", gin::CreateFunctionTemplate(
+                  isolate, base::BindRepeating(&CosmeticFiltersAgent::Scan, agent)));
   add("filters", gin::CreateFunctionTemplate(
                      isolate, base::BindRepeating(&CosmeticFiltersAgent::Filters, agent)));
   add("hide", gin::CreateFunctionTemplate(
@@ -229,25 +235,86 @@ void CosmeticFiltersAgent::Style(const std::string& attribute, const std::string
   }
 }
 
-void CosmeticFiltersAgent::Report(gin::Arguments* arguments) {
-  std::vector<std::string> classes;
-  std::vector<std::string> ids;
-  if (!arguments->GetNext(&classes) || !arguments->GetNext(&ids)) {
+void CosmeticFiltersAgent::Scan(gin::Arguments* arguments) {
+  v8::LocalVector<v8::Value> subtrees(arguments->isolate());
+  v8::LocalVector<v8::Value> elements(arguments->isolate());
+  if (!arguments->GetNext(&subtrees) || !arguments->GetNext(&elements)) {
     return;
   }
+  for (v8::Local<v8::Value> value : subtrees) {
+    blink::WebElement root = blink::WebElement::FromV8Value(arguments->isolate(), value);
+    if (!root.IsNull()) {
+      CollectSubtree(root);
+    }
+  }
+  for (v8::Local<v8::Value> value : elements) {
+    blink::WebElement element = blink::WebElement::FromV8Value(arguments->isolate(), value);
+    if (!element.IsNull()) {
+      Collect(element);
+    }
+  }
+  SendNames();
+}
+
+void CosmeticFiltersAgent::Collect(const blink::WebElement& element) {
   // The browser ends a renderer that sends names outside the limits; a page
-  // may use odd names, so they're dropped here. The scanner keeps to the count.
-  std::erase_if(classes, [](const std::string& name) { return !IsValidName(name); });
-  std::erase_if(ids, [](const std::string& name) { return !IsValidName(name); });
-  if ((classes.empty() && ids.empty()) || !AreValidNames(classes, ids)) {
-    return;
+  // may use odd names, so they're dropped here.
+  std::string id = element.GetIdAttribute().Utf8();
+  if (!id.empty() && !seen_ids_.contains(id) && IsValidName(id)) {
+    seen_ids_.insert(id);
+    ids_.push_back(std::move(id));
   }
-  if (!host_.is_bound()) {
-    render_frame()->GetBrowserInterfaceBroker().GetInterface(host_.BindNewPipeAndPassReceiver());
+  const std::string names = element.GetAttribute(class_attribute_).Utf8();
+  // Split on HTML's whitespace without building a vector per element.
+  std::string_view rest(names);
+  while (!rest.empty()) {
+    const size_t start = rest.find_first_not_of(base::kWhitespaceASCII);
+    if (start == std::string_view::npos) {
+      break;
+    }
+    rest.remove_prefix(start);
+    const size_t end = std::min(rest.find_first_of(base::kWhitespaceASCII), rest.size());
+    const std::string_view name = rest.substr(0, end);
+    rest.remove_prefix(end);
+    if (!seen_classes_.contains(name) && IsValidName(name)) {
+      seen_classes_.emplace(name);
+      classes_.emplace_back(name);
+    }
   }
-  host_->GetGenericStyleSheet(classes, ids,
-                              base::BindOnce(&CosmeticFiltersAgent::Insert,
-                                             document_weak_factory_.GetWeakPtr()));
+}
+
+// The element and its descendants that have a class or an id. One query
+// rather than a walk: each WebNode holds a persistent handle, and a walk
+// makes several per node, text nodes included.
+void CosmeticFiltersAgent::CollectSubtree(const blink::WebElement& root) {
+  Collect(root);
+  for (const blink::WebElement& element : root.QuerySelectorAll(named_elements_)) {
+    Collect(element);
+  }
+}
+
+void CosmeticFiltersAgent::SendNames() {
+  size_t next_class = 0;
+  size_t next_id = 0;
+  while (next_class < classes_.size() || next_id < ids_.size()) {
+    std::vector<std::string> classes;
+    std::vector<std::string> ids;
+    while (next_class < classes_.size() && classes.size() < kMaxNamesPerCall) {
+      classes.push_back(std::move(classes_[next_class++]));
+    }
+    while (next_id < ids_.size() && classes.size() + ids.size() < kMaxNamesPerCall) {
+      ids.push_back(std::move(ids_[next_id++]));
+    }
+    if (!host_.is_bound()) {
+      render_frame()->GetBrowserInterfaceBroker().GetInterface(
+          host_.BindNewPipeAndPassReceiver());
+    }
+    host_->GetGenericStyleSheet(classes, ids,
+                                base::BindOnce(&CosmeticFiltersAgent::Insert,
+                                               document_weak_factory_.GetWeakPtr()));
+  }
+  classes_.clear();
+  ids_.clear();
 }
 
 void CosmeticFiltersAgent::Insert(const std::string& style_sheet) {

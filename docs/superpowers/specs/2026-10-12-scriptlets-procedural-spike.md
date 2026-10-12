@@ -127,3 +127,19 @@ Phase 4B ([design](2026-10-12-scriptlets-procedural-design.md), [plan](../plans/
   - **Procedural rules:** openalternative.co less cosmetic.test, about 0.3 ms: within the 5 ms budget.
   - **Scriptlets:** the spec's measure, what cosmetic filtering adds to a small page on the site with the most scriptlets, is 1.9 ms against a 1 ms budget: **missed**. Less cosmetic.test's cost on the same page (the style sheet and the scanner), the scriptlets alone take about 1.0 ms: about 10 KB of script compiled for each document (four scriptlets and their helpers), and `remove-node-text`'s observer while the page is parsed.
   - **4A's scanner,** measured in an official build for the first time: 14.3 ms on `heavy.html`, against 4A's 5 ms budget: **missed**. 4A's estimate (5–6 ms) divided the dev build's 111.5 ms by a 19 times speed-up measured on other page script; the scanner gains less.
+
+## Optimization (2026-10-12, the user's choice: optimize before the push)
+
+Profiled with DevTools' sampling profiler (50 µs) in the official build, and timed variants in an isolated world created over DevTools.
+
+- **The scanner.** Reading names from script costs a wrapper per element in the isolated world: for `heavy.html`'s 5,000 elements, iterating alone took 2.2 ms and two `getAttribute` calls 3.6 ms more, so no script-side variant could reach 5 ms. The same code in the page's world took 5.2 ms.
+  - **Now:** `scanner.js` only reports what changed: the subtrees added (a record that adds more than 8 nodes, by its target) and the elements whose class or id changed. The agent reads the names in C++.
+  - **The first C++ form walked the subtree** with `WebNode` (`FirstChild`, `NextSibling`) and cost as much as the script did. Each `WebNode` holds a persistent handle, and the walk made several per node, text nodes included. One `QuerySelectorAll("[id],[class]")` from the subtree's root replaced the walk.
+  - **Reading the names was the rest:** 3.8 ms of the 4.3 ms, with sending 0.5 ms, timed by switching parts off in a temporary build. `absl::flat_hash_set` for the names already sent, a split on whitespace without a vector per element, and a look-up before each copy brought the gin call from 4.3 to 2.25 ms.
+  - **Result** (`scanner_cost.py`, cosmetic.test, `heavy.html`, four runs of nine loads): **3.7–4.3 ms** of script, median about 4.1 ms, **within the 5 ms budget** (14.3 ms before).
+- **The scriptlets.** `shadeSafe` took interfaces at the start (Response, Request, URL, MutationObserver, HTMLScriptElement, the Document and Node descriptors). Touching an interface makes Blink install it, on every page with a scriptlet. It now takes only what most scriptlets share; each scriptlet takes its own natives at its own start, still before the page's scripts. The profile's `shadeSafe` fell from 0.58 to 0.05 ms.
+  - The four scriptlets of oregonlive.com still take about 1.1 ms: `light.html` costs 2.0–2.1 ms there against 1.0 ms on cosmetic.test.
+  - Their two `acs` install `HTMLScriptElement`, and their traps redefine `document.createElement`, `document.getElementsByTagName`, `admiral` and `decodeURI`.
+- **Procedural rules** (openalternative.co less cosmetic.test, `heavy.html`): about 0.5 ms, within 5 ms.
+- **The spec's scriptlet budget** ("what cosmetic filtering adds to a small page on the site with the most scriptlets, under 1 ms") can't hold as written: 4A alone, its style sheet and scanner on `light.html` at cosmetic.test, costs 1.0 ms. Reported to the user.
+- Tests after the change: 137 unit, 36 cosmetic browser tests pass.

@@ -56,6 +56,7 @@ source_set("cosmetic_filters") {
     "//chrome/common",
     "//ghost/components/cosmetic_filters",
     "//gin",
+    "//third_party/abseil-cpp:absl",
     "//third_party/blink/public:blink",
     "//url",
     "//v8",

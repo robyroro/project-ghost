@@ -11,6 +11,7 @@ function cookieRemover(needle = '') {
   if (!needle) {
     return;
   }
+  const cookie = safe.getOwnPropertyDescriptor(Document.prototype, 'cookie');
   const re = safe.pattern(needle);
   const remove = () => {
     const labels = location.hostname.split('.');
@@ -19,7 +20,7 @@ function cookieRemover(needle = '') {
       domains.push(`; domain=${labels.slice(i).join('.')}`);
     }
     const paths = ['/', location.pathname];
-    const cookies = safe.apply(safe.cookie.get, document, []).split(';');
+    const cookies = safe.apply(cookie.get, document, []).split(';');
     for (let i = 0; i < cookies.length; i++) {
       const pair = cookies[i].trim();
       const eq = pair.indexOf('=');
@@ -29,7 +30,7 @@ function cookieRemover(needle = '') {
       }
       for (const domain of domains) {
         for (const path of paths) {
-          safe.apply(safe.cookie.set, document,
+          safe.apply(cookie.set, document,
                      [`${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}${domain}`]);
         }
       }

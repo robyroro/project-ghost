@@ -2,67 +2,37 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Shade's cosmetic filtering: reports the class and id names of this
-// document's elements to the browser, which answers with the generic hiding
+// Shade's cosmetic filtering: tells the agent which parts of this document
+// changed. The agent reads their class and id names in C++, without a
+// script touching each element (in an isolated world every element touched
+// costs a wrapper of its own), and asks the browser for the generic hiding
 // rules they match. Runs in an isolated world of its own
 // (CosmeticFiltersAgent), so the page's scripts can't see or change it.
 (() => {
-  // //ghost/components/cosmetic_filters/names.h: the browser ends a renderer
-  // that sends more.
-  const MAX_NAMES = 1000;
   // After the first batch, at most one batch in this time.
   const INTERVAL_MS = 100;
+  // A record that adds more nodes than this is scanned from its target (one
+  // node for the agent) rather than node by node.
+  const MAX_ADDED = 8;
 
-  const report = shadeCosmeticFilters.report;
-  const seenClasses = new Set();
-  const seenIds = new Set();
-  let classes = [];
-  let ids = [];
+  const scan = shadeCosmeticFilters.scan;
+  // Subtrees to scan, and elements whose own class or id changed.
+  let subtrees = new Set();
+  let elements = new Set();
   let timer = 0;
   let sentFirst = false;
 
-  // Attributes, not element.id and classList: no DOMTokenList wrapper per
-  // element in this world, and SVG elements answer the same way.
-  function add(element) {
-    const id = element.getAttribute('id');
-    if (id && !seenIds.has(id)) {
-      seenIds.add(id);
-      ids.push(id);
-    }
-    const names = element.getAttribute('class');
-    if (names) {
-      for (const name of names.split(/\s+/)) {
-        if (name && !seenClasses.has(name)) {
-          seenClasses.add(name);
-          classes.push(name);
-        }
-      }
-    }
-  }
-
-  function visit(node) {
-    if (node.nodeType !== Node.ELEMENT_NODE) {
-      return;
-    }
-    add(node);
-    if (node.firstElementChild) {
-      for (const element of node.querySelectorAll('[id],[class]')) {
-        add(element);
-      }
-    }
-  }
-
   function flush() {
     timer = 0;
-    while (classes.length || ids.length) {
-      const someClasses = classes.splice(0, MAX_NAMES);
-      const someIds = ids.splice(0, MAX_NAMES - someClasses.length);
-      report(someClasses, someIds);
-    }
+    const someSubtrees = [...subtrees];
+    const someElements = [...elements];
+    subtrees = new Set();
+    elements = new Set();
+    scan(someSubtrees, someElements);
   }
 
   function schedule() {
-    if (!classes.length && !ids.length) {
+    if (!subtrees.size && !elements.size) {
       return;
     }
     if (!sentFirst) {
@@ -76,9 +46,18 @@
   new MutationObserver(records => {
     for (const record of records) {
       if (record.type === 'attributes') {
-        add(record.target);
-      } else {
-        record.addedNodes.forEach(visit);
+        elements.add(record.target);
+        continue;
+      }
+      const added = record.addedNodes;
+      if (added.length > MAX_ADDED) {
+        subtrees.add(record.target);
+        continue;
+      }
+      for (let i = 0; i < added.length; i++) {
+        if (added[i].nodeType === Node.ELEMENT_NODE) {
+          subtrees.add(added[i]);
+        }
       }
     }
     schedule();
@@ -90,7 +69,7 @@
   });
 
   if (document.documentElement) {
-    visit(document.documentElement);
+    subtrees.add(document.documentElement);
     schedule();
   }
 })();

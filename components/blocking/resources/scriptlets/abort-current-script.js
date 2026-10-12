@@ -9,15 +9,18 @@
 // see the property as before.
 function abortCurrentScript(chain = '', needle = '') {
   const safe = shadeSafe();
+  const currentScript = safe.getOwnPropertyDescriptor(Document.prototype, 'currentScript').get;
+  const ScriptElement = HTMLScriptElement;
+  const src = safe.getOwnPropertyDescriptor(ScriptElement.prototype, 'src').get;
+  const text = safe.getOwnPropertyDescriptor(Node.prototype, 'textContent').get;
   const re = safe.pattern(needle);
+  safe.quiet();
   shadeTrap(chain, () => {
-    const script = safe.apply(safe.currentScript, document, []);
-    if (!(script instanceof safe.HTMLScriptElement)) {
+    const script = safe.apply(currentScript, document, []);
+    if (!(script instanceof ScriptElement)) {
       return;
     }
-    const text = safe.apply(safe.scriptSrc, script, []) ||
-                 safe.apply(safe.textContent.get, script, []);
-    if (safe.test(re, text)) {
+    if (safe.test(re, safe.apply(src, script, []) || safe.apply(text, script, []))) {
       throw safe.abort();
     }
   });

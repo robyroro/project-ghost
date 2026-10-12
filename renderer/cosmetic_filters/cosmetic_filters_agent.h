@@ -16,6 +16,10 @@
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
+#include "third_party/blink/public/platform/web_string.h"
+#include "third_party/blink/public/web/web_element.h"
+
 
 namespace gin {
 class Arguments;
@@ -27,9 +31,10 @@ namespace ghost::cosmetic_filters {
 // browser sends for each document as a user-origin style sheet, runs the
 // site's scriptlets in the page's own world before its scripts, and runs, in
 // an isolated world of its own, the scanner (scanner.js), which reports the
-// document's class and id names (the browser answers with the generic rules
-// they match), and the procedural rules' executor (procedural.js). Owns
-// itself; deleted with its frame.
+// parts of the document that changed (the agent reads their class and id
+// names and the browser answers with the generic rules they match), and the
+// procedural rules' executor (procedural.js). Owns itself; deleted with its
+// frame.
 class CosmeticFiltersAgent
     : public content::RenderFrameObserver,
       public content::RenderFrameObserverTracker<CosmeticFiltersAgent>,
@@ -73,8 +78,13 @@ class CosmeticFiltersAgent
   void RunScriptlet();
   void StartScanner();
   void StartProcedural();
-  // From the scanner: report(classes, ids).
-  void Report(gin::Arguments* arguments);
+  // From the scanner: scan(subtrees, elements), the subtrees added and the
+  // elements whose class or id changed. Their new names go to the browser in
+  // batches within the host's limits.
+  void Scan(gin::Arguments* arguments);
+  void Collect(const blink::WebElement& element);
+  void CollectSubtree(const blink::WebElement& root);
+  void SendNames();
   // From procedural.js: filters() returns the document's procedural rules;
   // hide(attribute) and style(attribute, declarations) insert a rule for
   // the elements it marks.
@@ -89,6 +99,14 @@ class CosmeticFiltersAgent
   bool scriptlet_ran_ = false;
   bool scanning_ = false;
   bool procedural_started_ = false;
+  // The document's names already sent, and those waiting to be.
+  absl::flat_hash_set<std::string> seen_classes_;
+  absl::flat_hash_set<std::string> seen_ids_;
+  std::vector<std::string> classes_;
+  std::vector<std::string> ids_;
+  // Made once: Collect() asks every element for it.
+  const blink::WebString class_attribute_ = blink::WebString::FromUtf8("class");
+  const blink::WebString named_elements_ = blink::WebString::FromUtf8("[id],[class]");
   mojo::AssociatedReceiver<mojom::CosmeticFiltersAgent> receiver_{this};
   mojo::Remote<mojom::CosmeticFiltersHost> host_;
   // Invalidated at each new document, so no answer reaches the wrong one.

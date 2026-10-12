@@ -8,21 +8,25 @@
 function noXhrIf(props = '') {
   const safe = shadeSafe();
   const matches = safe.requestMatcher(props);
+  const {Proxy, URL, Event} = window;
+  const dispatchEvent = EventTarget.prototype.dispatchEvent;
+  const weakMapGet = WeakMap.prototype.get;
+  const weakMapSet = WeakMap.prototype.set;
   const requests = new WeakMap();
   const proto = XMLHttpRequest.prototype;
-  proto.open = new safe.Proxy(proto.open, {
+  proto.open = new Proxy(proto.open, {
     apply(open, xhr, args) {
       let url = '';
       try {
-        url = new safe.URL(String(args[1]), document.baseURI).href;
+        url = new URL(String(args[1]), document.baseURI).href;
       } catch {}
-      safe.weakMapSet(requests, xhr, {method: String(args[0]).toUpperCase(), url});
+      safe.apply(weakMapSet, requests, [xhr, {method: String(args[0]).toUpperCase(), url}]);
       return safe.apply(open, xhr, args);
     },
   });
-  proto.send = new safe.Proxy(proto.send, {
+  proto.send = new Proxy(proto.send, {
     apply(send, xhr, args) {
-      const request = safe.weakMapGet(requests, xhr);
+      const request = safe.apply(weakMapGet, requests, [xhr]);
       if (!request || !matches(request)) {
         return safe.apply(send, xhr, args);
       }
@@ -44,7 +48,7 @@ function noXhrIf(props = '') {
       }
       safe.setTimeout(() => {
         for (const event of ['readystatechange', 'load', 'loadend']) {
-          safe.apply(safe.dispatchEvent, xhr, [new safe.Event(event)]);
+          safe.apply(dispatchEvent, xhr, [new Event(event)]);
         }
       }, 0);
       return undefined;
