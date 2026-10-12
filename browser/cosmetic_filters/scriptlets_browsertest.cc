@@ -5,6 +5,7 @@
 // Scriptlets through the browser, the renderer and the engine, with a test
 // list (Phase 4B).
 
+#include <optional>
 #include <string>
 
 #include "chrome/browser/profiles/profile.h"
@@ -14,6 +15,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "ghost/browser/cosmetic_filters/cosmetic_filters_test_base.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
+#include "net/test/embedded_test_server/http_request.h"
 
 namespace ghost::cosmetic_filters {
 namespace {
@@ -25,7 +27,8 @@ class ScriptletsBrowserTest : public CosmeticFiltersTestBase {
            "a.test##+js(set, shade.nested.value, true)\n"
            "off.test##+js(set, shadeValue, noopFunc)\n"
            "except.test##+js(set, shadeValue, noopFunc)\n"
-           "except.test#@#+js()\n";
+           "except.test#@#+js()\n"
+           "gpc.test##+js(set, navigator.globalPrivacyControl, false)\n";
   }
 
   void AddPages() override {
@@ -85,6 +88,18 @@ IN_PROC_BROWSER_TEST_F(ScriptletsBrowserTest, AnExceptionTurnsThemOff) {
 IN_PROC_BROWSER_TEST_F(ScriptletsBrowserTest, AFrameItsParentWritesTakesTheParentsScriptlets) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test", "/written.html")));
   EXPECT_EQ(content::EvalJs(Tab(), "window.childSeen"), "function");
+}
+
+// EasyPrivacy's GPC rules (the user's choice, 2026-10-12): the page sees
+// false, the server still gets the signal.
+IN_PROC_BROWSER_TEST_F(ScriptletsBrowserTest, AGpcRuleLeavesTheHeader) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("gpc.test", "/first.html")));
+  EXPECT_EQ(content::EvalJs(Tab(), "navigator.globalPrivacyControl"), false);
+  std::optional<net::test_server::HttpRequest::HeaderMap> headers =
+      LastRequestHeaders("/first.html");
+  ASSERT_TRUE(headers);
+  ASSERT_TRUE(headers->contains("Sec-GPC"));
+  EXPECT_EQ(headers->at("Sec-GPC"), "1");
 }
 
 }  // namespace
