@@ -20,6 +20,8 @@ source_set("blocking") {
   sources = [
     "blocking_engine.cc",
     "blocking_engine.h",
+    "dns_aliases.cc",
+    "dns_aliases.h",
     "filter_lists.cc",
     "filter_lists.h",
     "request_types.cc",
@@ -31,7 +33,10 @@ source_set("blocking") {
     "//services/network/public/mojom:mojom_shared",
     "//url",
   ]
-  deps = [ "//ghost/components/blocking/rust:engine" ]
+  deps = [
+    "//ghost/components/blocking/rust:engine",
+    "//ghost/components/site",
+  ]
   data_deps = [ ":filter_lists" ]
 }
 
@@ -50,6 +55,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "blocking_engine_unittest.cc",
+    "dns_aliases_unittest.cc",
     "engine_bridge_unittest.cc",
     "filter_lists_unittest.cc",
     "registrable_domain_unittest.cc",
