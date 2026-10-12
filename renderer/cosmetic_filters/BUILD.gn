@@ -1,0 +1,44 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# The renderer half of cosmetic filtering. Linked into //chrome/renderer
+# (patches/0041), whose content renderer client creates the agent.
+
+# scanner.js in the binary: no grd, no pak.
+action("scanner_script") {
+  script = "//ghost/tools/embed_text.py"
+  inputs = [ "scanner.js" ]
+  outputs = [ "$target_gen_dir/scanner_script.h" ]
+  args = [
+    "--input",
+    rebase_path(inputs[0], root_build_dir),
+    "--output",
+    rebase_path(outputs[0], root_build_dir),
+    "--namespace",
+    "ghost::cosmetic_filters",
+    "--name",
+    "kScannerScript",
+  ]
+}
+
+source_set("cosmetic_filters") {
+  sources = [
+    "cosmetic_filters_agent.cc",
+    "cosmetic_filters_agent.h",
+  ]
+  public_deps = [
+    "//content/public/renderer",
+    "//ghost/common:mojom",
+    "//mojo/public/cpp/bindings",
+  ]
+  deps = [
+    ":scanner_script",
+    "//base",
+    "//chrome/common",
+    "//gin",
+    "//third_party/blink/public:blink",
+    "//url",
+    "//v8",
+  ]
+}

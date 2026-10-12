@@ -93,6 +93,7 @@ test("ghost_browsertests") {
   sources = [
     "browser/blocking/connection_filter_browsertest.cc",
     "browser/blocking/request_filter_browsertest.cc",
+    "browser/cosmetic_filters/cosmetic_filters_browsertest.cc",
     "browser/query_filter/query_filter_browsertest.cc",
     "browser/features/feature_overrides_browsertest.cc",
     "browser/privacy_policy/protection_levels_browsertest.cc",
@@ -142,6 +143,7 @@ test("ghost_browsertests") {
     "//components/search_engines",
     "//content/test:test_support",
     "//ghost/browser/blocking",
+    "//ghost/browser/cosmetic_filters",
     "//ghost/browser/features",
     "//ghost/browser/privacy_policy",
     "//ghost/browser/protections",

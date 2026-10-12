@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Mon, 12 Oct 2026 06:58:02 +0300
+Subject: [PATCH] chrome_content_browser_client: Shade's cosmetic filters'
+ throttle and host
+
+Shade's cosmetic filtering (//ghost/browser/cosmetic_filters) needs a
+navigation throttle, which prepares a document's hiding rules before its
+commit, and a per-document Mojo host, which answers the renderer's scanner.
+CreateThrottlesForNavigation adds the throttle last, so a navigation
+another throttle cancels costs no engine query; PopulateChromeFrameBinders
+binds the host.
+
+Why: navigation throttles and frame binders are registered in Chromium's
+lists only.
+Upstream: not upstreamable: product-specific
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index 7f6a45f41d29ca53c2eff211e58ab04e0422b14a..2620a5f3639fcf6d7bb453ff4ac0d5ba7f153f79 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1239,6 +1239,7 @@ source_set("core") {
+     "//device/base",
+     "//device/gamepad/public/cpp:switches",
+     "//ghost/browser/blocking",
++    "//ghost/browser/cosmetic_filters",
+     "//ghost/browser/query_filter",
+     "//ghost/browser/startup",
+     "//media/capture:capture_switches",
+diff --git a/chrome/browser/chrome_browser_interface_binders.cc b/chrome/browser/chrome_browser_interface_binders.cc
+index 3720ed1eedb4db9e28205f3bbeac090c1d33f10f..ff17f580cbc595e858d9e5dfdaaa49952fb00157 100644
+--- a/chrome/browser/chrome_browser_interface_binders.cc
++++ b/chrome/browser/chrome_browser_interface_binders.cc
+@@ -59,6 +59,8 @@
+ #include "content/public/browser/render_process_host.h"
+ #include "content/public/common/content_features.h"
+ #include "content/public/common/url_constants.h"
++#include "ghost/browser/cosmetic_filters/cosmetic_filters_host.h"
++#include "ghost/common/cosmetic_filters.mojom.h"
+ #include "mojo/public/cpp/bindings/binder_map.h"
+ #include "mojo/public/cpp/bindings/pending_receiver.h"
+ #include "mojo/public/cpp/bindings/self_owned_receiver.h"
+@@ -453,6 +455,10 @@ void PopulateChromeFrameBinders(
+     content::RenderFrameHost* render_frame_host) {
+   map->Add<image_annotation::mojom::Annotator>(&BindImageAnnotator);
+ 
++  // Shade: cosmetic filtering's per-document host.
++  map->Add<ghost::mojom::CosmeticFiltersHost>(
++      &ghost::cosmetic_filters::CosmeticFiltersHost::Create);
++
+   map->Add<blink::mojom::ScriptToolHost>(
+       &actor::ActorScriptToolReceiver::Create);
+ 
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index be892eb96ef34dbb57b6b986a84b11f2074e4846..1086c4e12bcee170bbd291fa62cca52264824f12 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -387,6 +387,7 @@
+ #include "extensions/common/switches.h"
+ #include "ghost/browser/blocking/connection_filter.h"
+ #include "ghost/browser/blocking/request_filter.h"
++#include "ghost/browser/cosmetic_filters/cosmetic_filters_throttle.h"
+ #include "ghost/browser/query_filter/query_filter_throttle.h"
+ #include "google_apis/gaia/gaia_urls.h"
+ #include "google_apis/google_api_keys.h"
+@@ -5614,6 +5615,9 @@ void ChromeContentBrowserClient::RemovePresentationObserver(
+ void ChromeContentBrowserClient::CreateThrottlesForNavigation(
+     content::NavigationThrottleRegistry& registry) {
+   CreateAndAddChromeThrottlesForNavigation(registry);
++  // Shade: cosmetic filtering's rules, last, so a navigation another
++  // throttle cancels costs no engine query.
++  ghost::cosmetic_filters::CosmeticFiltersThrottle::MaybeCreateAndAdd(registry);
+ }
+ 
+ std::vector<std::unique_ptr<content::CommitDeferringCondition>>

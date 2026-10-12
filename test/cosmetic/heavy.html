@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+<meta charset="utf-8">
+<title>5,000 elements</title>
+<body>
+<script>
+  // What a heavy page gives the scanner at once: 5,000 elements with 1,007
+  // distinct classes and 5,000 ids.
+  let html = '';
+  for (let i = 0; i < 5000; ++i) {
+    html += `<div class="c${i % 1000} d${i % 7}" id="e${i}">x</div>`;
+  }
+  document.body.innerHTML = html;
+</script>
+</body>

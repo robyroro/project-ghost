@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: robyroro <41092915+robyroro@users.noreply.github.com>
+Date: Mon, 12 Oct 2026 06:57:59 +0300
+Subject: [PATCH] chrome_content_renderer_client: Shade's cosmetic filters in
+ every frame
+
+Shade hides what the filter lists mark (//ghost/renderer/cosmetic_filters).
+Each frame gets a CosmeticFiltersAgent, a RenderFrameObserver created in
+RenderFrameCreated, and the agent's scanner starts from
+RunScriptsAtDocumentStart: Blink forbids scripts in DidCreateDocumentElement
+(FrameLoader::DispatchDocumentElementAvailable's ScriptForbiddenScope), and
+document start is where extensions' document_start scripts run too, before
+anything is parsed. The scanner runs in an isolated world of its own, a new
+id before the extensions' range (mirrored in ChromeIsolatedWorldIds.java,
+whose UNUSED_MAC and UNUSED_EXTENSIONS values move up by one).
+
+Why: renderer frames and document start are reached through Chromium's
+content renderer client only.
+Upstream: not upstreamable: product-specific
+
+Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
+
+diff --git a/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java b/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java
+index 89348f22188c7c8f20b302b32a0e5c67dca22ad8..f562f2bf2afb4c8c31d2d01292313618e183e6d1 100644
+--- a/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java
++++ b/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java
+@@ -23,6 +23,7 @@ import java.lang.annotation.RetentionPolicy;
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_TRANSLATE,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_INDIGO,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_CHROME_INTERNAL,
++    ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_SHADE_COSMETIC_FILTERS,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_UNUSED_MAC,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_UNUSED_EXTENSIONS
+ })
+@@ -32,7 +33,9 @@ public @interface ChromeIsolatedWorldIds {
+     int ISOLATED_WORLD_ID_TRANSLATE = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 1;
+     int ISOLATED_WORLD_ID_INDIGO = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 2;
+     int ISOLATED_WORLD_ID_CHROME_INTERNAL = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 3;
+-    int ISOLATED_WORLD_UNUSED_MAC = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 4;
+-    int ISOLATED_WORLD_ID_UNUSED_EXTENSIONS = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 5;
++    int ISOLATED_WORLD_ID_SHADE_COSMETIC_FILTERS =
++            IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 4;
++    int ISOLATED_WORLD_UNUSED_MAC = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 5;
++    int ISOLATED_WORLD_ID_UNUSED_EXTENSIONS = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 6;
+ }
+ // LINT.ThenChange(//chrome/common/chrome_isolated_world_ids.h)
+diff --git a/chrome/common/chrome_isolated_world_ids.h b/chrome/common/chrome_isolated_world_ids.h
+index 846e4777c4d2e983078ad629621a3eb3acf780e4..09608d608f7e789aac923c8964cef8ddb6cd3104 100644
+--- a/chrome/common/chrome_isolated_world_ids.h
++++ b/chrome/common/chrome_isolated_world_ids.h
+@@ -19,6 +19,10 @@ enum ChromeIsolatedWorldIDs {
+   // Isolated world ID for internal Chrome features.
+   ISOLATED_WORLD_ID_CHROME_INTERNAL,
+ 
++  // Isolated world ID for Shade's cosmetic filtering
++  // (//ghost/renderer/cosmetic_filters).
++  ISOLATED_WORLD_ID_SHADE_COSMETIC_FILTERS,
++
+ #if BUILDFLAG(IS_MAC)
+   // Isolated world ID for AppleScript.
+   ISOLATED_WORLD_ID_APPLESCRIPT,
+diff --git a/chrome/renderer/BUILD.gn b/chrome/renderer/BUILD.gn
+index 918ed2c840dbcc494ef859391085033daa9afe56..484233b6b56f1ee8aee4397789d6d29c0e86249d 100644
+--- a/chrome/renderer/BUILD.gn
++++ b/chrome/renderer/BUILD.gn
+@@ -195,6 +195,7 @@ static_library("renderer") {
+     "//content/public/common:buildflags",
+     "//content/public/renderer",
+     "//extensions/buildflags",
++    "//ghost/renderer/cosmetic_filters",
+     "//gin",
+     "//media",
+     "//media:media_buildflags",
+diff --git a/chrome/renderer/chrome_content_renderer_client.cc b/chrome/renderer/chrome_content_renderer_client.cc
+index bb16469783abb876d506da4725b2cdaa3339442f..d5fd76df40be3c3db703cf9ee10f13c4a8f703e4 100644
+--- a/chrome/renderer/chrome_content_renderer_client.cc
++++ b/chrome/renderer/chrome_content_renderer_client.cc
+@@ -142,6 +142,7 @@
+ #include "content/public/renderer/worker_thread.h"
+ #include "extensions/buildflags/buildflags.h"
+ #include "extensions/renderer/extensions_renderer_api_provider.h"
++#include "ghost/renderer/cosmetic_filters/cosmetic_filters_agent.h"
+ #include "media/base/media_switches.h"
+ #include "media/media_buildflags.h"
+ #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
+@@ -622,6 +623,8 @@ void ChromeContentRendererClient::RenderFrameCreated(
+   service_manager::BinderRegistry* registry = render_frame_observer->registry();
+ 
+   new prerender::NoStatePrefetchRenderFrameObserver(render_frame);
++  // Shade: cosmetic filtering.
++  new ghost::cosmetic_filters::CosmeticFiltersAgent(render_frame);
+ 
+   auto content_settings_delegate =
+       std::make_unique<ChromeContentSettingsAgentDelegate>(render_frame);
+@@ -1412,6 +1415,10 @@ ChromeContentRendererClient::CreateSpeechRecognitionClient(
+ 
+ void ChromeContentRendererClient::RunScriptsAtDocumentStart(
+     content::RenderFrame* render_frame) {
++  // Shade: cosmetic filtering's scanner, before the extensions' scripts,
++  // which may delete the frame.
++  ghost::cosmetic_filters::CosmeticFiltersAgent::RunScriptsAtDocumentStart(
++      render_frame);
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   extensions::ExtensionsRendererClient::Get()->RunScriptsAtDocumentStart(
+       render_frame);

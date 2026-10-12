@@ -28,6 +28,12 @@
   - browser: `//ghost/browser/cosmetic_filters` (into `//chrome/browser:core`, as `//ghost/browser/blocking`);
   - renderer: `//ghost/renderer/cosmetic_filters` (into `//chrome/renderer`).
 
+**Settled while executing** ([progress notes](../specs/2026-10-11-cosmetic-filtering-spike.md)):
+- **The scanner starts at document start, not in `DidCreateDocumentElement`,** where Blink forbids scripts. Patch 0041 also calls `CosmeticFiltersAgent::RunScriptsAtDocumentStart` from `ChromeContentRendererClient::RunScriptsAtDocumentStart`. An initial empty document's scanner starts from a posted task. The agent's `Apply()` became `InsertRules()` (at `DidCreateDocumentElement`) and `StartScanner()`.
+- **The scanner reads `getAttribute('id')` and `getAttribute('class')`,** not `id` and `classList`; it skips `querySelectorAll` on elements without children.
+- **Pin APIs:** `WebString::FromUtf8`; `GURL::path()` is a `string_view` (Task 8's `Serve` builds `std::string path(...)`).
+- **Task 10 measures with DevTools metrics,** not startup traces: the official build's trace lacked the page's renderer.
+
 **Conventions** (as in the earlier sub-projects):
 - **Edit in webops, build in `chromium/src`.** `python <scratchpad>\sync.py` copies changed files into `src/ghost` with new mtimes. Commit in webops; then `git -C chromium/src/ghost pull` (after `git checkout -- .`), and compare `src/ghost` with webops.
 - **Patches are commits on `ghost/152.0.7977.158` in `chromium/src`,** with `git commit -s` and `Why:` / `Upstream:` trailers. Re-export with `python tools\patches.py export`; `python tools\patches.py check` must pass.
@@ -1854,7 +1860,7 @@ const std::map<std::string, std::string>& Pages() {
 std::unique_ptr<HttpResponse> Serve(const HttpRequest& request) {
   auto response = std::make_unique<BasicHttpResponse>();
   const GURL url = request.GetURL();
-  const std::string path = url.path() == "/csp.html" ? "/generic.html" : url.path();
+  const std::string path(url.path() == "/csp.html" ? "/generic.html" : url.path());
   auto page = Pages().find(path);
   if (page == Pages().end()) {
     response->set_code(net::HTTP_NOT_FOUND);
@@ -2224,12 +2230,11 @@ TEST(BlockingPerfTest, GenericSelectorsWithinBudget) {
 - [ ] **Step 2: The measuring script.** `tools/scanner_cost.py`, with the trace event names from the spike notes (Task 1, Step 9):
   - It takes `--chrome <exe>` and `--runs N` (default 5).
   - It serves `test/cosmetic` with `http.server` on a free port in a thread.
-  - For each run, it launches the browser with a fresh `--user-data-dir` in a temp dir, `--no-first-run`, `--trace-startup=devtools.timeline,v8`, `--trace-startup-file=<tmp>/trace.json`, `--trace-startup-duration=6` and the page URL.
-  - It waits for the trace file to be complete (valid JSON), then terminates the browser.
-  - It sums the durations of the scanner's events (`args.data.url == "shade://cosmetic-filters/scanner.js"`).
-  - It prints each run and the median in ms.
+  - It launches the browser twice, each with a fresh `--user-data-dir`, `--no-first-run` and `--remote-debugging-port`. The second profile's `Default/Preferences` is written before launch with `{"ghost": {"privacy_policy": {"site_levels": {"127.0.0.1": "off"}}}}`, so its loads have no rules and no scanner.
+  - For each run, through `tools/cdp.py`, it reads `Performance.getMetrics` before and after loading the page (and one more second for later batches). It prints the medians of `ScriptDuration` and `TaskDuration` in each profile and their difference, the scanner's cost.
+  - It stops only the processes of its own profiles (their command line names the profile directory).
 
-  Stdlib only, as `tools/cdp.py`. The summing is a pure function, `sum_scanner_ms(trace: dict) -> float`, tested in `tools/tests/test_scanner_cost.py` on a small inline trace (OS-neutral paths), and run with `python -m unittest discover -s tools/tests -t tools`.
+  Stdlib only, as `tools/cdp.py`. The arithmetic is pure functions (`metric_deltas(before, after)`, `medians(rows)`, `off_preferences()`), tested in `tools/tests/test_scanner_cost.py` (OS-neutral paths), and run with `python -m unittest discover -s tools/tests -t tools`. It runs the browsers on the hidden desktop when given `--launcher <hidden.ps1>`.
 - [ ] **Step 3: Ask the user.** The official build takes hours, and `out\release` belongs to the release workflow. Offer two options:
   - **(a)** `ghost_blocking_perftests` in `out\release`: minutes, decides the two engine budgets;
   - **(b)** also `chrome` in `out\release`: hours, for the scanner's budget.

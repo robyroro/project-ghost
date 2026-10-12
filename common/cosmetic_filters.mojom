@@ -1,0 +1,25 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+module ghost.mojom;
+
+// Browser to renderer, per frame. Channel-associated and sent at
+// ReadyToCommitNavigation, so it arrives before the document it is for, as
+// subresource_filter's ActivateForNextCommittedLoad.
+interface CosmeticFiltersAgent {
+  // The hiding rules of the document the frame commits next: a user-origin
+  // style sheet (possibly empty), and whether to scan the document for the
+  // generic rules.
+  SetRulesForNextDocument(string style_sheet, bool scan);
+};
+
+// Renderer to browser, per document (a DocumentService).
+interface CosmeticFiltersHost {
+  // The generic rules for class and id names the document has, as a
+  // user-origin style sheet, possibly empty. At most 1,000 names in a call,
+  // each 1 to 256 bytes of UTF-8 (//ghost/components/cosmetic_filters/
+  // names.h); a call outside the limits is a bad message.
+  GetGenericStyleSheet(array<string> classes, array<string> ids)
+      => (string style_sheet);
+};
