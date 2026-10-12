@@ -103,6 +103,7 @@ test("ghost_browsertests") {
     "browser/cosmetic_filters/cosmetic_filters_browsertest.cc",
     "browser/cosmetic_filters/cosmetic_filters_test_base.cc",
     "browser/cosmetic_filters/cosmetic_filters_test_base.h",
+    "browser/cosmetic_filters/procedural_browsertest.cc",
     "browser/cosmetic_filters/scriptlets_browsertest.cc",
     "browser/query_filter/query_filter_browsertest.cc",
     "browser/features/feature_overrides_browsertest.cc",

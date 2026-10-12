@@ -22,6 +22,23 @@ action("scanner_script") {
   ]
 }
 
+# procedural.js, likewise.
+action("procedural_script") {
+  script = "//ghost/tools/embed_text.py"
+  inputs = [ "procedural.js" ]
+  outputs = [ "$target_gen_dir/procedural_script.h" ]
+  args = [
+    "--input",
+    rebase_path(inputs[0], root_build_dir),
+    "--output",
+    rebase_path(outputs[0], root_build_dir),
+    "--namespace",
+    "ghost::cosmetic_filters",
+    "--name",
+    "kProceduralScript",
+  ]
+}
+
 source_set("cosmetic_filters") {
   sources = [
     "cosmetic_filters_agent.cc",
@@ -33,6 +50,7 @@ source_set("cosmetic_filters") {
     "//mojo/public/cpp/bindings",
   ]
   deps = [
+    ":procedural_script",
     ":scanner_script",
     "//base",
     "//chrome/common",

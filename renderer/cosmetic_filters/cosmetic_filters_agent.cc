@@ -14,6 +14,9 @@
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
 #include "ghost/components/cosmetic_filters/names.h"
+#include "ghost/components/cosmetic_filters/procedural.h"
+#include "ghost/components/cosmetic_filters/style_sheet.h"
+#include "ghost/renderer/cosmetic_filters/procedural_script.h"
 #include "ghost/renderer/cosmetic_filters/scanner_script.h"
 #include "gin/arguments.h"
 #include "gin/converter.h"
@@ -40,6 +43,7 @@ namespace {
 constexpr int32_t kWorldId = ISOLATED_WORLD_ID_SHADE_COSMETIC_FILTERS;
 // The scanner's name in DevTools and traces; nothing loads it.
 constexpr char kScannerUrl[] = "shade://cosmetic-filters/scanner.js";
+constexpr char kProceduralUrl[] = "shade://cosmetic-filters/procedural.js";
 // The scriptlets' name in DevTools and stack traces; abort-on-stack-trace
 // leaves out frames under shade://.
 constexpr char kScriptletsUrl[] = "shade://scriptlets/";
@@ -97,6 +101,7 @@ void CosmeticFiltersAgent::DidCreateNewDocument() {
   inserted_ = false;
   scriptlet_ran_ = false;
   scanning_ = false;
+  procedural_started_ = false;
   current_ = next_ ? std::exchange(next_, std::nullopt) : InheritedRules();
 }
 
@@ -113,13 +118,20 @@ void CosmeticFiltersAgent::DidCreateScriptContext(v8::Local<v8::Context> context
   v8::HandleScope handle_scope(isolate);
   v8::Context::Scope context_scope(context);
   v8::Local<v8::Object> api = v8::Object::New(isolate);
-  api->Set(context, gin::StringToV8(isolate, "report"),
-           gin::CreateFunctionTemplate(isolate,
-                                       base::BindRepeating(&CosmeticFiltersAgent::Report,
-                                                           document_weak_factory_.GetWeakPtr()))
-               ->GetFunction(context)
-               .ToLocalChecked())
-      .Check();
+  const auto add = [&](const char* name, v8::Local<v8::FunctionTemplate> function) {
+    api->Set(context, gin::StringToV8(isolate, name),
+             function->GetFunction(context).ToLocalChecked())
+        .Check();
+  };
+  const base::WeakPtr<CosmeticFiltersAgent> agent = document_weak_factory_.GetWeakPtr();
+  add("report", gin::CreateFunctionTemplate(
+                    isolate, base::BindRepeating(&CosmeticFiltersAgent::Report, agent)));
+  add("filters", gin::CreateFunctionTemplate(
+                     isolate, base::BindRepeating(&CosmeticFiltersAgent::Filters, agent)));
+  add("hide", gin::CreateFunctionTemplate(
+                  isolate, base::BindRepeating(&CosmeticFiltersAgent::Hide, agent)));
+  add("style", gin::CreateFunctionTemplate(
+                   isolate, base::BindRepeating(&CosmeticFiltersAgent::Style, agent)));
   context->Global()->Set(context, gin::StringToV8(isolate, kApiName), api).Check();
 }
 
@@ -160,6 +172,7 @@ void CosmeticFiltersAgent::StartScripts() {
   // The scriptlets first: they must run before anything else in the page.
   RunScriptlet();
   StartScanner();
+  StartProcedural();
 }
 
 void CosmeticFiltersAgent::RunScriptlet() {
@@ -184,6 +197,36 @@ void CosmeticFiltersAgent::StartScanner() {
       kWorldId,
       blink::WebScriptSource(blink::WebString::FromUtf8(kScannerScript), GURL(kScannerUrl)),
       blink::BackForwardCacheAware::kAllow);
+}
+
+void CosmeticFiltersAgent::StartProcedural() {
+  if (!current_ || current_->procedural_filters.empty() || procedural_started_) {
+    return;
+  }
+  procedural_started_ = true;
+  NameTheWorld();
+  render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
+      kWorldId,
+      blink::WebScriptSource(blink::WebString::FromUtf8(kProceduralScript), GURL(kProceduralUrl)),
+      blink::BackForwardCacheAware::kAllow);
+}
+
+void CosmeticFiltersAgent::Filters(gin::Arguments* arguments) {
+  arguments->Return(current_ ? current_->procedural_filters : std::vector<std::string>());
+}
+
+// procedural.js's markers, checked again here: the isolated world is ours,
+// but what it inserts is a user-origin style sheet.
+void CosmeticFiltersAgent::Hide(const std::string& attribute) {
+  if (IsMarkerAttribute(attribute)) {
+    Insert(base::StrCat({"[", attribute, "]{display:none !important}\n"}));
+  }
+}
+
+void CosmeticFiltersAgent::Style(const std::string& attribute, const std::string& declarations) {
+  if (IsMarkerAttribute(attribute) && IsSafeStyle(declarations)) {
+    Insert(base::StrCat({"[", attribute, "]{", declarations, "}\n"}));
+  }
 }
 
 void CosmeticFiltersAgent::Report(gin::Arguments* arguments) {

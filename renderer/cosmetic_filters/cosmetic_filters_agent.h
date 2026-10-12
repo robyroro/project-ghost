@@ -25,10 +25,11 @@ namespace ghost::cosmetic_filters {
 
 // Applies the lists' cosmetic rules in one frame: inserts the rules the
 // browser sends for each document as a user-origin style sheet, runs the
-// site's scriptlets in the page's own world before its scripts, and runs the
-// scanner (scanner.js) in an isolated world of its own, which reports the
-// document's class and id names; the browser answers with the generic rules
-// they match. Owns itself; deleted with its frame.
+// site's scriptlets in the page's own world before its scripts, and runs, in
+// an isolated world of its own, the scanner (scanner.js), which reports the
+// document's class and id names (the browser answers with the generic rules
+// they match), and the procedural rules' executor (procedural.js). Owns
+// itself; deleted with its frame.
 class CosmeticFiltersAgent
     : public content::RenderFrameObserver,
       public content::RenderFrameObserverTracker<CosmeticFiltersAgent>,
@@ -71,8 +72,15 @@ class CosmeticFiltersAgent
   void StartScripts();
   void RunScriptlet();
   void StartScanner();
+  void StartProcedural();
   // From the scanner: report(classes, ids).
   void Report(gin::Arguments* arguments);
+  // From procedural.js: filters() returns the document's procedural rules;
+  // hide(attribute) and style(attribute, declarations) insert a rule for
+  // the elements it marks.
+  void Filters(gin::Arguments* arguments);
+  void Hide(const std::string& attribute);
+  void Style(const std::string& attribute, const std::string& declarations);
   void Insert(const std::string& style_sheet);
 
   std::optional<Rules> next_;
@@ -80,6 +88,7 @@ class CosmeticFiltersAgent
   bool inserted_ = false;
   bool scriptlet_ran_ = false;
   bool scanning_ = false;
+  bool procedural_started_ = false;
   mojo::AssociatedReceiver<mojom::CosmeticFiltersAgent> receiver_{this};
   mojo::Remote<mojom::CosmeticFiltersHost> host_;
   // Invalidated at each new document, so no answer reaches the wrong one.
