@@ -277,15 +277,17 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
         alias_urls.push_back(std::move(alias_url));
       }
     }
+    // The total, and the resolution's part of it (the rest is the aliases'
+    // check), read by tools/uncloak_cost.py (the budget).
     auto timed = base::BindOnce(
-        [](std::string host, base::TimeTicks start, base::OnceCallback<void(Decision)> done,
-           Decision decision) {
-          // Read by tools/uncloak_cost.py (the budget).
+        [](std::string host, base::TimeTicks start, base::TimeDelta resolution,
+           base::OnceCallback<void(Decision)> done, Decision decision) {
           VLOG(2) << "Uncloak " << host << ": "
-                  << (base::TimeTicks::Now() - start).InMicroseconds() << " us";
+                  << (base::TimeTicks::Now() - start).InMicroseconds() << " us (resolution "
+                  << resolution.InMicroseconds() << " us)";
           std::move(done).Run(std::move(decision));
         },
-        std::string(url.host()), start, std::move(done));
+        std::string(url.host()), start, base::TimeTicks::Now() - start, std::move(done));
     if (alias_urls.empty()) {
       std::move(timed).Run(Decision());
       return;

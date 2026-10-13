@@ -24,9 +24,11 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/time/time.h"
+#include "ghost/components/blocking/dns_aliases.h"
 #include "ghost/components/blocking/filter_lists.h"
 #include "ghost/components/blocking/rust/lib.rs.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace ghost::blocking {
 namespace {
@@ -109,6 +111,34 @@ TEST(BlockingPerfTest, ChecksWithinBudget) {
             << " us (budget " << kBudgetP99.InMicroseconds() << " us).";
   // The lists are real: many recorded requests are ads or trackers.
   EXPECT_GT(blocked, 0);
+#if defined(OFFICIAL_BUILD)
+  EXPECT_LT(p99, kBudgetP99);
+#endif
+}
+
+// An alias's check (Phase 4C): the request's exception lookup and one alias
+// URL, for every corpus request as if its host had a tracker's alias.
+TEST(BlockingPerfTest, AliasChecksWithinBudget) {
+  const std::vector<Row> rows = ReadCorpus();
+  rust::Box<Engine> engine = new_engine(ShippedLists());
+  std::vector<base::TimeDelta> times;
+  for (int pass = 0; pass < kPasses; ++pass) {
+    for (const Row& row : rows) {
+      const GURL alias_url = WithAlias(GURL(row.url), "cname.tracker-alias.test");
+      if (!alias_url.is_valid()) {
+        continue;
+      }
+      rust::Vec<rust::String> alias_urls;
+      alias_urls.push_back(rust::String(alias_url.spec()));
+      const base::TimeTicks start = base::TimeTicks::Now();
+      engine->check_aliases(row.url, row.page, row.type, "GET", alias_urls);
+      times.push_back(base::TimeTicks::Now() - start);
+    }
+  }
+  ASSERT_GT(times.size(), 1000u);
+  const auto [p50, p99] = Percentiles(std::move(times));
+  LOG(INFO) << "Alias checks: p50 " << p50.InMicrosecondsF() << " us, p99 "
+            << p99.InMicrosecondsF() << " us (budget " << kBudgetP99.InMicroseconds() << " us).";
 #if defined(OFFICIAL_BUILD)
   EXPECT_LT(p99, kBudgetP99);
 #endif
