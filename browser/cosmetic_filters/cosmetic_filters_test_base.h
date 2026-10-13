@@ -43,6 +43,9 @@ class CosmeticFiltersTestBase : public InProcessBrowserTest {
   virtual std::string List() const = 0;
   // Called before the servers start: add the pages here.
   virtual void AddPages() = 0;
+  // Called before the catch-all rule that sends every host to the servers:
+  // host-resolver rules of the test's own (DNS aliases, failures) go here.
+  virtual void AddHostRules() {}
 
   // `html` inside <!doctype html><html><body>...</body></html> at `path`.
   void AddPage(std::string path, std::string html, base::StringPairs headers = {});
@@ -51,6 +54,8 @@ class CosmeticFiltersTestBase : public InProcessBrowserTest {
                    std::string content_type,
                    std::string body,
                    base::StringPairs headers = {});
+  // A 302 from `path` to `to_path` on `to_host`, on the HTTP server.
+  void AddRedirect(std::string path, std::string to_host, std::string to_path);
 
   void SetUpOnMainThread() override;
 
@@ -80,6 +85,9 @@ class CosmeticFiltersTestBase : public InProcessBrowserTest {
     std::string content_type;
     std::string body;
     base::StringPairs headers;
+    // A redirect's target, when set (AddRedirect).
+    std::string redirect_host;
+    std::string redirect_path;
   };
 
   std::unique_ptr<net::test_server::HttpResponse> Serve(

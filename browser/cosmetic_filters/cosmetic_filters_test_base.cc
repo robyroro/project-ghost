@@ -41,8 +41,17 @@ void CosmeticFiltersTestBase::AddResource(std::string path,
   resources_[std::move(path)] = {std::move(content_type), std::move(body), std::move(headers)};
 }
 
+void CosmeticFiltersTestBase::AddRedirect(std::string path,
+                                          std::string to_host,
+                                          std::string to_path) {
+  Resource& resource = resources_[std::move(path)];
+  resource.redirect_host = std::move(to_host);
+  resource.redirect_path = std::move(to_path);
+}
+
 void CosmeticFiltersTestBase::SetUpOnMainThread() {
   AddPages();
+  AddHostRules();
   host_resolver()->AddRule("*", "127.0.0.1");
   // The servers outlive no test: Unretained is safe.
   for (net::EmbeddedTestServer* server :
@@ -127,6 +136,16 @@ std::unique_ptr<HttpResponse> CosmeticFiltersTestBase::Serve(const HttpRequest& 
   auto found = resources_.find(path);
   if (found == resources_.end()) {
     response->set_code(net::HTTP_NOT_FOUND);
+    return response;
+  }
+  if (!found->second.redirect_host.empty()) {
+    // The servers have started: the target's port is known.
+    response->set_code(net::HTTP_FOUND);
+    response->AddCustomHeader(
+        "Location",
+        embedded_test_server()
+            ->GetURL(found->second.redirect_host, found->second.redirect_path)
+            .spec());
     return response;
   }
   for (const auto& [name, value] : found->second.headers) {

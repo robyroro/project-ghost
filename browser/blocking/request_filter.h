@@ -14,7 +14,9 @@
 #include "content/public/browser/global_routing_id.h"
 #include "ghost/components/privacy_policy/effective_policy.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "net/base/network_anonymization_key.h"
 #include "services/network/public/cpp/self_deleting_url_loader_factory.h"
+#include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -62,8 +64,23 @@ bool ChecksAgainst(const GURL& url, const GURL& page, bool check_same_site);
 // The protection policy of a page (its site's level), for each request.
 using PolicyCallback = base::RepeatingCallback<privacy_policy::EffectivePolicy(const GURL& page)>;
 
+// What uncloaking a request's host needs from its factory (Phase 4C).
+struct UncloakContext {
+  UncloakContext();
+  UncloakContext(const UncloakContext&);
+  UncloakContext& operator=(const UncloakContext&);
+  ~UncloakContext();
+
+  // The network context the factory's requests go through; null once the
+  // profile is gone.
+  base::RepeatingCallback<network::mojom::NetworkContext*()> network_context;
+  // The factory's key, for requests that don't carry their own.
+  net::NetworkAnonymizationKey network_anonymization_key;
+};
+
 // A proxying URLLoaderFactory: asks the engine about each request that needs
-// a verdict, holds it until the answer, then fails it with
+// a verdict, and about its host's DNS aliases (Phase 4C), holds it until the
+// answers, then fails it with
 // net::ERR_BLOCKED_BY_CLIENT or passes it on, and asks again on every
 // redirect. Everything runs on the UI thread; the engine answers there.
 class RequestFilter : public network::SelfDeletingURLLoaderFactory {
@@ -76,6 +93,7 @@ class RequestFilter : public network::SelfDeletingURLLoaderFactory {
                 content::GlobalRenderFrameHostId frame,
                 BlockingEngine* engine,
                 PolicyCallback policy,
+                UncloakContext uncloak,
                 base::SelfDeletingPassKey pass_key);
   RequestFilter(const RequestFilter&) = delete;
   RequestFilter& operator=(const RequestFilter&) = delete;
@@ -106,6 +124,7 @@ class RequestFilter : public network::SelfDeletingURLLoaderFactory {
   // The blocking service's engine, which is never destroyed.
   const raw_ptr<BlockingEngine> engine_;
   const PolicyCallback policy_;
+  const UncloakContext uncloak_;
 };
 
 }  // namespace ghost::blocking
