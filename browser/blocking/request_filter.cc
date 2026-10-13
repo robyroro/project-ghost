@@ -246,8 +246,8 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
   void Uncloak(const GURL& url, base::OnceCallback<void(Decision)> done) {
     network::mojom::NetworkContext* network_context =
         uncloak_.network_context ? uncloak_.network_context.Run() : nullptr;
-    if (!network_context || !url.SchemeIsHTTPOrHTTPS() || url.HostIsIPAddress() ||
-        net::IsLocalhost(url)) {
+    if (!network_context || !url.is_valid() || !url.SchemeIsHTTPOrHTTPS() ||
+        url.HostIsIPAddress() || net::IsLocalhost(url)) {
       std::move(done).Run(Decision());
       return;
     }

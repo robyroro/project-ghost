@@ -23,7 +23,9 @@ std::vector<std::string> AliasesToCheck(std::string_view host,
                                         const std::vector<std::string>& dns_aliases);
 
 // `url` with `alias` as its host, the rest kept; an invalid GURL when
-// `alias` isn't a canonical host.
+// `alias` isn't a canonical host, or when `url` has no host to replace (a
+// data: URL, a non-special scheme's path). The request filter passes only
+// http(s) URLs.
 GURL WithAlias(const GURL& url, std::string_view alias);
 
 }  // namespace ghost::blocking

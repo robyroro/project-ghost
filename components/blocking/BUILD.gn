@@ -102,6 +102,7 @@ fuzzer_test("ghost_blocking_request_fuzzer") {
   deps = [
     ":blocking",
     "//base",
+    "//base:i18n",
     "//ghost/components/blocking/rust:engine",
   ]
 }

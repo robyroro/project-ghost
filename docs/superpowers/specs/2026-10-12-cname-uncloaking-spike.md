@@ -41,3 +41,12 @@ All runs: the dev build (`out\vanilla`), a fresh profile on the hidden desktop, 
   - `https://www.telus.com/`: `b.telus.com` (alias `telus.com.ssl.sc.omtrdc.net`) blocked, 3 requests (`/id`, `/ee/v1/interact`, `/ee/v1/privacy/set-consent`), by `||omtrdc.net^`.
   - `https://www.jalan.net/`: `aa-metrics.jalan.net` (alias `jalan.net.ssl.sc.omtrdc.net`) blocked, 2 requests (`/id`, `/b/ss/…`).
   - At Standard both are same-site requests, which the URL check skips: only uncloaking catches them.
+
+## Task 6: the fuzzer (2026-10-13)
+
+- **The fifth field:** comma-separated DNS aliases, through `AliasesToCheck`, `WithAlias` and `check_aliases`, with `CHECK`s that an alias kept can be placed in the URL.
+- **Three findings in the first smoke runs,** all in the harness or the contract, none in the filter's path:
+  - `ht:'stp//apnews.com/id?x=1`: a URL with no host takes no alias, so `WithAlias` gives an invalid URL. Right, but its comment didn't say so. Now it does, with a test (`AUrlWithoutAHostTakesNoAlias`). The fuzzer, as the request filter does, gives aliases only to http(s) URLs.
+  - An invalid URL can still have an `http` scheme (`GURL::SchemeIsHTTPOrHTTPS` doesn't check validity), and `spec()` on it is fatal. The fuzzer checks `is_valid()` first, and so does `Uncloak` (defense in depth: a request's URL is always valid).
+  - GURL needs ICU for international host names; the harness now initializes it, as `url/gurl_fuzzer.cc` does.
+- **Smoke run:** 134,703 inputs in 120 s, no crash. The 30-minute run is Task 8's.

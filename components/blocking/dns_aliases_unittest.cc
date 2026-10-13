@@ -62,5 +62,11 @@ TEST(DnsAliasesTest, WithAnAliasThatIsntAHostIsInvalid) {
   EXPECT_FALSE(WithAlias(GURL("https://metrics.a.test/m.js"), "").is_valid());
 }
 
+TEST(DnsAliasesTest, AUrlWithoutAHostTakesNoAlias) {
+  // Found by ghost_blocking_request_fuzzer.
+  EXPECT_FALSE(WithAlias(GURL("ht:'stp//apnews.com/id?x=1"), "a.tracker.test").is_valid());
+  EXPECT_FALSE(WithAlias(GURL("data:text/plain,x"), "a.tracker.test").is_valid());
+}
+
 }  // namespace
 }  // namespace ghost::blocking
