@@ -15,10 +15,10 @@ Upstream: not upstreamable: product-specific blocking
 Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
 
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
-index e58877aa6d401abbe386ad643da5584ec3be3184..be892eb96ef34dbb57b6b986a84b11f2074e4846 100644
+index 52fdcb8663156195713f8ab467caba72243a709f..24a23eb4933d9434c177e3277e5303a1e2872173 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
-@@ -6668,8 +6668,8 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
+@@ -6671,8 +6671,8 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
      network::mojom::URLLoaderFactoryOverridePtr* factory_override,
      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
    // First, so that blocked requests reach no other interceptor.

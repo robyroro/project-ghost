@@ -54,7 +54,7 @@ index 3720ed1eedb4db9e28205f3bbeac090c1d33f10f..ff17f580cbc595e858d9e5dfdaaa4995
        &actor::ActorScriptToolReceiver::Create);
  
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
-index be892eb96ef34dbb57b6b986a84b11f2074e4846..1086c4e12bcee170bbd291fa62cca52264824f12 100644
+index 24a23eb4933d9434c177e3277e5303a1e2872173..7a7db9c1f1e65e411bd5266b97a4f0eb9a74c847 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -387,6 +387,7 @@

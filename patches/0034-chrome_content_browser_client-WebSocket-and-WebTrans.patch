@@ -21,7 +21,7 @@ Upstream: not upstreamable: product-specific blocking
 Signed-off-by: robyroro <41092915+robyroro@users.noreply.github.com>
 
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
-index a2bb57ff9274fa653e82cca5c7b8352c3e23ef90..e58877aa6d401abbe386ad643da5584ec3be3184 100644
+index 89e7e73be1e2170d0e2bae6519fe473ee8c04d7c..52fdcb8663156195713f8ab467caba72243a709f 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -385,6 +385,7 @@
@@ -32,7 +32,7 @@ index a2bb57ff9274fa653e82cca5c7b8352c3e23ef90..e58877aa6d401abbe386ad643da5584e
  #include "ghost/browser/blocking/request_filter.h"
  #include "ghost/browser/query_filter/query_filter_throttle.h"
  #include "google_apis/gaia/gaia_urls.h"
-@@ -6810,6 +6811,11 @@ ChromeContentBrowserClient::
+@@ -6813,6 +6814,11 @@ ChromeContentBrowserClient::
  
  bool ChromeContentBrowserClient::WillInterceptWebSocket(
      content::RenderFrameHost* frame) {
@@ -44,7 +44,7 @@ index a2bb57ff9274fa653e82cca5c7b8352c3e23ef90..e58877aa6d401abbe386ad643da5584e
  #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
    if (!frame) {
      return false;
-@@ -6846,39 +6852,88 @@ ChromeContentBrowserClient::GetWebSocketOptions(
+@@ -6849,39 +6855,88 @@ ChromeContentBrowserClient::GetWebSocketOptions(
    return options;
  }
  
@@ -149,7 +149,7 @@ index a2bb57ff9274fa653e82cca5c7b8352c3e23ef90..e58877aa6d401abbe386ad643da5584e
  #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
    DCHECK_CURRENTLY_ON(BrowserThread::UI);
    // TODO(crbug.com/40195467): Add a unit test which calls
-@@ -6908,6 +6963,24 @@ void ChromeContentBrowserClient::WillCreateWebTransport(
+@@ -6911,6 +6966,24 @@ void ChromeContentBrowserClient::WillCreateWebTransport(
  #endif
  }
  
