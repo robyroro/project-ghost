@@ -69,6 +69,12 @@ def load(session: cdp.Session, url: str, clock: Clock = time.monotonic,
     for domain in ("Page", "Runtime", "Network"):
         session.call(f"{domain}.enable")
     reply = session.call("Page.navigate", url=url)
+    if reply.get("errorText") == "net::ERR_ABORTED":
+        # The tab's own navigation to about:blank may commit after ours
+        # started, which aborts ours: in Shade the cosmetic filters' throttle
+        # holds that commit until the engine answers. Once more, then.
+        sleep(1.0)
+        reply = session.call("Page.navigate", url=url)
     if reply.get("errorText"):
         return False, reply["errorText"]
     start = clock()

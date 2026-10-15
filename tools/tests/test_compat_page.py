@@ -70,6 +70,34 @@ class LoadTest(unittest.TestCase):
         self.assertEqual(compat_page.load(Failing(answers()), "https://a.test/", clock.time,
                                           clock.sleep), (False, "net::ERR_NAME_NOT_RESOLVED"))
 
+    def test_an_aborted_first_navigation_is_tried_once_more(self):
+        # A new tab's own about:blank commit can land after ours and abort it.
+        class AbortsFirst(FakeSession):
+            navigations = 0
+
+            def call(self, method, **params):
+                if method == "Page.navigate":
+                    self.navigations += 1
+                    if self.navigations == 1:
+                        self.calls.append((method, params))
+                        return {"errorText": "net::ERR_ABORTED"}
+                return super().call(method, **params)
+        clock = Clock()
+        session = AbortsFirst(answers(readyState=True))
+        self.assertEqual(compat_page.load(session, "https://a.test/", clock.time, clock.sleep),
+                         (True, ""))
+        self.assertEqual(session.navigations, 2)
+
+    def test_a_second_abort_is_not_loaded(self):
+        class Aborts(FakeSession):
+            def call(self, method, **params):
+                if method == "Page.navigate":
+                    return {"errorText": "net::ERR_ABORTED"}
+                return super().call(method, **params)
+        clock = Clock()
+        self.assertEqual(compat_page.load(Aborts(answers()), "https://a.test/", clock.time,
+                                          clock.sleep), (False, "net::ERR_ABORTED"))
+
     def test_a_page_that_never_completes_times_out(self):
         clock = Clock()
         self.assertEqual(compat_page.load(FakeSession(answers(readyState=False)),

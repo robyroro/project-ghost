@@ -14,3 +14,25 @@ Phase 4D-1 ([design](2026-10-15-compatibility-corpus-design.md), [plan](../plans
   - `blocked.html` broken: failed step 1, `#ready` never visible; the baseline had it;
   - `fine.html` passed;
   - no browser or profile left behind.
+
+## Task 7: Shade's own list (2026-10-15)
+
+- `shade.txt` in `components/blocking/`, read last; the bridge's `list_problems`; patch 0030 packs it (one line in `chrome.release`, the message updated), squashed into its commit with an `amend!` commit and `--autosquash`; `patches.py export` changed only 0030.
+- `EngineBridgeTest.ListProblemsNamesTheLinesTheParserRefuses`, `ShadesListHasNoProblem` and `FilterListsTest.ShadesOwnListIsReadLast` pass (development build, 12 minutes after the rebase).
+- They fail as required:
+  - **S3**, `||b.test^$nosuchoption` added to `shade.txt`: `line 12: … network filter error: unrecognised option`;
+  - **S1**, `shade.txt` left out of `kFilterListFiles`: `ShadesOwnListIsReadLast`.
+
+## Task 8: the corpus (2026-10-15)
+
+- 155 sites in ten categories, 22 flows.
+- Each flow was checked against Chrome for Testing alone. 15 passed at once; the other seven were fixed in the built-in browser:
+  - DuckDuckGo's box is a zero-width textarea until focused: the flow starts from `?q=privacy+browser`;
+  - OpenStreetMap's search box isn't shown at the window's width: `/search?query=Cluj-Napoca`, then its sidebar's text;
+  - MDN's search results aren't plain elements: the Fetch API page and its heading;
+  - Etsy shows `[data-listing-id]` cards from `/search?q=mug`, after a DataDome check that reloads the page;
+  - Google Maps' box is `input[name=q]` now, after its EU consent page;
+  - Booking's autocomplete never showed (a bot challenge, `chal_t`): the flow checks the search field only;
+  - CFR's first `form` is hidden: its station field.
+- Consent banners are refused (`#W0wltc`, `Reject`, `#onetrust-reject-all-handler`), never accepted; eMAG showed none to a fresh profile.
+- The second check: 22 of 22 passed.
