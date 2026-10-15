@@ -83,3 +83,17 @@ The official build (`out\release`, rebuilt for 4C in 16 min, then 8 min for the 
   - a page's later requests to a host (the memo): p90 under 1 ms (measured 0.73 ms); p99 reported;
   - the first request to a host on a page: reported, no budget, like a request whose host isn't cached;
   - the alias check: unchanged, p99 under 50 µs.
+
+## Task 8: mutation checks, suites, audit (2026-10-15)
+
+- **Mutation checks,** in the development build, each with its build checked first: all seven fail as required.
+  - M1 the aliases never judged: `ASameSiteCloakedRequestNeverLeaves`.
+  - M2 no exception lookup: `EngineBridgeTest.AnExceptionForTheRequestLeavesItsAliasesAlone`, `AnExceptionForTheHostKeepsItsAliasesUnchecked`.
+  - M3 aliases on the host's own site checked: `DnsAliasesTest.AnAliasOnTheSameSiteIsNotCloaking`, `AnAliasOnTheSameSiteIsNotChecked`. Its first form didn't build (`&&` within `||` is an error with `-Wlogical-op-parentheses`), so it was rerun in parentheses.
+  - M4 a resolution before the URL's verdict: `ABlockedUrlsHostIsNeverResolved`.
+  - M5 a same-site redirect not uncloaked: `ARedirectToACloakedHostIsBlocked`.
+  - M6 no `direct_only`: `CnameUncloakingProxyBrowserTest.NothingIsResolvedBesideAProxy`.
+  - M7 the memo never answers: the five `AliasMemoTest`s and `ALaterRequestUsesTheFirstAnswer`.
+
+  After the last, `src/ghost` matched webops file for file.
+- **The suites,** rebuilt without mutants: `ghost_unittests` 161/161, `ghost_browsertests` 140/140, no retry.
