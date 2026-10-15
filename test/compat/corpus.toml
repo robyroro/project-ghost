@@ -49,6 +49,7 @@ category = "perftest"
 [[site]]
 url = "https://www.foxnews.com/"
 category = "perftest"
+reason = "core-app.js throws when fennec.js (prod.fennec.atp.fox, a tracker) is blocked"
 
 [[site]]
 url = "https://www.hotnews.ro/"
@@ -85,6 +86,7 @@ category = "perftest"
 [[site]]
 url = "https://www.spiegel.de/"
 category = "perftest"
+reason = "_satellite.logger is missing once Adobe Launch is blocked"
 
 [[site]]
 url = "https://www.theguardian.com/"
@@ -103,6 +105,7 @@ category = "perftest"
 [[site]]
 url = "https://www.npr.org/"
 category = "news"
+reason = "a bundle rejects when Google's IMA ad SDK (imasdk.googleapis.com) is blocked"
 
 [[site]]
 url = "https://www.aljazeera.com/"
@@ -111,6 +114,7 @@ category = "news"
 [[site]]
 url = "https://www.bloomberg.com/"
 category = "news"
+reason = "the video player's ad module throws (setMuted) when its ad SDK is blocked"
 
 [[site]]
 url = "https://www.wsj.com/"
@@ -123,6 +127,7 @@ category = "news"
 [[site]]
 url = "https://www.huffpost.com/"
 category = "news"
+reason = "a video ad player's request (thecontentserver.com) fails: a request Shade blocks"
 
 [[site]]
 url = "https://www.businessinsider.com/"
@@ -131,6 +136,7 @@ category = "news"
 [[site]]
 url = "https://www.lefigaro.fr/"
 category = "news"
+reason = "figanalytics (Le Figaro's analytics) is blocked; the consent manager's fetch to a request Shade blocks rejects"
 
 [[site]]
 url = "https://www.corriere.it/"
@@ -155,6 +161,7 @@ category = "news"
 [[site]]
 url = "https://www.theverge.com/"
 category = "news"
+reason = "a fetch to an analytics endpoint Shade blocks rejects"
 
 [[site]]
 url = "https://arstechnica.com/"
@@ -171,6 +178,7 @@ category = "news"
 [[site]]
 url = "https://www.espn.com/"
 category = "news"
+reason = "an analytics promise rejects with an object when its script is blocked"
 
 [[site]]
 url = "https://weather.com/"
@@ -202,6 +210,7 @@ flow = [
 [[site]]
 url = "https://www.dailymotion.com/"
 category = "video"
+reason = "its ad module (dmads) and app reject on ad requests Shade blocks"
 
 [[site]]
 url = "https://www.ted.com/talks"
@@ -226,6 +235,7 @@ category = "video"
 [[site]]
 url = "https://www.crunchyroll.com/"
 category = "video"
+reason = "cr-analytics can't load Segment (sa.etp-prod.com) or Google Tag Manager"
 
 [[site]]
 url = "https://www.imdb.com/"
@@ -310,6 +320,7 @@ category = "shopping"
 [[site]]
 url = "https://www.costco.com/"
 category = "shopping"
+reason = "Adobe's Web SDK (alloy) can't reach its edge, which Shade blocks"
 
 [[site]]
 url = "https://www.temu.com/"
@@ -376,6 +387,7 @@ category = "maps"
 [[site]]
 url = "https://www.mapquest.com/"
 category = "maps"
+reason = "System1's ad script rejects when its ad requests are blocked"
 
 # --- docs ---
 
@@ -453,6 +465,7 @@ category = "docs"
 [[site]]
 url = "https://www.salesforce.com/"
 category = "docs"
+reason = "its tag manager's promise rejects with false when its analytics are blocked"
 
 [[site]]
 url = "https://www.hubspot.com/"
@@ -566,6 +579,7 @@ category = "login"
 [[site]]
 url = "https://www.chase.com/"
 category = "login"
+reason = "channela.js's fetch to a request Shade blocks rejects; the sign-in page is whole"
 
 [[site]]
 url = "https://www.bankofamerica.com/"
@@ -574,6 +588,7 @@ category = "login"
 [[site]]
 url = "https://www.wellsfargo.com/"
 category = "login"
+reason = "Adobe's Web SDK (alloy) finds no identity cookie; an offer widget's fetch to a request Shade blocks rejects"
 
 [[site]]
 url = "https://account.apple.com/"
@@ -619,10 +634,12 @@ category = "travel"
 [[site]]
 url = "https://www.expedia.com/"
 category = "travel"
+reason = "a bundle (pap) can't connect to a request Shade blocks; a blocked script's error event"
 
 [[site]]
 url = "https://www.tripadvisor.com/"
 category = "travel"
+reason = "a blocked tracker script's error event goes unhandled"
 
 [[site]]
 url = "https://www.skyscanner.net/"
@@ -647,6 +664,7 @@ category = "travel"
 [[site]]
 url = "https://www.hotels.com/"
 category = "travel"
+reason = "a bundle (pap) can't connect to a request Shade blocks; a blocked script's error event"
 
 [[site]]
 url = "https://www.trivago.com/"
@@ -660,6 +678,7 @@ category = "travel"
 [[site]]
 url = "https://www.jalan.net/"
 category = "travel"
+reason = "Google Tag Manager throws once Adobe Analytics, cloaked behind aa-metrics.jalan.net (4C), is blocked"
 
 # --- romanian ---
 
