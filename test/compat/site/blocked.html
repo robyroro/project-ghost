@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+<meta charset="utf-8">
+<title>Compatibility self-test: a blocked script</title>
+<!-- For tools/compat.py --self-test: the page needs a script from a third
+     party whose path EasyPrivacy blocks (/adobe-analytics.js), so Shade at
+     Standard must be judged broken against the baseline. -->
+<h1>A page that needs its script</h1>
+<p>The script adds a line below; without it, the flow fails.</p>
+<script>
+  document.write('<script src="http://tracker.compat-other.test:' + location.port +
+                 '/adobe-analytics.js"><\/script>');
+</script>

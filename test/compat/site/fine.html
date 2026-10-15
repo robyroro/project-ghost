@@ -1,0 +1,14 @@
+<!doctype html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+<meta charset="utf-8">
+<title>Compatibility self-test: a script that loads</title>
+<!-- For tools/compat.py --self-test: the same page with a script no list
+     blocks (/ready.js): it must pass. -->
+<h1>A page that needs its script</h1>
+<p>The script adds a line below; without it, the flow fails.</p>
+<script>
+  document.write('<script src="http://tracker.compat-other.test:' + location.port +
+                 '/ready.js"><\/script>');
+</script>
