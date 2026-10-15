@@ -38,6 +38,11 @@ This document says what Ghost protects, from whom, how, and where protection end
     - A `:style()` action's declarations are checked in the browser (`IsSafeStyle`: nothing that closes the rule, no `url(` or `image-set(`, which would load) and again in the renderer before they become a user-origin rule. So are the marker attributes the executor asks rules for.
     - Their regular expressions come only from the lists we ship (signed from 3E): a slow one is the list's risk, as for network rules. There is no separate time limit.
   - **Redirect answers** come from the browser, with bodies built into the binary; a page can't choose them.
+- **CNAME uncloaking (Phase 4C) trusts the user's resolver** for the aliases, as the browser already does for where every request goes.
+  - A hostile resolver can make a site's own resources look cloaked, so that they're blocked; it can already break the site without Shade. It can also hide an alias, as it can send the request anywhere.
+  - **Evasion:** a site can alias a host the lists don't name, or proxy the tracker through its own servers. Uncloaking catches the trackers the lists name, as URL blocking does.
+  - **A request served from the HTTP cache may now make a DNS query,** which it wouldn't have made: its host is resolved before it starts. The query goes to the same resolver, over the same transport and in the same partition, as the request's own would.
+  - **No query for a blocked host,** and none beside a proxy (`direct_only`). Where the system's proxy settings auto-detect (WPAD), each uncloaking also asks the proxy service whether the host is proxied: a lookup in its state, or with a PAC script, the script's evaluation, which stays on the machine.
 - **Extensions are trusted only as far as their granted permissions.**
 - **Downloaded data is trusted only when signed** by a key the build pins.
 

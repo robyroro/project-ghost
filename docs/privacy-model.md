@@ -76,6 +76,19 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - **Redirects** (`$redirect=noopjs`, the lists' 28): a blocked script, image, JSON or text request is answered by the browser with a harmless resource of Shade's own (an empty script, a transparent pixel, stand-ins for Google Tag Manager, Chartbeat and FingerprintJS that let pages carry on), so a page waiting for it doesn't break. It counts as blocked on the shield.
   - Not supported: `json-edit` (one EasyPrivacy rule), HTML filtering (`##^`), and, in a procedural rule's regular expression, escapes such as `\d` (the engine rewrites them; no shipped rule uses one).
   - Tests: `ScriptletsBrowserTest`, `ProceduralBrowserTest`, `RedirectBrowserTest`, `StyleSheetTest`, `ProceduralTest`, and the bridge's and engine's 4B cases.
+- **CNAME uncloaking (Phase 4C).** A tracker behind a name on the site's own domain (`metrics.site.com`, a DNS alias of `site.tracker.net`) is blocked before the request leaves: the tracker never receives it, nor the site's cookies it would carry.
+  - **Standard and Strict** resolve the host of every request they hold, the site's own included, and check each of its DNS aliases with the lists, as the request's URL would be checked. At Standard a request to the page's own site isn't checked by its URL, but an alias on another site is a third party whatever the URL says. *Off* resolves nothing.
+  - **The same lookup the request makes.** The resolution goes to the browser's own resolver with the request's partition and secure DNS setting, so the request finds the answer in the cache: one DNS query per host, DNS-over-HTTPS included. A page's later requests to a host use its first answer for a minute.
+  - **A host blocked by its URL is never resolved:** its name server never hears of it.
+  - **An exception ends it:** a request the lists allow with an exception (`@@`) keeps its aliases unchecked. An alias on the host's own site (`a.site.com` to `b.site.com`) isn't cloaking and isn't checked.
+  - **An alias that blocks** counts on the shield like any block; a `$redirect` rule on it answers with Shade's resource.
+  - **If the resolution fails** (an error, a timeout, the network service restarting), the request goes on and fails or succeeds as it would have.
+  - **Limits:**
+    - through a proxy nothing is uncloaked: the proxy resolves the host, and Shade makes no local DNS query beside it;
+    - when Chromium's own resolver can't be used, the system's gives no aliases;
+    - WebSocket and WebTransport connections aren't uncloaked;
+    - a site can still evade it with an alias the lists don't name, or by proxying the tracker through its own servers.
+  - Tests: `CnameUncloakingBrowserTest`, `CnameUncloakingProxyBrowserTest`, `DnsAliasesTest`, `AliasMemoTest`, and the bridge's and engine's alias cases.
 
 ### Cookies and storage
 

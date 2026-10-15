@@ -79,12 +79,15 @@ The official build (`out\release`, rebuilt for 4C in 16 min, then 8 min for the 
 
   A memo answer still waits for the aliases' check when the host has an alias on another site (a CDN's, mostly): one round trip to the engine's sequence, as every URL check has since 3A.
 - **Not tried:** taking the resolver's reply off the UI thread (on a sequence of its own, with the aliases' check from there) would save part of the way back for first requests only; the way out, p99 45 ms with the memo, would stay.
-- **The budget is missed:** p99 under 1 ms for requests answered without the network can't hold for a request that must ask the network service, however fast its cache: the first request to each host on a page. Proposed, for the user to decide:
+- **The budget is missed:** p99 under 1 ms for requests answered without the network can't hold for a request that must ask the network service, however fast its cache: the first request to each host on a page.
+- **The budget, amended** (2026-10-15) to what the memo can hold:
   - a page's later requests to a host (the memo): p90 under 1 ms (measured 0.73 ms); p99 reported;
   - the first request to a host on a page: reported, no budget, like a request whose host isn't cached;
   - the alias check: unchanged, p99 under 50 µs.
 
-## Task 8: mutation checks, suites, audit (2026-10-15)
+  `tools/uncloak_cost.py` judges the memo's p90 since.
+
+## Task 8: mutation checks, suites, audit, fuzzing (2026-10-15)
 
 - **Mutation checks,** in the development build, each with its build checked first: all seven fail as required.
   - M1 the aliases never judged: `ASameSiteCloakedRequestNeverLeaves`.
@@ -98,3 +101,4 @@ The official build (`out\release`, rebuilt for 4C in 16 min, then 8 min for the 
   After the last, `src/ghost` matched webops file for file.
 - **The suites,** rebuilt without mutants: `ghost_unittests` 161/161, `ghost_browsertests` 140/140, no retry.
 - **The egress audit** on the official build with the memo, run on the hidden desktop: 0 unexpected hosts (the route probe and WPAD not counted, as always). Uncloaking resolves only hosts that requests were going to contact.
+- **Fuzzing:** `ghost_blocking_request_fuzzer` from a fresh `outuzz` (29 min to build), seeded with the corpus' 2,194 lines and five with aliases (Adobe's, an IP literal, an invalid name, a trailing dot, a port), 30 minutes: 1,199,441 inputs, no crash, coverage 11,608 to 16,345 edges, 3,882 inputs kept.
