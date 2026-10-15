@@ -128,8 +128,9 @@ def issue(latest: Release, kind: str, detected: datetime.datetime, pinned: str) 
         title = f"Security release: Chromium {latest.version}"
         steps = [
             "- [ ] Triage: does the release fix a bug exploited in the wild? Then the "
-            "deadline is 24–48 h. Extended Stable's post lists no fixes: read the Stable "
-            "post of the same week too.",
+            "deadline is 24–48 h. Extended Stable's post lists its fixes by CVE at most: "
+            "read the Stable post of the same week too.",
+            "- [ ] `main` holds only what may ship: move unpushed unfinished work to a branch",
             f"- [ ] `python tools/upstream.py bump --to {latest.version} --src <src>`, push",
             "- [ ] Tooling CI green",
             f"- [ ] Tag `{latest.version}-1`, push it",

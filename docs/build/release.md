@@ -46,6 +46,10 @@ For a security release of our milestone, start with [the security release runboo
 
 **Long runs.** A release build runs for hours. Start it where it outlives the terminal that started it. A program started from a shell that is itself a child of another tool (an editor's terminal, an agent's shell) can end with that shell.
 
+### Pausing a build
+
+Stop siso with Ctrl+C, never by ending its process: it writes its state (`out\release\.siso_fs_state`) and reports `0 failed`, and `release.py` restores `chrome\VERSION` as it exits. For a run started without a console window of its own, send the Ctrl+C event to siso's console (`AttachConsole` on siso's process, then `GenerateConsoleCtrlEvent`), then end the `cmd.exe` left waiting at `Terminate batch job (Y/N)?`. Don't touch the Chromium checkout during the pause. To resume, run the same command: `sync` and `apply` are skipped, and siso continues where it stopped. The [152.0.7977.167 release](../security/drills/2026-10-14-152.0.7977.167.md) paused for 7 hours this way at no visible cost.
+
 ## What each stage does
 
 | Stage | What it does |

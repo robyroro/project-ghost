@@ -251,6 +251,7 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    **Security releases done 2026-10-10.** `tools/upstream.py` (`check`, `report`, `bump`), `.github/workflows/upstream.yml`, [the runbook](build/security-release.md); [design](superpowers/specs/2026-10-09-security-release-design.md), [the first drill](security/drills/2026-10-09-152.0.7977.158.md).
    - Every three hours a workflow compares Extended Stable with the pin and opens an issue for a security release or a new milestone. `bump` moves the pin, the Chromium branch and the series in one command, after checking the tag against chromiumdash and the series with the canary.
    - Drill on 152.0.7977.158: issue to verified draft in 22 h 13 min (two builds 15 h 34 min, the PIN's overnight wait 5 h 34 min), inside 72 h from our start. It found three gaps, fixed before tagging, and the runbook's wrong `verify` command.
+   - [First real one, 152.0.7977.167](security/drills/2026-10-14-152.0.7977.167.md) (2026-10-14): verified draft 31 h 53 min after upstream's publication, inside 72 h; 12 h 42 min of work plus a 7 h pause. bootstrap's free-space minimum no longer applies to an existing checkout.
    - Three mutation checks fail as required.
    - **Still open:** the milestone move to 154, when Extended Stable reaches it (expected around 2026-10-20).
 
