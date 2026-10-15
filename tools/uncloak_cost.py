@@ -10,9 +10,14 @@
 Loads the perftest corpus' 20 front pages twice in one fresh profile, with the
 request filter's timing lines on (--vmodule=request_filter=2): each line is
 the time from a request's resolution to its aliases' verdict, and the
-resolution's part of it. The first pass fills the host cache; the second is
-the budget's (p99 under 1 ms in an official build). Live sites, so the numbers vary with the network: run it
-twice and report both.
+resolution's part of it. A NetLog, kept in the temporary profile (it holds IP
+addresses), tells which resolutions the host cache answered: the filter's
+requests are the network service's own (NETWORK_SERVICE_HOST_RESOLVER), one
+per line, matched host by host in the order they started. The budget is the
+second pass' cache hits (p99 under 1 ms in an official build); the rest is
+reported. A host whose lines and requests don't pair up is left out and
+counted. Live sites, so the numbers vary with the network: run it twice and
+report both.
 
 --chrome-arg passes a switch to the browser (repeatable), to compare
 configurations: --no-proxy-server takes the proxy check out of the
@@ -32,8 +37,11 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
+from collections import defaultdict
 from pathlib import Path
+from typing import NamedTuple
 
 import cdp
 
@@ -41,15 +49,83 @@ REPO = Path(__file__).resolve().parent.parent
 CORPUS = REPO / "components" / "blocking" / "test" / "request_corpus.tsv"
 # [pid:tid:date/time:LEVEL:file:line] message; the file's directories use
 # either separator.
-LINE = re.compile(r"request_filter\.cc:\d+\] Uncloak \S+: (\d+) us \(resolution (\d+) us\)$")
+LINE = re.compile(r"^\[\d+:\d+:(\d\d)(\d\d)/(\d\d)(\d\d)(\d\d\.\d+):[^\]]*"
+                  r"request_filter\.cc:\d+\] Uncloak (\S+): (\d+) us \(resolution (\d+) us\)$")
 BUDGET_US = 1000
+# net::ERR_ABORTED: the filter cancelled the resolution, so it logged no line.
+ERR_ABORTED = -3
 
 
-def parse(log: str) -> list[tuple[int, int]]:
-    """Each uncloaking's microseconds in a chrome_debug.log text: the total
-    and the resolution's part."""
-    return [(int(m.group(1)), int(m.group(2)))
-            for m in map(LINE.search, log.splitlines()) if m]
+class Uncloaking(NamedTuple):
+    host: str
+    end: float  # When its line was written, in seconds (the year left out).
+    total_us: int
+    resolution_us: int
+
+    @property
+    def start(self) -> float:
+        return self.end - self.total_us / 1e6
+
+
+def parse(log: str) -> list[Uncloaking]:
+    """Each uncloaking in a chrome_debug.log text, in the order of its lines."""
+    rows = []
+    for m in map(LINE.search, log.splitlines()):
+        if m:
+            month, day, hours, minutes, seconds = m.group(1, 2, 3, 4, 5)
+            days = int(month) * 31 + int(day)
+            end = (days * 24 + int(hours)) * 3600 + int(minutes) * 60 + float(seconds)
+            rows.append(Uncloaking(m.group(6), end, int(m.group(7)), int(m.group(8))))
+    return rows
+
+
+def cache_hits(netlog: dict) -> dict[str, list[bool]]:
+    """For each host, whether the host cache answered each of the filter's
+    resolutions, in the order they began. Speculative ones (the predictor's)
+    and cancelled ones are left out."""
+    constants = netlog["constants"]
+    types = constants["logEventTypes"]
+    phases = constants["logEventPhase"]
+    ours = constants["logSourceType"]["NETWORK_SERVICE_HOST_RESOLVER"]
+    begun: dict[int, tuple[float, str]] = {}
+    hit: set[int] = set()
+    ended: dict[int, int] = {}
+    for event in netlog["events"]:
+        source = event["source"]
+        if source["type"] != ours:
+            continue
+        sid = source["id"]
+        if event["type"] == types["HOST_RESOLVER_MANAGER_REQUEST"]:
+            params = event.get("params", {})
+            if event["phase"] == phases["PHASE_BEGIN"]:
+                if not params.get("is_speculative"):
+                    begun[sid] = (float(event["time"]), params["host"])
+            elif event["phase"] == phases["PHASE_END"]:
+                ended[sid] = params.get("net_error", 0)
+        elif event["type"] == types["HOST_RESOLVER_MANAGER_CACHE_HIT"]:
+            hit.add(sid)
+    hosts: dict[str, list[bool]] = defaultdict(list)
+    for sid, (_, host) in sorted(begun.items(), key=lambda item: (item[1][0], item[0])):
+        if sid in ended and ended[sid] != ERR_ABORTED:
+            hosts[urllib.parse.urlsplit(host).hostname or host].append(sid in hit)
+    return dict(hosts)
+
+
+def classify(rows: list[Uncloaking], hits: dict[str, list[bool]]) -> list[bool | None]:
+    """Whether the host cache answered each row's resolution: rows and
+    requests paired host by host in the order they started; None for a host
+    whose counts differ."""
+    by_host: dict[str, list[int]] = defaultdict(list)
+    for index, row in enumerate(rows):
+        by_host[row.host].append(index)
+    result: list[bool | None] = [None] * len(rows)
+    for host, indexes in by_host.items():
+        answers = hits.get(host, [])
+        if len(answers) != len(indexes):
+            continue
+        for index, answer in zip(sorted(indexes, key=lambda i: rows[i].start), answers):
+            result[index] = answer
+    return result
 
 
 def percentile(values: list[int], p: float) -> int | None:
@@ -79,12 +155,16 @@ def _wait_for(url: str, timeout: float = 60) -> object:
 
 
 def measure(chrome: Path, launcher: Path | None, port: int, wait: float,
-            extra: list[str]) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+            extra: list[str]) -> tuple[list[Uncloaking], list[Uncloaking], list[bool | None]]:
+    """Both passes' uncloakings, and for the two together (first, then
+    second), whether the host cache answered each one."""
     with tempfile.TemporaryDirectory() as profile:
         log = Path(profile, "chrome_debug.log")
+        netlog = Path(profile, "netlog.json")
         args = [str(chrome), f"--user-data-dir={profile}", "--no-first-run",
                 "--no-default-browser-check", f"--remote-debugging-port={port}",
-                "--enable-logging", "--vmodule=request_filter=2", *extra, "about:blank"]
+                "--enable-logging", "--vmodule=request_filter=2", f"--log-net-log={netlog}",
+                *extra, "about:blank"]
         if launcher:
             process = subprocess.Popen(["powershell", "-NoProfile", "-File", str(launcher),
                                         "-CommandLine", subprocess.list2cmdline(args)])
@@ -111,10 +191,20 @@ def measure(chrome: Path, launcher: Path | None, port: int, wait: float,
             except (cdp.ProtocolError, OSError):
                 pass
             process.wait(timeout=60)
-            return passes[0], passes[1]
         except BaseException:
             process.kill()
             raise
+        # The browser writes the NetLog's end as it closes.
+        hits = cache_hits(json.loads(netlog.read_text(encoding="utf-8")))
+        return passes[0], passes[1], classify(passes[0] + passes[1], hits)
+
+
+def _report(name: str, rows: list[Uncloaking]) -> str:
+    totals = [row.total_us for row in rows]
+    resolutions = [row.resolution_us for row in rows]
+    return (f"{name}: {len(rows)} requests, p50 {percentile(totals, 50)} us, "
+            f"p99 {percentile(totals, 99)} us; resolution p50 {percentile(resolutions, 50)} us, "
+            f"p99 {percentile(resolutions, 99)} us")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -125,15 +215,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wait", type=float, default=15)
     parser.add_argument("--chrome-arg", action="append", default=[])
     args = parser.parse_args(argv)
-    first, second = measure(args.chrome, args.launcher, args.port, args.wait, args.chrome_arg)
-    for name, rows in (("first", first), ("second", second)):
-        totals = [total for total, _ in rows]
-        resolutions = [resolution for _, resolution in rows]
-        print(f"{name}: {len(rows)} requests, p50 {percentile(totals, 50)} us, "
-              f"p99 {percentile(totals, 99)} us; resolution p50 "
-              f"{percentile(resolutions, 50)} us, p99 {percentile(resolutions, 99)} us")
-    p99 = percentile([total for total, _ in second], 99)
-    print(f"budget: second pass p99 under {BUDGET_US} us: "
+    first, second, cached = measure(args.chrome, args.launcher, args.port, args.wait,
+                                    args.chrome_arg)
+    print(_report("first", first))
+    print(_report("second", second))
+    second_cached = cached[len(first):]
+    hits = [row for row, hit in zip(second, second_cached) if hit is True]
+    misses = [row for row, hit in zip(second, second_cached) if hit is False]
+    print(_report("second, in the host cache", hits))
+    print(_report("second, not in the host cache", misses))
+    unmatched = sum(1 for hit in cached if hit is None)
+    print(f"unmatched: {unmatched} of {len(cached)} uncloakings (their host's lines and "
+          "resolutions don't pair up)")
+    p99 = percentile([row.total_us for row in hits], 99)
+    print(f"budget: second pass, host cache hits, p99 under {BUDGET_US} us: "
           + ("no data" if p99 is None else "met" if p99 < BUDGET_US else "MISSED"))
     return 0
 
