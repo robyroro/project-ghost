@@ -206,28 +206,37 @@ void CosmeticFiltersAgent::RunScriptlet() {
 // that's gone (4D-1's compatibility corpus found it in newegg.com's and
 // aliexpress.com's frames). So each document binds it again before its
 // scripts start.
-void CosmeticFiltersAgent::BindApiToThisDocument() {
+bool CosmeticFiltersAgent::BindApiToThisDocument() {
   if (api_bound_) {
-    return;
+    return true;
   }
-  api_bound_ = true;
-  NameTheWorld();
   blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+  // A provisional frame (one coming back to this process from another site,
+  // until its navigation commits) has no context to give yet: Blink returns
+  // none, and asking DCHECKs. Its scripts start with its document.
+  if (frame->IsProvisional()) {
+    return false;
+  }
+  NameTheWorld();
   v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context = frame->GetScriptContextFromWorldId(isolate, kWorldId);
+  if (context.IsEmpty()) {
+    return false;
+  }
   // Outside any script, V8 wants a microtasks scope around API calls;
   // DidCreateScriptContext gets one from Blink.
   v8::MicrotasksScope microtasks(context, v8::MicrotasksScope::kDoNotRunMicrotasks);
   InstallApi(context);
+  api_bound_ = true;
+  return true;
 }
 
 void CosmeticFiltersAgent::StartScanner() {
-  if (!current_ || !current_->scan || scanning_) {
+  if (!current_ || !current_->scan || scanning_ || !BindApiToThisDocument()) {
     return;
   }
   scanning_ = true;
-  BindApiToThisDocument();
   render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
       kWorldId,
       blink::WebScriptSource(blink::WebString::FromUtf8(kScannerScript), GURL(kScannerUrl)),
@@ -235,11 +244,11 @@ void CosmeticFiltersAgent::StartScanner() {
 }
 
 void CosmeticFiltersAgent::StartProcedural() {
-  if (!current_ || current_->procedural_filters.empty() || procedural_started_) {
+  if (!current_ || current_->procedural_filters.empty() || procedural_started_ ||
+      !BindApiToThisDocument()) {
     return;
   }
   procedural_started_ = true;
-  BindApiToThisDocument();
   render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
       kWorldId,
       blink::WebScriptSource(blink::WebString::FromUtf8(kProceduralScript), GURL(kProceduralUrl)),

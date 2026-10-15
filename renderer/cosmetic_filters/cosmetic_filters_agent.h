@@ -77,7 +77,8 @@ class CosmeticFiltersAgent
   // Installs the api scanner.js and procedural.js call, bound to this
   // document, in the world's `context`.
   void InstallApi(v8::Local<v8::Context> context);
-  void BindApiToThisDocument();
+  // False when the frame has no context yet (provisional).
+  bool BindApiToThisDocument();
   void StartScripts();
   void RunScriptlet();
   void StartScanner();

@@ -71,6 +71,7 @@ class ProceduralBrowserTest : public CosmeticFiltersTestBase {
       <div class="cls promo" id="cls">x</div>)";
     AddPage("/procedural.html", body);
     AddPage("/other.html", "<div class=\"onpath\" id=\"onpath\">x</div>");
+    AddPage("/cross-parent.html", "<iframe id=\"f\" src=\"about:blank\"></iframe>");
     AddPage("/parent.html",
             "<script>const f = document.createElement('iframe');"
             "f.src = '/procedural.html'; document.body.append(f);</script>");
@@ -126,6 +127,18 @@ IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, ASameOriginFrameAfterItsEmptyDocum
   ASSERT_EQ(frame->GetLastCommittedURL().path(), "/procedural.html");
   EXPECT_EQ(WaitForDisplay(frame, "sponsored", "none"), "none");
   EXPECT_EQ(WaitForDisplay(frame, "card", "none"), "none");
+}
+
+// A frame that comes back to its parent's site from another is a provisional
+// frame in the parent's process until its navigation commits, with its
+// parent's rules and no script context yet (bing.com/maps crashed).
+IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, AFrameBackFromAnotherSiteApplies) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("p.test", "/cross-parent.html")));
+  ASSERT_TRUE(content::NavigateIframeToURL(Tab(), "f", Url("q.test", "/other.html")));
+  ASSERT_TRUE(content::NavigateIframeToURL(Tab(), "f", Url("p.test", "/procedural.html")));
+  content::RenderFrameHost* frame = content::ChildFrameAt(Tab(), 0);
+  ASSERT_TRUE(frame);
+  EXPECT_EQ(WaitForDisplay(frame, "sponsored", "none"), "none");
 }
 
 IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, ThePageSeesNoExecutor) {
