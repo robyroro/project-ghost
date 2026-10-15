@@ -18,6 +18,8 @@ source_set("registrable_domain") {
 
 source_set("blocking") {
   sources = [
+    "alias_memo.cc",
+    "alias_memo.h",
     "blocking_engine.cc",
     "blocking_engine.h",
     "dns_aliases.cc",
@@ -30,6 +32,7 @@ source_set("blocking") {
   public_deps = [
     ":registrable_domain",
     "//base",
+    "//net",
     "//services/network/public/mojom:mojom_shared",
     "//url",
   ]
@@ -54,6 +57,7 @@ copy("filter_lists") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "alias_memo_unittest.cc",
     "blocking_engine_unittest.cc",
     "dns_aliases_unittest.cc",
     "engine_bridge_unittest.cc",
@@ -66,6 +70,7 @@ source_set("unit_tests") {
     ":registrable_domain",
     "//base/test:test_support",
     "//ghost/components/blocking/rust:engine",
+    "//net",
     "//testing/gmock",
     "//testing/gtest",
   ]

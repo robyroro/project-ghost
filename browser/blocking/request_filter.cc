@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/memory/self_deleting.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
@@ -242,7 +244,9 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
   }
 
   // Resolves the URL's host, then has the engine judge its aliases (CNAME
-  // uncloaking). No aliases, or no answer: not blocked.
+  // uncloaking). No aliases, or no answer: not blocked. A host the factory's
+  // requests resolved less than a minute ago is judged at once, with the
+  // aliases they were given.
   void Uncloak(const GURL& url, base::OnceCallback<void(Decision)> done) {
     network::mojom::NetworkContext* network_context =
         uncloak_.network_context ? uncloak_.network_context.Run() : nullptr;
@@ -255,22 +259,46 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
         request_.trusted_params
             ? request_.trusted_params->isolation_info.network_anonymization_key()
             : uncloak_.network_anonymization_key;
-    const network::mojom::SecureDnsPolicy secure_dns =
-        request_.trusted_params && request_.trusted_params->disable_secure_dns
-            ? network::mojom::SecureDnsPolicy::DISABLE
-            : network::mojom::SecureDnsPolicy::ALLOW;
+    const bool secure_dns_disabled =
+        request_.trusted_params && request_.trusted_params->disable_secure_dns;
+    const base::TimeTicks start = base::TimeTicks::Now();
+    if (const std::vector<std::string>* aliases =
+            uncloak_.memo->Find(key, std::string(url.host()), secure_dns_disabled, start)) {
+      Judge(url, start, /*resolution=*/std::nullopt, *aliases, std::move(done));
+      return;
+    }
     resolver_ = std::make_unique<AliasResolver>(
-        network_context, url, key, secure_dns, request_.priority,
-        base::BindOnce(&InFlight::OnAliases, weak_factory_.GetWeakPtr(), url,
-                       base::TimeTicks::Now(), std::move(done)));
+        network_context, url, key,
+        secure_dns_disabled ? network::mojom::SecureDnsPolicy::DISABLE
+                            : network::mojom::SecureDnsPolicy::ALLOW,
+        request_.priority,
+        base::BindOnce(&InFlight::OnAliases, weak_factory_.GetWeakPtr(), url, key,
+                       secure_dns_disabled, start, std::move(done)));
   }
 
   void OnAliases(GURL url,
+                 net::NetworkAnonymizationKey key,
+                 bool secure_dns_disabled,
                  base::TimeTicks start,
                  base::OnceCallback<void(Decision)> done,
+                 bool answered,
                  std::vector<std::string> aliases) {
     // The resolver ran this as its last act: it can go.
     resolver_.reset();
+    const base::TimeTicks now = base::TimeTicks::Now();
+    if (answered) {
+      uncloak_.memo->Remember(key, std::string(url.host()), secure_dns_disabled, aliases, now);
+    }
+    Judge(url, start, now - start, aliases, std::move(done));
+  }
+
+  // Has the engine judge the aliases worth checking. `resolution` is the
+  // resolution's time, or nullopt for aliases the memo gave.
+  void Judge(const GURL& url,
+             base::TimeTicks start,
+             std::optional<base::TimeDelta> resolution,
+             const std::vector<std::string>& aliases,
+             base::OnceCallback<void(Decision)> done) {
     std::vector<GURL> alias_urls;
     for (const std::string& alias : AliasesToCheck(url.host(), aliases)) {
       if (GURL alias_url = WithAlias(url, alias); alias_url.is_valid()) {
@@ -280,14 +308,17 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
     // The total, and the resolution's part of it (the rest is the aliases'
     // check), read by tools/uncloak_cost.py (the budget).
     auto timed = base::BindOnce(
-        [](std::string host, base::TimeTicks start, base::TimeDelta resolution,
+        [](std::string host, base::TimeTicks start, std::optional<base::TimeDelta> resolution,
            base::OnceCallback<void(Decision)> done, Decision decision) {
           VLOG(2) << "Uncloak " << host << ": "
-                  << (base::TimeTicks::Now() - start).InMicroseconds() << " us (resolution "
-                  << resolution.InMicroseconds() << " us)";
+                  << (base::TimeTicks::Now() - start).InMicroseconds() << " us ("
+                  << (resolution ? "resolution " +
+                                       base::NumberToString(resolution->InMicroseconds()) + " us"
+                                 : std::string("remembered"))
+                  << ")";
           std::move(done).Run(std::move(decision));
         },
-        std::string(url.host()), start, base::TimeTicks::Now() - start, std::move(done));
+        std::string(url.host()), start, resolution, std::move(done));
     if (alias_urls.empty()) {
       std::move(timed).Run(Decision());
       return;

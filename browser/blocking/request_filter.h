@@ -12,6 +12,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/self_deleting.h"
 #include "content/public/browser/global_routing_id.h"
+#include "ghost/components/blocking/alias_memo.h"
 #include "ghost/components/privacy_policy/effective_policy.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/network_anonymization_key.h"
@@ -76,6 +77,9 @@ struct UncloakContext {
   base::RepeatingCallback<network::mojom::NetworkContext*()> network_context;
   // The factory's key, for requests that don't carry their own.
   net::NetworkAnonymizationKey network_anonymization_key;
+  // The answers the factory's requests were given, shared by them (and by
+  // every copy of the context).
+  scoped_refptr<AliasMemo> memo = base::MakeRefCounted<AliasMemo>();
 };
 
 // A proxying URLLoaderFactory: asks the engine about each request that needs

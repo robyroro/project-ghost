@@ -31,8 +31,9 @@ namespace ghost::blocking {
 // Destroying it cancels the resolution.
 class AliasResolver : public network::ResolveHostClientBase {
  public:
-  // Runs once, with no aliases on any error; never after destruction.
-  using Callback = base::OnceCallback<void(std::vector<std::string> aliases)>;
+  // Runs once, never after destruction: `answered` when the host resolved
+  // (with or without aliases); on any error, not answered and no aliases.
+  using Callback = base::OnceCallback<void(bool answered, std::vector<std::string> aliases)>;
   // Called with each resolution's host when it starts (net::ERR_IO_PENDING),
   // and again with its result unless it was cancelled first.
   using Observer = base::RepeatingCallback<void(const std::string& host, int result)>;

@@ -108,13 +108,17 @@ class CnameUncloakingBrowserTest : public cosmetic_filters::CosmeticFiltersTestB
     return resolutions_;
   }
 
-  bool WasResolved(std::string_view host) {
+  bool WasResolved(std::string_view host) { return Started(host) > 0; }
+
+  // How many resolutions of `host` the filter started.
+  int Started(std::string_view host) {
+    int started = 0;
     for (const auto& [resolved, result] : Resolutions()) {
-      if (resolved == host) {
-        return true;
+      if (resolved == host && result == net::ERR_IO_PENDING) {
+        ++started;
       }
     }
-    return false;
+    return started;
   }
 
  private:
@@ -189,6 +193,24 @@ IN_PROC_BROWSER_TEST_F(CnameUncloakingBrowserTest, AFailedResolutionLetsTheReque
   EXPECT_EQ(LoadScript("gone.a.test", "/gone.js"), "error");
   EXPECT_TRUE(WasResolved("gone.a.test"));
   EXPECT_EQ(Blocked(), 0);
+}
+
+// A page's later requests to a host take the aliases its first was given:
+// no second round trip to the network service.
+IN_PROC_BROWSER_TEST_F(CnameUncloakingBrowserTest, ALaterRequestUsesTheFirstAnswer) {
+  OpenPage();
+  EXPECT_EQ(LoadScript("metrics.a.test", "/metrics.js"), "error");
+  EXPECT_EQ(LoadScript("metrics.a.test", "/metrics.js?again"), "error");
+  EXPECT_EQ(Blocked(), 2);
+  EXPECT_EQ(Started("metrics.a.test"), 1);
+}
+
+// A failure isn't remembered: the next request asks again.
+IN_PROC_BROWSER_TEST_F(CnameUncloakingBrowserTest, AFailureIsAskedAgain) {
+  OpenPage();
+  EXPECT_EQ(LoadScript("gone.a.test", "/gone.js"), "error");
+  EXPECT_EQ(LoadScript("gone.a.test", "/gone.js?again"), "error");
+  EXPECT_EQ(Started("gone.a.test"), 2);
 }
 
 // A chain of more than one alias reaches the filter (spike point 2).

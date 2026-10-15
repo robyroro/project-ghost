@@ -19,11 +19,15 @@ class ParseTest(unittest.TestCase):
             "[1:2:1013/101011.125:VERBOSE2:ghost/browser/blocking/request_filter.cc:321] "
             "Uncloak a.example.com: 1203 us (resolution 1100 us)",
             "[1:2:1013/101010.126:VERBOSE2:other.cc:9] Uncloak b.example.com: 5 us (resolution 1 us)",
+            "[1:2:1013/101012.000:VERBOSE2:ghost/browser/blocking/request_filter.cc:321] "
+            "Uncloak cdn.example.com: 7 us (remembered)",
             "garbage",
         ])
         rows = uncloak_cost.parse(log)
+        # A host the page's memo answered has no resolution.
         self.assertEqual([(r.host, r.total_us, r.resolution_us) for r in rows],
-                         [("cdn.example.com", 412, 300), ("a.example.com", 1203, 1100)])
+                         [("cdn.example.com", 412, 300), ("a.example.com", 1203, 1100),
+                          ("cdn.example.com", 7, None)])
         # The line is written at the verdict: the start is that time less the total.
         self.assertAlmostEqual(rows[1].end - rows[0].end, 1.002)
         self.assertAlmostEqual(rows[0].start, rows[0].end - 0.000412)
@@ -79,6 +83,10 @@ class ClassifyTest(unittest.TestCase):
                 self.row("c.test", 2.0, 10)]
         hits = {"a.test": [False, True], "c.test": [True, True]}
         self.assertEqual(uncloak_cost.classify(rows, hits), [True, False, None])
+
+    def test_remembered_rows_pair_with_no_resolution(self):
+        rows = [self.row("a.test", 1.0, 100), Uncloaking("a.test", 1.5, 7, None)]
+        self.assertEqual(uncloak_cost.classify(rows, {"a.test": [True]}), [True, None])
 
 
 class PercentileTest(unittest.TestCase):

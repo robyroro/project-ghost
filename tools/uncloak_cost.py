@@ -13,8 +13,10 @@ the time from a request's resolution to its aliases' verdict, and the
 resolution's part of it. A NetLog, kept in the temporary profile (it holds IP
 addresses), tells which resolutions the host cache answered: the filter's
 requests are the network service's own (NETWORK_SERVICE_HOST_RESOLVER), one
-per line, matched host by host in the order they started. The budget is the
-second pass' cache hits (p99 under 1 ms in an official build); the rest is
+per line, matched host by host in the order they started. A line that says
+"remembered" had its aliases from the page's memo, with no resolution. The
+budget is the second pass' requests answered without the network, from the
+memo or the host cache (p99 under 1 ms in an official build); the rest is
 reported. A host whose lines and requests don't pair up is left out and
 counted. Live sites, so the numbers vary with the network: run it twice and
 report both.
@@ -50,7 +52,8 @@ CORPUS = REPO / "components" / "blocking" / "test" / "request_corpus.tsv"
 # [pid:tid:date/time:LEVEL:file:line] message; the file's directories use
 # either separator.
 LINE = re.compile(r"^\[\d+:\d+:(\d\d)(\d\d)/(\d\d)(\d\d)(\d\d\.\d+):[^\]]*"
-                  r"request_filter\.cc:\d+\] Uncloak (\S+): (\d+) us \(resolution (\d+) us\)$")
+                  r"request_filter\.cc:\d+\] Uncloak (\S+): (\d+) us "
+                  r"\((?:resolution (\d+) us|remembered)\)$")
 BUDGET_US = 1000
 # net::ERR_ABORTED: the filter cancelled the resolution, so it logged no line.
 ERR_ABORTED = -3
@@ -60,7 +63,8 @@ class Uncloaking(NamedTuple):
     host: str
     end: float  # When its line was written, in seconds (the year left out).
     total_us: int
-    resolution_us: int
+    # None when the page's memo had the host's aliases: nothing was resolved.
+    resolution_us: int | None
 
     @property
     def start(self) -> float:
@@ -75,7 +79,8 @@ def parse(log: str) -> list[Uncloaking]:
             month, day, hours, minutes, seconds = m.group(1, 2, 3, 4, 5)
             days = int(month) * 31 + int(day)
             end = (days * 24 + int(hours)) * 3600 + int(minutes) * 60 + float(seconds)
-            rows.append(Uncloaking(m.group(6), end, int(m.group(7)), int(m.group(8))))
+            resolution = int(m.group(8)) if m.group(8) is not None else None
+            rows.append(Uncloaking(m.group(6), end, int(m.group(7)), resolution))
     return rows
 
 
@@ -114,10 +119,11 @@ def cache_hits(netlog: dict) -> dict[str, list[bool]]:
 def classify(rows: list[Uncloaking], hits: dict[str, list[bool]]) -> list[bool | None]:
     """Whether the host cache answered each row's resolution: rows and
     requests paired host by host in the order they started; None for a host
-    whose counts differ."""
+    whose counts differ, and for a row the memo answered (no resolution)."""
     by_host: dict[str, list[int]] = defaultdict(list)
     for index, row in enumerate(rows):
-        by_host[row.host].append(index)
+        if row.resolution_us is not None:
+            by_host[row.host].append(index)
     result: list[bool | None] = [None] * len(rows)
     for host, indexes in by_host.items():
         answers = hits.get(host, [])
@@ -201,7 +207,7 @@ def measure(chrome: Path, launcher: Path | None, port: int, wait: float,
 
 def _report(name: str, rows: list[Uncloaking]) -> str:
     totals = [row.total_us for row in rows]
-    resolutions = [row.resolution_us for row in rows]
+    resolutions = [row.resolution_us for row in rows if row.resolution_us is not None]
     return (f"{name}: {len(rows)} requests, p50 {percentile(totals, 50)} us, "
             f"p99 {percentile(totals, 99)} us; resolution p50 {percentile(resolutions, 50)} us, "
             f"p99 {percentile(resolutions, 99)} us")
@@ -220,15 +226,18 @@ def main(argv: list[str] | None = None) -> int:
     print(_report("first", first))
     print(_report("second", second))
     second_cached = cached[len(first):]
+    remembered = [row for row in second if row.resolution_us is None]
     hits = [row for row, hit in zip(second, second_cached) if hit is True]
     misses = [row for row, hit in zip(second, second_cached) if hit is False]
-    print(_report("second, in the host cache", hits))
-    print(_report("second, not in the host cache", misses))
-    unmatched = sum(1 for hit in cached if hit is None)
-    print(f"unmatched: {unmatched} of {len(cached)} uncloakings (their host's lines and "
-          "resolutions don't pair up)")
-    p99 = percentile([row.total_us for row in hits], 99)
-    print(f"budget: second pass, host cache hits, p99 under {BUDGET_US} us: "
+    print(_report("second, from the page's memo", remembered))
+    print(_report("second, from the host cache", hits))
+    print(_report("second, from the network", misses))
+    resolved = [hit for row, hit in zip(first + second, cached) if row.resolution_us is not None]
+    unmatched = sum(1 for hit in resolved if hit is None)
+    print(f"unmatched: {unmatched} of {len(resolved)} resolutions (their host's lines and "
+          "requests don't pair up)")
+    p99 = percentile([row.total_us for row in remembered + hits], 99)
+    print(f"budget: second pass, answered without the network, p99 under {BUDGET_US} us: "
           + ("no data" if p99 is None else "met" if p99 < BUDGET_US else "MISSED"))
     return 0
 

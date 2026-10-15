@@ -79,7 +79,7 @@ void AliasResolver::Finish(int result, std::vector<std::string> aliases) {
     TestObserver().Run(host_, result);
   }
   // Last: the callback may destroy this.
-  std::move(callback_).Run(std::move(aliases));
+  std::move(callback_).Run(result == net::OK, std::move(aliases));
 }
 
 }  // namespace ghost::blocking
