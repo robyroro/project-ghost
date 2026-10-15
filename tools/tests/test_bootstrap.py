@@ -85,8 +85,8 @@ class PlanTest(unittest.TestCase):
 class ValidateRootTest(unittest.TestCase):
     GOOD = VolumeFacts(str(ROOT), 400.0, "ReFS")
 
-    def problems(self, root=ROOT, volume=GOOD, env=None):
-        return bootstrap.validate_root(root, volume, REQ, env or {})
+    def problems(self, root=ROOT, volume=GOOD, env=None, have_src=False):
+        return bootstrap.validate_root(root, volume, REQ, env or {}, have_src=have_src)
 
     def test_good_root(self):
         self.assertEqual(self.problems(), [])
@@ -101,6 +101,15 @@ class ValidateRootTest(unittest.TestCase):
     def test_rejects_small_or_wrong_volume(self):
         self.assertTrue(self.problems(volume=VolumeFacts(str(ROOT), 53.0, "NTFS")))
         self.assertTrue(self.problems(volume=VolumeFacts(str(ROOT), 900.0, "FAT32")))
+
+    def test_an_existing_checkout_needs_only_room_to_update(self):
+        # The 152.0.7977.167 release started with 54 GB free and used 6 GB.
+        roomy = VolumeFacts(str(ROOT), 54.0, "NTFS")
+        self.assertEqual(self.problems(volume=roomy, have_src=True), [])
+        self.assertTrue(self.problems(volume=roomy, have_src=False))
+        full = VolumeFacts(str(ROOT), 10.0, "NTFS")
+        self.assertRegex(" ".join(self.problems(volume=full, have_src=True)),
+                         r"only 10 GB free; at least 25 GB is required to update")
 
 
 class ExecuteTest(GitTestCase):

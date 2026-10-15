@@ -13,7 +13,8 @@
     "disk_free_gb": {
       "minimum": 100,
       "recommended": 250,
-      "note": "Upstream minimum is 100 GB for the checkout alone; 250 GB leaves room for one component build and one release build."
+      "update_minimum": 25,
+      "note": "Upstream minimum is 100 GB for the checkout alone; 250 GB leaves room for one component build and one release build. update_minimum is for an existing checkout that moves its pin: the sync takes a few GB and out/ is rebuilt in place (the 152.0.7977.167 release used 6 GB)."
     },
     "filesystems": ["NTFS", "ReFS"],
     "visual_studio": {

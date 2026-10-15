@@ -124,7 +124,7 @@ def plan(root: Path, version: str, commit: str, ghost_url: str, depot_tools: Pat
 
 
 def validate_root(root: Path, volume: check_env.VolumeFacts, req: dict,
-                  env: dict[str, str]) -> list[str]:
+                  env: dict[str, str], have_src: bool = False) -> list[str]:
     problems = []
     if not root.is_absolute():
         problems.append(f"{root} is not an absolute path")
@@ -139,9 +139,16 @@ def validate_root(root: Path, volume: check_env.VolumeFacts, req: dict,
     if volume.filesystem not in win["filesystems"]:
         problems.append(f"{root} is on {volume.filesystem or 'an unknown filesystem'}; "
                         f"use {' or '.join(win['filesystems'])}")
-    if volume.free_gb < win["disk_free_gb"]["minimum"]:
+    # The checkout's own minimum applies to a new checkout; an existing one only
+    # moves its pin, and needs room for the sync and for rebuilding out/ in place.
+    disk = win["disk_free_gb"]
+    if have_src:
+        if volume.free_gb < disk["update_minimum"]:
+            problems.append(f"only {volume.free_gb:.0f} GB free; at least "
+                            f"{disk['update_minimum']} GB is required to update the checkout")
+    elif volume.free_gb < disk["minimum"]:
         problems.append(f"only {volume.free_gb:.0f} GB free; at least "
-                        f"{win['disk_free_gb']['minimum']} GB is required")
+                        f"{disk['minimum']} GB is required")
     return problems
 
 
@@ -236,7 +243,8 @@ def main(argv: list[str] | None = None) -> int:
                  have_depot_tools=gclient_path(depot_tools).exists(),
                  have_src=(root / "src" / ".git").exists(), jobs=args.jobs, pgo=args.pgo)
 
-    problems = validate_root(root, check_env.probe_volume(str(root)), req, dict(os.environ))
+    problems = validate_root(root, check_env.probe_volume(str(root)), req, dict(os.environ),
+                             have_src=(root / "src" / ".git").exists())
     for problem in problems:
         print(f"{'warning' if args.dry_run else 'error'}: {problem}", file=sys.stderr)
     if problems and not args.dry_run:
