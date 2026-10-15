@@ -80,5 +80,14 @@ class ParseTest(unittest.TestCase):
         self.assertRefused("[[site]\n", "not TOML")
 
 
+
+class ShippedCorpusTest(unittest.TestCase):
+    def test_the_corpus_loads_and_covers_every_category(self):
+        sites = compat_corpus.load()
+        self.assertGreaterEqual(len(sites), 140)
+        self.assertGreaterEqual(sum(1 for s in sites if s.flow), 20)
+        self.assertEqual({s.category for s in sites}, set(compat_corpus.CATEGORIES))
+
+
 if __name__ == "__main__":
     unittest.main()

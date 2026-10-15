@@ -1,0 +1,742 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# The compatibility corpus (Phase 4D-1; docs/testing.md, tools/compat.py):
+# sites where blocking tends to break things, by category. A flow is what a
+# logged-out user does there; both browsers must get through it. Never a
+# step that signs in or enters a credential. A `reason` excuses a broken
+# site once triage showed the breakage isn't Shade's (never a failed flow).
+
+# --- perftest ---
+
+[[site]]
+url = "https://adevarul.ro/"
+category = "perftest"
+
+[[site]]
+url = "https://apnews.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.bbc.com/"
+category = "perftest"
+flow = [
+  { action = "scroll" },
+  { action = "expect_visible", selector = "main" },
+]
+
+[[site]]
+url = "https://www.cnbc.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.cnn.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.dailymail.co.uk/"
+category = "perftest"
+
+[[site]]
+url = "https://www.digi24.ro/"
+category = "perftest"
+
+[[site]]
+url = "https://www.forbes.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.foxnews.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.hotnews.ro/"
+category = "perftest"
+
+[[site]]
+url = "https://www.independent.co.uk/"
+category = "perftest"
+
+[[site]]
+url = "https://www.lemonde.fr/"
+category = "perftest"
+
+[[site]]
+url = "https://www.libertatea.ro/"
+category = "perftest"
+
+[[site]]
+url = "https://www.nbcnews.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.nytimes.com/"
+category = "perftest"
+flow = [
+  { action = "scroll" },
+  { action = "expect_visible", selector = "main section" },
+]
+
+[[site]]
+url = "https://www.reuters.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.spiegel.de/"
+category = "perftest"
+
+[[site]]
+url = "https://www.theguardian.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.usatoday.com/"
+category = "perftest"
+
+[[site]]
+url = "https://www.washingtonpost.com/"
+category = "perftest"
+
+# --- news ---
+
+[[site]]
+url = "https://www.npr.org/"
+category = "news"
+
+[[site]]
+url = "https://www.aljazeera.com/"
+category = "news"
+
+[[site]]
+url = "https://www.bloomberg.com/"
+category = "news"
+
+[[site]]
+url = "https://www.wsj.com/"
+category = "news"
+
+[[site]]
+url = "https://www.theatlantic.com/"
+category = "news"
+
+[[site]]
+url = "https://www.huffpost.com/"
+category = "news"
+
+[[site]]
+url = "https://www.businessinsider.com/"
+category = "news"
+
+[[site]]
+url = "https://www.lefigaro.fr/"
+category = "news"
+
+[[site]]
+url = "https://www.corriere.it/"
+category = "news"
+
+[[site]]
+url = "https://elpais.com/"
+category = "news"
+
+[[site]]
+url = "https://www.zeit.de/"
+category = "news"
+
+[[site]]
+url = "https://www.bild.de/"
+category = "news"
+
+[[site]]
+url = "https://www.politico.com/"
+category = "news"
+
+[[site]]
+url = "https://www.theverge.com/"
+category = "news"
+
+[[site]]
+url = "https://arstechnica.com/"
+category = "news"
+
+[[site]]
+url = "https://techcrunch.com/"
+category = "news"
+
+[[site]]
+url = "https://www.wired.com/"
+category = "news"
+
+[[site]]
+url = "https://www.espn.com/"
+category = "news"
+
+[[site]]
+url = "https://weather.com/"
+category = "news"
+
+# --- video ---
+
+[[site]]
+url = "https://www.youtube.com/"
+category = "video"
+flow = [
+  { action = "click_if_present", selector = "button[aria-label^=\"Reject\"]" },
+  { action = "type", selector = "input[name=search_query]", text = "chromium" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = "ytd-video-renderer" },
+]
+
+[[site]]
+url = "https://vimeo.com/"
+category = "video"
+
+[[site]]
+url = "https://www.twitch.tv/"
+category = "video"
+flow = [
+  { action = "expect_visible", selector = "video" },
+]
+
+[[site]]
+url = "https://www.dailymotion.com/"
+category = "video"
+
+[[site]]
+url = "https://www.ted.com/talks"
+category = "video"
+
+[[site]]
+url = "https://www.netflix.com/"
+category = "video"
+
+[[site]]
+url = "https://www.primevideo.com/"
+category = "video"
+
+[[site]]
+url = "https://www.disneyplus.com/"
+category = "video"
+
+[[site]]
+url = "https://www.hulu.com/"
+category = "video"
+
+[[site]]
+url = "https://www.crunchyroll.com/"
+category = "video"
+
+[[site]]
+url = "https://www.imdb.com/"
+category = "video"
+flow = [
+  { action = "type", selector = "#suggestion-search", text = "The Matrix" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = ".ipc-metadata-list-summary-item" },
+]
+
+[[site]]
+url = "https://open.spotify.com/"
+category = "video"
+
+[[site]]
+url = "https://soundcloud.com/"
+category = "video"
+
+[[site]]
+url = "https://www.bbc.co.uk/iplayer"
+category = "video"
+
+# --- shopping ---
+
+[[site]]
+url = "https://www.amazon.com/"
+category = "shopping"
+flow = [
+  { action = "type", selector = "#twotabsearchtextbox", text = "usb cable" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = "[data-component-type=\"s-search-result\"]" },
+]
+
+[[site]]
+url = "https://www.amazon.de/"
+category = "shopping"
+
+[[site]]
+url = "https://www.ebay.com/"
+category = "shopping"
+flow = [
+  { action = "type", selector = "#gh-ac", text = "usb cable" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = ".srp-results li" },
+]
+
+[[site]]
+url = "https://www.walmart.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.target.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.bestbuy.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.etsy.com/search?q=mug"
+category = "shopping"
+flow = [
+  { action = "expect_visible", selector = "[data-listing-id]" },
+]
+
+[[site]]
+url = "https://www.aliexpress.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.ikea.com/us/en/"
+category = "shopping"
+
+[[site]]
+url = "https://www.zalando.de/"
+category = "shopping"
+
+[[site]]
+url = "https://www.homedepot.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.costco.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.temu.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.shein.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.newegg.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.wayfair.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.macys.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.nike.com/"
+category = "shopping"
+
+# 4C: Adobe Analytics behind b.telus.com (a CNAME to omtrdc.net)
+[[site]]
+url = "https://www.telus.com/"
+category = "shopping"
+
+[[site]]
+url = "https://www.apple.com/"
+category = "shopping"
+
+# --- maps ---
+
+[[site]]
+url = "https://www.google.com/maps"
+category = "maps"
+flow = [
+  { action = "click_if_present", selector = "form[action*=\"consent\"] button" },
+  { action = "expect_visible", selector = "input[name=q]" },
+]
+
+[[site]]
+url = "https://www.openstreetmap.org/search?query=Cluj-Napoca"
+category = "maps"
+flow = [
+  { action = "expect_text", selector = "#sidebar_content", text = "Cluj-Napoca" },
+]
+
+[[site]]
+url = "https://www.bing.com/maps"
+category = "maps"
+
+[[site]]
+url = "https://wego.here.com/"
+category = "maps"
+
+[[site]]
+url = "https://www.waze.com/live-map/"
+category = "maps"
+
+[[site]]
+url = "https://www.mapquest.com/"
+category = "maps"
+
+# --- docs ---
+
+[[site]]
+url = "https://www.wikipedia.org/"
+category = "docs"
+flow = [
+  { action = "type", selector = "#searchInput", text = "Chromium" },
+  { action = "press", key = "Enter" },
+  { action = "expect_text", selector = "#firstHeading", text = "Chromium" },
+]
+
+[[site]]
+url = "https://en.wikipedia.org/wiki/Web_browser"
+category = "docs"
+
+[[site]]
+url = "https://github.com/"
+category = "docs"
+
+[[site]]
+url = "https://stackoverflow.com/questions"
+category = "docs"
+flow = [
+  { action = "expect_visible", selector = "#questions .s-post-summary" },
+]
+
+[[site]]
+url = "https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API"
+category = "docs"
+flow = [
+  { action = "expect_text", selector = "h1", text = "Fetch API" },
+]
+
+[[site]]
+url = "https://docs.python.org/3/"
+category = "docs"
+
+[[site]]
+url = "https://learn.microsoft.com/en-us/"
+category = "docs"
+
+[[site]]
+url = "https://www.notion.com/"
+category = "docs"
+
+[[site]]
+url = "https://slack.com/"
+category = "docs"
+
+[[site]]
+url = "https://www.atlassian.com/"
+category = "docs"
+
+[[site]]
+url = "https://trello.com/"
+category = "docs"
+
+[[site]]
+url = "https://www.figma.com/"
+category = "docs"
+
+[[site]]
+url = "https://www.canva.com/"
+category = "docs"
+
+[[site]]
+url = "https://www.dropbox.com/"
+category = "docs"
+
+[[site]]
+url = "https://zoom.us/"
+category = "docs"
+
+[[site]]
+url = "https://www.salesforce.com/"
+category = "docs"
+
+[[site]]
+url = "https://www.hubspot.com/"
+category = "docs"
+
+[[site]]
+url = "https://medium.com/"
+category = "docs"
+
+[[site]]
+url = "https://duckduckgo.com/?q=privacy+browser"
+category = "docs"
+flow = [
+  { action = "expect_visible", selector = "[data-testid=result]" },
+]
+
+[[site]]
+url = "https://www.bing.com/"
+category = "docs"
+flow = [
+  { action = "type", selector = "#sb_form_q", text = "chromium" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = "#b_results .b_algo" },
+]
+
+[[site]]
+url = "https://www.google.com/"
+category = "docs"
+flow = [
+  { action = "click_if_present", selector = "#W0wltc" },
+  { action = "type", selector = "textarea[name=q]", text = "chromium" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = "#search a h3" },
+]
+
+[[site]]
+url = "https://chatgpt.com/"
+category = "docs"
+
+# --- social ---
+
+[[site]]
+url = "https://www.reddit.com/"
+category = "social"
+flow = [
+  { action = "expect_visible", selector = "shreddit-post" },
+]
+
+[[site]]
+url = "https://x.com/"
+category = "social"
+
+[[site]]
+url = "https://www.facebook.com/"
+category = "social"
+
+[[site]]
+url = "https://www.instagram.com/"
+category = "social"
+
+[[site]]
+url = "https://www.linkedin.com/"
+category = "social"
+
+[[site]]
+url = "https://www.pinterest.com/"
+category = "social"
+
+[[site]]
+url = "https://www.tiktok.com/explore"
+category = "social"
+
+[[site]]
+url = "https://www.tumblr.com/"
+category = "social"
+
+[[site]]
+url = "https://www.quora.com/"
+category = "social"
+
+[[site]]
+url = "https://mastodon.social/explore"
+category = "social"
+
+[[site]]
+url = "https://bsky.app/"
+category = "social"
+
+[[site]]
+url = "https://www.threads.com/"
+category = "social"
+
+# --- login ---
+
+[[site]]
+url = "https://accounts.google.com/"
+category = "login"
+
+[[site]]
+url = "https://login.microsoftonline.com/"
+category = "login"
+
+[[site]]
+url = "https://login.live.com/"
+category = "login"
+
+[[site]]
+url = "https://www.paypal.com/signin"
+category = "login"
+
+[[site]]
+url = "https://www.chase.com/"
+category = "login"
+
+[[site]]
+url = "https://www.bankofamerica.com/"
+category = "login"
+
+[[site]]
+url = "https://www.wellsfargo.com/"
+category = "login"
+
+[[site]]
+url = "https://account.apple.com/"
+category = "login"
+
+[[site]]
+url = "https://github.com/login"
+category = "login"
+flow = [
+  { action = "expect_visible", selector = "#login_field" },
+]
+
+[[site]]
+url = "https://id.atlassian.com/login"
+category = "login"
+
+[[site]]
+url = "https://www.revolut.com/"
+category = "login"
+
+[[site]]
+url = "https://www.ing.ro/"
+category = "login"
+
+[[site]]
+url = "https://www.bancatransilvania.ro/"
+category = "login"
+
+# --- travel ---
+
+[[site]]
+url = "https://www.booking.com/"
+category = "travel"
+flow = [
+  { action = "click_if_present", selector = "#onetrust-reject-all-handler" },
+  { action = "expect_visible", selector = "input[name=ss]" },
+]
+
+[[site]]
+url = "https://www.airbnb.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.expedia.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.tripadvisor.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.skyscanner.net/"
+category = "travel"
+
+[[site]]
+url = "https://www.kayak.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.ryanair.com/"
+category = "travel"
+
+[[site]]
+url = "https://wizzair.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.lufthansa.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.hotels.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.trivago.com/"
+category = "travel"
+
+[[site]]
+url = "https://www.uber.com/"
+category = "travel"
+
+# 4C: Adobe Analytics behind aa-metrics.jalan.net
+[[site]]
+url = "https://www.jalan.net/"
+category = "travel"
+
+# --- romanian ---
+
+[[site]]
+url = "https://www.emag.ro/"
+category = "romanian"
+flow = [
+  { action = "type", selector = "#searchboxTrigger", text = "telefon" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = ".card-item" },
+]
+
+[[site]]
+url = "https://www.olx.ro/"
+category = "romanian"
+flow = [
+  { action = "click_if_present", selector = "#onetrust-reject-all-handler" },
+  { action = "type", selector = "input[data-testid=search-input]", text = "bicicleta" },
+  { action = "press", key = "Enter" },
+  { action = "expect_visible", selector = "[data-cy=l-card]" },
+]
+
+[[site]]
+url = "https://altex.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.cel.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.gsp.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.prosport.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.protv.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://stirileprotv.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.antena3.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.realitatea.net/"
+category = "romanian"
+
+[[site]]
+url = "https://www.g4media.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.zf.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.mediafax.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.anaf.ro/"
+category = "romanian"
+
+[[site]]
+url = "https://www.cfrcalatori.ro/"
+category = "romanian"
+flow = [
+  { action = "expect_visible", selector = "#input-station-departure-name" },
+]
+
+[[site]]
+url = "https://www.fancourier.ro/"
+category = "romanian"
