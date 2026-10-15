@@ -29,8 +29,15 @@ TEST(FilterListsTest, AMissingListIsLeftOut) {
 }
 
 TEST(FilterListsTest, TheBuildCopiesTheShippedLists) {
-  // patches/0029 copies components/blocking/data/*.txt beside the binaries.
+  // //ghost/components/blocking:filter_lists copies them beside the binaries;
+  // patches/0030 packs them in the installer.
   EXPECT_EQ(ReadFilterLists(DefaultFilterListsDir()).size(), std::size(kFilterListFiles));
+}
+
+TEST(FilterListsTest, ShadesOwnListIsReadLast) {
+  const std::vector<std::string> lists = ReadFilterLists(DefaultFilterListsDir());
+  ASSERT_FALSE(lists.empty());
+  EXPECT_TRUE(lists.back().starts_with("! Title: Shade's fixes")) << lists.back().substr(0, 80);
 }
 
 }  // namespace

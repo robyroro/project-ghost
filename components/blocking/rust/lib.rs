@@ -113,6 +113,10 @@ mod ffi {
             body: &str,
             scriptlet: bool,
         ) -> String;
+        /// Each line of `list` the parser refuses, as "line N: <rule>:
+        /// <error>"; comments, headers and blank lines are fine. For Shade's
+        /// own list, which is checked rule by rule (Phase 4D-1).
+        fn list_problems(list: &str) -> Vec<String>;
     }
 }
 
@@ -282,6 +286,21 @@ fn resource_problem_for_testing(name: &str, mime: &str, body: &str, scriptlet: b
         body: body.as_bytes(),
     };
     resources::problem(&entry, &[]).unwrap_or_default()
+}
+
+fn list_problems(list: &str) -> Vec<String> {
+    list.lines()
+        .enumerate()
+        .filter(|(_, line)| {
+            let line = line.trim();
+            !line.is_empty() && !line.starts_with('!') && !line.starts_with('[')
+        })
+        .filter_map(|(i, line)| {
+            adblock::lists::parse_filter(line, false, ParseOptions::default())
+                .err()
+                .map(|e| format!("line {}: {}: {}", i + 1, line.trim(), e))
+        })
+        .collect()
 }
 
 fn sorted(set: HashSet<String>) -> Vec<String> {

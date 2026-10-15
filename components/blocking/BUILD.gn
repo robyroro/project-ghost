@@ -45,11 +45,14 @@ source_set("blocking") {
 
 # The lists the browser ships, as data files beside it (docs/licensing.md):
 # <out>/blocking/ in a build; the installer takes them from there
-# (patches/0030).
+# (patches/0030). EasyList and EasyPrivacy, then Shade's own (shade.txt,
+# Phase 4D-1), which lives outside data/: data/'s README and LICENSE are
+# EasyList's.
 copy("filter_lists") {
   sources = [
     "data/easylist.txt",
     "data/easyprivacy.txt",
+    "shade.txt",
   ]
   outputs = [ "$root_out_dir/blocking/{{source_file_part}}" ]
 }

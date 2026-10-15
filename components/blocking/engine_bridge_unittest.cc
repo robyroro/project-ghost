@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "base/files/file_util.h"
+#include "ghost/components/blocking/filter_lists.h"
 #include "ghost/components/blocking/rust/lib.rs.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -254,6 +256,23 @@ TEST(EngineBridgeTest, OnlyFunctionStyleScriptletsAreAccepted) {
   EXPECT_TRUE(resource_problem_for_testing("x.js", "application/javascript",
                                            "(function () {})();", false)
                   .empty());
+}
+
+// Phase 4D-1: Shade's own list, checked rule by rule.
+TEST(EngineBridgeTest, ListProblemsNamesTheLinesTheParserRefuses) {
+  rust::Vec<rust::String> problems =
+      list_problems("! a comment\n[Adblock Plus 2.0]\n\n||a.test^\n||b.test^$nosuchoption\n");
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(std::string(problems[0]).starts_with("line 5: ||b.test^$nosuchoption"))
+      << std::string(problems[0]);
+}
+
+TEST(EngineBridgeTest, ShadesListHasNoProblem) {
+  std::string list;
+  ASSERT_TRUE(base::ReadFileToString(DefaultFilterListsDir().AppendASCII("shade.txt"), &list));
+  for (const rust::String& problem : list_problems(list)) {
+    ADD_FAILURE() << std::string(problem);
+  }
 }
 
 // Phase 4C: a request's DNS aliases, as URLs with the alias as host.

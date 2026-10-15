@@ -95,7 +95,7 @@ class Expectations:
 ICON_KINDS = ("app", "doc", "pdf")
 # The blocking engine's lists (components/blocking/data), installed in the
 # version directory's blocking\ folder (patches/0030).
-FILTER_LISTS = ("easylist.txt", "easyprivacy.txt")
+FILTER_LISTS = ("easylist.txt", "easyprivacy.txt", "shade.txt")
 
 
 def expectations(root: Path, release_version: str) -> Expectations:

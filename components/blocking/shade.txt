@@ -1,0 +1,11 @@
+! Title: Shade's fixes
+! This Source Code Form is subject to the terms of the Mozilla Public
+! License, v. 2.0. If a copy of the MPL was not distributed with this
+! file, You can obtain one at https://mozilla.org/MPL/2.0/.
+!
+! Shade's own list, read after EasyList and EasyPrivacy (Phase 4D-1). It
+! holds only fixes for sites the compatibility corpus (test/compat/) found
+! broken. Each entry is scoped to its site, never generic, and its comment
+! names the corpus site, the failure, and the upstream report when a list
+! was at fault. This header keeps the file from ever being empty, which
+! the browser would take for a missing list.

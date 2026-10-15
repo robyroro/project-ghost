@@ -18,7 +18,9 @@ base::FilePath DefaultFilterListsDir();
 
 // The lists the browser ships (components/blocking/data/), in the order they
 // are given to the engine.
-inline constexpr const char* kFilterListFiles[] = {"easylist.txt", "easyprivacy.txt"};
+// In this order; shade.txt, Shade's own fixes (Phase 4D-1), last.
+inline constexpr const char* kFilterListFiles[] = {"easylist.txt", "easyprivacy.txt",
+                                                   "shade.txt"};
 
 // Reads each list in `dir`; a missing or unreadable one is logged and left
 // out. Blocking I/O: call it on a task that may block.
