@@ -20,6 +20,7 @@ A tracker hidden behind a first-party subdomain (`metrics.site.com` with a CNAME
 - **No DNS beside a proxy.** The resolution asks for `direct_only`: when a proxy resolves the host, the answer is `ERR_DNS_DIRECT_ONLY` and the request passes without uncloaking. A proxy's user expects no local DNS query.
 - **Which aliases.** Of the host's aliases: not the queried name, not an IP literal or an invalid name, not an alias on the original host's registrable domain (`a.site.com` to `b.site.com` isn't cloaking), without a trailing dot, each once. *(Amended while planning:)* net keeps the aliases in a set, so they arrive sorted, not in the chain's order; the order only decides which rule is logged.
 - **How an alias is checked.** As the original request with the alias as its host: same scheme, port, path and query, the same page, destination and method. Party is judged against the page, so `$third-party` rules apply to an alias on another site. The first alias that blocks decides; a redirect rule on it answers with Shade's resource, as in 4B.
+- **A page remembers its answers** *(amended while measuring, 2026-10-15)*. Each factory keeps the aliases its requests were given for a minute, keyed as the resolution was asked (network anonymization key, host, secure DNS off or not); errors aren't kept. A later request to the host is judged at once. A resolution from the host cache costs nothing in the resolver but a round trip between the UI thread and the network service, which waits behind the page's loading on both sides (p50 2 ms, p99 60 ms in the official build). A minute is the host cache's own minimum lifetime for an answer, so the memo never holds aliases the cache would have dropped.
 - **Fail open on DNS.** An error, a timeout or a network service that went away: the request passes, and its own resolution fails or succeeds as it would have. The page dropping the request cancels the resolution.
 - **Redirects too.** A redirect's new URL goes through the same steps before the page sees the redirect.
 - **The shield** counts a request blocked by an alias like any other; the log names the alias and the rule.
@@ -32,6 +33,7 @@ A tracker hidden behind a first-party subdomain (`metrics.site.com` with a CNAME
 | `components/blocking/rust/lib.rs` | `check_aliases(url, source, type, method, alias_urls) -> AliasVerdict`: nothing blocked when an exception matches the request's own URL; otherwise the first alias URL a rule blocks decides (filter, redirect, the alias URL). |
 | `BlockingEngine` | `CheckAliases(CheckRequest, std::vector<GURL> alias_urls, reply)`; `Decision` gains `alias`, the blocked alias URL, for the log. |
 | `components/blocking/dns_aliases.{h,cc}` (new) | Pure functions, no network. `AliasesToCheck(const GURL& url, const std::vector<std::string>& dns_aliases)`: the aliases worth checking, by the rules above (`registrable_domain.h` for the domain). `WithAlias(const GURL& url, std::string_view alias)`: the URL with the alias as its host, or an invalid `GURL` if the alias isn't a valid host. |
+| `components/blocking/alias_memo.{h,cc}` (new, *amended while measuring*) | `AliasMemo`: a factory's answers for a minute, at most 256 hosts. |
 | `browser/blocking/alias_resolver.{h,cc}` (new) | One resolution: calls `NetworkContext::ResolveHost` with the host, the key, the secure DNS policy and `direct_only`, and answers with `dns_aliases`, or nothing on any error. Destroying it cancels the resolution. Takes the `NetworkContext` from the storage partition at each resolution, never keeps it: the network service may restart. |
 | `RequestFilter`, `InFlight` | The factory keeps its isolation info's network anonymization key; a request that carries its own (`trusted_params->isolation_info`, a frame's navigation) uses that one. `InFlight` gains the uncloaking step between the verdict and sending, and the same before passing a redirect on. The storage partition is the frame's, or without a frame (a worker) the profile's default. |
 | Patches | None expected. If the spike finds workers in a partition other than the default, 0037 also passes the process id, whose host gives the partition. |
@@ -76,6 +78,8 @@ Measured in the official build and reported; changed only with the user's agreem
 | The same with the host not in the cache | reported; no budget (the request would have waited for the same answer) |
 | An alias's check | a request's check: p99 under ADR 0006's 50 µs (`ghost_blocking_perftests`) |
 
+*Measured 2026-10-15* ([progress notes](2026-10-12-cname-uncloaking-spike.md#task-7-budgets-2026-10-15)): the alias check holds (p99 45–49 µs); the 1 ms budget is missed by every request that needs a round trip to the network service, the first to each host on a page, at p99 70–83 ms. An amendment is proposed there, for the user to decide.
+
 ## Testing
 
 **Unit tests** (`ghost_unittests`):
@@ -103,7 +107,8 @@ Measured in the official build and reported; changed only with the user's agreem
 - M3 aliases on the same registrable domain are checked (test 4);
 - M4 a blocked host is resolved (test 7);
 - M5 a redirect isn't uncloaked (test 6);
-- M6 no `direct_only` (test 8).
+- M6 no `direct_only` (test 8);
+- M7 the memo answers nothing, *amended while measuring* (`ALaterRequestUsesTheFirstAnswer`).
 
 **The egress audit** stays at no unexpected host.
 

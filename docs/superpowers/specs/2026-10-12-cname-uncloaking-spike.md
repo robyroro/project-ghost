@@ -50,3 +50,36 @@ All runs: the dev build (`out\vanilla`), a fresh profile on the hidden desktop, 
   - An invalid URL can still have an `http` scheme (`GURL::SchemeIsHTTPOrHTTPS` doesn't check validity), and `spec()` on it is fatal. The fuzzer checks `is_valid()` first, and so does `Uncloak` (defense in depth: a request's URL is always valid).
   - GURL needs ICU for international host names; the harness now initializes it, as `url/gurl_fuzzer.cc` does.
 - **Smoke run:** 134,703 inputs in 120 s, no crash. The 30-minute run is Task 8's.
+
+## Task 7: budgets (2026-10-15)
+
+The official build (`out\release`, rebuilt for 4C in 16 min, then 8 min for the memo), on the reference machine, with nothing else running. Two runs of each measurement on live sites; the second pass is the budget's.
+
+- **The alias check** (`AliasChecksWithinBudget`): p50 11 µs, p99 45–49 µs over eight runs: within 50 µs, with little margin. The request check is unchanged at p99 37–41 µs. One run while a `git status` of the Chromium checkout ran in the background gave 52 µs, and others up to 1.3 ms: the perftest needs a quiet machine.
+- **`uncloak_cost.py` mixed two populations.** A pass takes five minutes and many CDN records live for less, so a quarter of the second pass' resolutions were real DNS queries. The tool now reads a NetLog and pairs each timing line with the filter's own resolution there (`NETWORK_SERVICE_HOST_RESOLVER`, not speculative, not cancelled), host by host in start order: 0 unmatched in 9 runs.
+- **Where the time goes,** before the memo, second pass, host cache hits (2,074 requests), from the debug log's and the NetLog's clocks (1 ms resolution):
+
+  | Part | p50 | p90 | p99 |
+  |---|---|---|---|
+  | UI thread to the host resolver (with the proxy check) | 0.5 ms | 5.6 ms | 41 ms |
+  | The host resolver | 0 | 0 | 1 ms |
+  | Back to the UI thread | 1.6 ms | 14.5 ms | 41 ms |
+  | The aliases' check (UI, engine sequence, UI) | 0.18 ms | 2.5 ms | 4.8 ms |
+
+  The cost is the round trip, queued behind the page's own loading in the browser and in the network service. WPAD isn't it: with `--no-proxy-server`, cache hits measured p50 1.6 ms, p99 65 ms, as with it.
+- **The memo** (AliasMemo, one per factory, a minute): a page's later requests to a host skip the round trip. Simulated from the captured lines first: 90% of the second pass' requests repeat a host of their page.
+
+  | Second pass | Before | With the memo |
+  |---|---|---|
+  | All requests, p50 | 3.7–3.8 ms | 0.25–0.30 ms |
+  | From the memo (65–70% of requests) | | p50 0.14 ms, p90 0.73 ms, p99 1.2–2.8 ms |
+  | From the host cache (the first request to a host on a page) | p50 1.9 ms, p99 57–76 ms | p50 1.3–2.0 ms, p99 70–83 ms |
+  | From the network | p50 26–27 ms | p50 30–55 ms |
+  | Resolutions the network service gets (both passes) | 5,964–5,980 | 1,478–1,601 |
+
+  A memo answer still waits for the aliases' check when the host has an alias on another site (a CDN's, mostly): one round trip to the engine's sequence, as every URL check has since 3A.
+- **Not tried:** taking the resolver's reply off the UI thread (on a sequence of its own, with the aliases' check from there) would save part of the way back for first requests only; the way out, p99 45 ms with the memo, would stay.
+- **The budget is missed:** p99 under 1 ms for requests answered without the network can't hold for a request that must ask the network service, however fast its cache: the first request to each host on a page. Proposed, for the user to decide:
+  - a page's later requests to a host (the memo): p90 under 1 ms (measured 0.73 ms); p99 reported;
+  - the first request to a host on a page: reported, no budget, like a request whose host isn't cached;
+  - the alias check: unchanged, p99 under 50 µs.
