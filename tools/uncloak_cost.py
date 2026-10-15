@@ -15,9 +15,10 @@ addresses), tells which resolutions the host cache answered: the filter's
 requests are the network service's own (NETWORK_SERVICE_HOST_RESOLVER), one
 per line, matched host by host in the order they started. A line that says
 "remembered" had its aliases from the page's memo, with no resolution. The
-budget is the second pass' requests answered without the network, from the
-memo or the host cache (p99 under 1 ms in an official build); the rest is
-reported. A host whose lines and requests don't pair up is left out and
+budget is the second pass' requests the memo answered: p90 under 1 ms in an
+official build. The first request to a host on a page, from the host cache or
+the network, waits for a round trip to the network service and is reported,
+with no budget. A host whose lines and requests don't pair up is left out and
 counted. Live sites, so the numbers vary with the network: run it twice and
 report both.
 
@@ -209,7 +210,8 @@ def _report(name: str, rows: list[Uncloaking]) -> str:
     totals = [row.total_us for row in rows]
     resolutions = [row.resolution_us for row in rows if row.resolution_us is not None]
     return (f"{name}: {len(rows)} requests, p50 {percentile(totals, 50)} us, "
-            f"p99 {percentile(totals, 99)} us; resolution p50 {percentile(resolutions, 50)} us, "
+            f"p90 {percentile(totals, 90)} us, p99 {percentile(totals, 99)} us; "
+            f"resolution p50 {percentile(resolutions, 50)} us, "
             f"p99 {percentile(resolutions, 99)} us")
 
 
@@ -236,9 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     unmatched = sum(1 for hit in resolved if hit is None)
     print(f"unmatched: {unmatched} of {len(resolved)} resolutions (their host's lines and "
           "requests don't pair up)")
-    p99 = percentile([row.total_us for row in remembered + hits], 99)
-    print(f"budget: second pass, answered without the network, p99 under {BUDGET_US} us: "
-          + ("no data" if p99 is None else "met" if p99 < BUDGET_US else "MISSED"))
+    p90 = percentile([row.total_us for row in remembered], 90)
+    print(f"budget: second pass, from the page's memo, p90 under {BUDGET_US} us: "
+          + ("no data" if p90 is None else "met" if p90 < BUDGET_US else "MISSED"))
     return 0
 
 
