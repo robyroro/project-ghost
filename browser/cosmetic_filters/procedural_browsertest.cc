@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ghost/browser/cosmetic_filters/cosmetic_filters_test_base.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
@@ -70,6 +71,9 @@ class ProceduralBrowserTest : public CosmeticFiltersTestBase {
       <div class="cls promo" id="cls">x</div>)";
     AddPage("/procedural.html", body);
     AddPage("/other.html", "<div class=\"onpath\" id=\"onpath\">x</div>");
+    AddPage("/parent.html",
+            "<script>const f = document.createElement('iframe');"
+            "f.src = '/procedural.html'; document.body.append(f);</script>");
     AddPage("/late.html",
             "<script>setTimeout(() => { const d = document.createElement('div');"
             "d.className = 'box'; d.id = 'late'; d.textContent = 'Sponsored';"
@@ -108,6 +112,20 @@ IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, EveryActionApplies) {
 IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, AnElementAddedLaterIsCaught) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("p.test", "/late.html")));
   EXPECT_EQ(WaitForDisplay(Tab(), "late", "none"), "none");
+}
+
+// A same-origin frame's document after its initial empty one, which already
+// ran Shade's scripts with its parent's rules: Blink reuses the window, and
+// with it Shade's world, for that navigation (4D-1's corpus found it on
+// newegg.com and aliexpress.com).
+IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, ASameOriginFrameAfterItsEmptyDocumentApplies) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("p.test", "/parent.html")));
+  ASSERT_TRUE(content::WaitForLoadStop(Tab()));
+  content::RenderFrameHost* frame = content::ChildFrameAt(Tab(), 0);
+  ASSERT_TRUE(frame);
+  ASSERT_EQ(frame->GetLastCommittedURL().path(), "/procedural.html");
+  EXPECT_EQ(WaitForDisplay(frame, "sponsored", "none"), "none");
+  EXPECT_EQ(WaitForDisplay(frame, "card", "none"), "none");
 }
 
 IN_PROC_BROWSER_TEST_F(ProceduralBrowserTest, ThePageSeesNoExecutor) {

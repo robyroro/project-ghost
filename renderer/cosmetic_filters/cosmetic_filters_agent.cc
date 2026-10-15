@@ -37,6 +37,7 @@
 #include "url/gurl.h"
 #include "v8/include/v8-context.h"
 #include "v8/include/v8-function.h"
+#include "v8/include/v8-microtask-queue.h"
 #include "v8/include/v8-object.h"
 
 namespace ghost::cosmetic_filters {
@@ -104,6 +105,7 @@ void CosmeticFiltersAgent::DidCreateNewDocument() {
   scriptlet_ran_ = false;
   scanning_ = false;
   procedural_started_ = false;
+  api_bound_ = false;
   seen_classes_.clear();
   seen_ids_.clear();
   classes_.clear();
@@ -120,6 +122,10 @@ void CosmeticFiltersAgent::DidCreateScriptContext(v8::Local<v8::Context> context
   if (world_id != kWorldId) {
     return;
   }
+  InstallApi(context);
+}
+
+void CosmeticFiltersAgent::InstallApi(v8::Local<v8::Context> context) {
   v8::Isolate* isolate = render_frame()->GetWebFrame()->GetAgentGroupScheduler()->Isolate();
   v8::HandleScope handle_scope(isolate);
   v8::Context::Scope context_scope(context);
@@ -193,12 +199,35 @@ void CosmeticFiltersAgent::RunScriptlet() {
       GURL(kScriptletsUrl)));
 }
 
+// Blink keeps a frame's window, and with it the world's context, for the
+// first document after the initial empty one when both have the same
+// origin: no new context, so DidCreateScriptContext doesn't run again, and
+// the api installed for the empty document would answer for a document
+// that's gone (4D-1's compatibility corpus found it in newegg.com's and
+// aliexpress.com's frames). So each document binds it again before its
+// scripts start.
+void CosmeticFiltersAgent::BindApiToThisDocument() {
+  if (api_bound_) {
+    return;
+  }
+  api_bound_ = true;
+  NameTheWorld();
+  blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+  v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = frame->GetScriptContextFromWorldId(isolate, kWorldId);
+  // Outside any script, V8 wants a microtasks scope around API calls;
+  // DidCreateScriptContext gets one from Blink.
+  v8::MicrotasksScope microtasks(context, v8::MicrotasksScope::kDoNotRunMicrotasks);
+  InstallApi(context);
+}
+
 void CosmeticFiltersAgent::StartScanner() {
   if (!current_ || !current_->scan || scanning_) {
     return;
   }
   scanning_ = true;
-  NameTheWorld();
+  BindApiToThisDocument();
   render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
       kWorldId,
       blink::WebScriptSource(blink::WebString::FromUtf8(kScannerScript), GURL(kScannerUrl)),
@@ -210,7 +239,7 @@ void CosmeticFiltersAgent::StartProcedural() {
     return;
   }
   procedural_started_ = true;
-  NameTheWorld();
+  BindApiToThisDocument();
   render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
       kWorldId,
       blink::WebScriptSource(blink::WebString::FromUtf8(kProceduralScript), GURL(kProceduralUrl)),

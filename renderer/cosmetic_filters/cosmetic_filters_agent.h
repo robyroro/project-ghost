@@ -74,6 +74,10 @@ class CosmeticFiltersAgent
   // Each once per document: the rules' style sheet; the scripts, at its
   // start: the scriptlet, then the scanner.
   void InsertRules();
+  // Installs the api scanner.js and procedural.js call, bound to this
+  // document, in the world's `context`.
+  void InstallApi(v8::Local<v8::Context> context);
+  void BindApiToThisDocument();
   void StartScripts();
   void RunScriptlet();
   void StartScanner();
@@ -99,6 +103,7 @@ class CosmeticFiltersAgent
   bool scriptlet_ran_ = false;
   bool scanning_ = false;
   bool procedural_started_ = false;
+  bool api_bound_ = false;
   // The document's names already sent, and those waiting to be.
   absl::flat_hash_set<std::string> seen_classes_;
   absl::flat_hash_set<std::string> seen_ids_;
