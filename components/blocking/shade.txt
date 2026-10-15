@@ -9,3 +9,17 @@
 ! names the corpus site, the failure, and the upstream report when a list
 ! was at fault. This header keeps the file from ever being empty, which
 ! the browser would take for a missing list.
+
+! https://www.paypal.com/signin: HTTP 403 and "Please enable JS and disable
+! any ad blocker". PayPal's DataDome bot check (ct.ddc.paypal.com, then its
+! challenge on geo.ddc.paypal.com) is CNAMEd to *.fpc.datadome.co, which
+! ||datadome.co^$third-party (EasyPrivacy) blocks once uncloaked (4C), so
+! the check never passes. EasyPrivacy allows Venmo's the same way;
+! reported upstream: drafted.
+@@||fpc.datadome.co^$domain=paypal.com
+
+! https://www.bild.de/: the page is replaced by "Aufgrund Ihres Blockers
+! zeigen wir BILD.de nicht an" (an anti-adblock wall). Shade doesn't work
+! around such walls (contested in Germany: Axel Springer v. Eyeo): blocking
+! is off on bild.de, as if the user had set it Off. Not a list bug.
+@@||bild.de^$document
