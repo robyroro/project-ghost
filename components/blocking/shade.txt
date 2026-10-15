@@ -11,12 +11,12 @@
 ! the browser would take for a missing list.
 
 ! https://www.paypal.com/signin: HTTP 403 and "Please enable JS and disable
-! any ad blocker". PayPal's DataDome bot check (ct.ddc.paypal.com, then its
-! challenge on geo.ddc.paypal.com) is CNAMEd to *.fpc.datadome.co, which
-! ||datadome.co^$third-party (EasyPrivacy) blocks once uncloaked (4C), so
-! the check never passes. EasyPrivacy allows Venmo's the same way;
-! reported upstream: drafted.
-@@||fpc.datadome.co^$domain=paypal.com
+! any ad blocker". PayPal's DataDome bot check is served from its own names,
+! CNAMEs to DataDome's: ct.ddc.paypal.com to *.fpc.datadome.co, its
+! challenge geo.ddc.paypal.com to api-*.datadome.co. Once uncloaked (4C),
+! ||datadome.co^$third-party (EasyPrivacy) blocks both, so the check never
+! passes. EasyPrivacy allows Venmo's the same way; reported upstream: drafted.
+@@||datadome.co^$domain=paypal.com
 
 ! https://www.bild.de/: the page is replaced by "Aufgrund Ihres Blockers
 ! zeigen wir BILD.de nicht an" (an anti-adblock wall). Shade doesn't work
