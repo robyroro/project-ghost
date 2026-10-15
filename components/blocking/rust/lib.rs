@@ -120,7 +120,9 @@ mod ffi {
     }
 }
 
-pub struct Engine(adblock::Engine);
+/// The lists' rules, and apart from them their `$document` exceptions, which
+/// say a page gets no blocking at all (see `page_allowed`).
+pub struct Engine(adblock::Engine, adblock::Engine);
 
 /// Chromium's registry decides what a site is, so blocking and the browser
 /// agree (see registrable_domain.h).
@@ -134,6 +136,22 @@ impl ResolvesDomain for ChromiumDomains {
     }
 }
 
+/// The exceptions of `lists` with the `document` option (`doc` too), one per
+/// line.
+fn document_exceptions(lists: &str) -> String {
+    lists
+        .lines()
+        .map(str::trim)
+        .filter(|line| {
+            line.starts_with("@@")
+                && line.rfind('$').is_some_and(|i| {
+                    line[i + 1..].split(',').any(|option| option == "document" || option == "doc")
+                })
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn new_engine(lists: &str) -> Box<Engine> {
     // The resolver is process-wide and set once; a second engine finds it set.
     let _ = set_domain_resolver(Box::new(ChromiumDomains));
@@ -143,11 +161,28 @@ fn new_engine(lists: &str) -> Box<Engine> {
     filters.add_filter_list(lists.to_string(), ParseOptions::default());
     let mut engine = adblock::Engine::new_with_filter_set(filters);
     engine.use_resources(resources::usable());
-    Box::new(Engine(engine))
+    let mut pages = FilterSet::new(false);
+    pages.add_filter_list(document_exceptions(lists), ParseOptions::default());
+    Box::new(Engine(engine, adblock::Engine::new_with_filter_set(pages)))
 }
 
 impl Engine {
+    /// Whether `@@||site^$document` covers the page: then nothing is
+    /// blocked or hidden on it (uBlock Origin's and Brave's meaning; 4D-1's
+    /// shade.txt uses it for sites that wall off blockers). adblock-rust
+    /// applies such an exception only to the document request itself, so
+    /// the page is checked as one, against the $document exceptions alone:
+    /// adblock-rust would also apply an exception with no type to it.
+    fn page_allowed(&self, page_url: &str) -> bool {
+        Request::new(page_url, page_url, "document", "get")
+            .map(|page| self.1.check_network_request_subset(&page, true, false).exception.is_some())
+            .unwrap_or(false)
+    }
+
     fn check(&self, url: &str, source_url: &str, request_type: &str, method: &str) -> ffi::Verdict {
+        if self.page_allowed(source_url) {
+            return ffi::Verdict { blocked: false, filter: String::new(), redirect: String::new() };
+        }
         // adblock-rust parses methods in lowercase; HTTP sends them uppercase.
         match Request::new(url, source_url, request_type, &method.to_ascii_lowercase()) {
             Ok(request) => {
@@ -203,6 +238,16 @@ impl Engine {
     }
 
     fn cosmetic_resources(&self, url: &str) -> ffi::CosmeticResources {
+        if self.page_allowed(url) {
+            return ffi::CosmeticResources {
+                hide_selectors: Vec::new(),
+                exceptions: Vec::new(),
+                generichide: true,
+                injected_script: String::new(),
+                style_rules: Vec::new(),
+                procedural_filters: Vec::new(),
+            };
+        }
         let resources = self.0.url_cosmetic_resources(url);
         let mut style_rules = Vec::new();
         let mut procedural_filters = Vec::new();

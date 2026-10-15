@@ -19,6 +19,7 @@ namespace {
 
 using testing::ElementsAre;
 using testing::IsEmpty;
+using testing::Not;
 
 bool Blocked(const Engine& engine, const char* url, const char* source,
              const char* type = "script") {
@@ -72,6 +73,30 @@ TEST(EngineBridgeTest, AnEmptyEngineAllowsEverything) {
 TEST(EngineBridgeTest, AnUnparsableUrlIsAllowed) {
   rust::Box<Engine> engine = new_engine("*\n");
   EXPECT_FALSE(Blocked(*engine, "not a url", "https://a.test/"));
+}
+
+// 4D-1: `@@||site^$document` turns blocking off on the site's pages, as in
+// uBlock Origin and Brave (shade.txt's sites that wall off blockers).
+TEST(EngineBridgeTest, ADocumentExceptionAllowsEverythingOnItsPages) {
+  rust::Box<Engine> engine = new_engine("||ads.test^\n@@||site.test^$document\n");
+  EXPECT_FALSE(Blocked(*engine, "https://ads.test/a.js", "https://www.site.test/page"));
+  EXPECT_TRUE(Blocked(*engine, "https://ads.test/a.js", "https://other.test/"));
+}
+
+TEST(EngineBridgeTest, AnExceptionWithoutDocumentLeavesThePageBlocked) {
+  rust::Box<Engine> engine =
+      new_engine("||ads.test^\n@@||site.test^\n@@||site.test^$script\n");
+  EXPECT_TRUE(Blocked(*engine, "https://ads.test/a.js", "https://www.site.test/"));
+}
+
+TEST(EngineBridgeTest, ADocumentExceptionLeavesAliasesAlone) {
+  rust::Box<Engine> engine = new_engine("||tracker.test^\n@@||site.test^$document\n");
+  rust::Vec<rust::String> aliases;
+  aliases.push_back(rust::String("https://site.tracker.test/m.js"));
+  EXPECT_FALSE(engine
+                   ->check_aliases("https://metrics.site.test/m.js", "https://www.site.test/",
+                                   "script", "GET", aliases)
+                   .blocked);
 }
 
 std::vector<std::string> Strings(const rust::Vec<rust::String>& strings) {
@@ -134,6 +159,18 @@ TEST(EngineBridgeTest, GenerichideTurnsGenericRulesOff) {
   // The site's own rules stay; the generic ones go.
   EXPECT_THAT(Strings(resources.hide_selectors), ElementsAre(".site-ad"));
   EXPECT_FALSE(engine->cosmetic_resources("https://b.test/").generichide);
+}
+
+TEST(EngineBridgeTest, ADocumentExceptionTurnsCosmeticsOff) {
+  rust::Box<Engine> engine = new_engine(
+      "site.test##.site-ad\n##div[class*=\"Ads\"]\nsite.test##+js(set, x, true)\n"
+      "@@||site.test^$document\n");
+  const CosmeticResources resources = engine->cosmetic_resources("https://www.site.test/");
+  EXPECT_THAT(Strings(resources.hide_selectors), IsEmpty());
+  EXPECT_TRUE(resources.generichide);
+  EXPECT_TRUE(std::string(resources.injected_script).empty());
+  EXPECT_THAT(Strings(engine->cosmetic_resources("https://other.test/").hide_selectors),
+              Not(IsEmpty()));
 }
 
 TEST(EngineBridgeTest, AnUnparsableUrlHasNoCosmeticRules) {
