@@ -55,3 +55,9 @@ Phase 4D-1 ([design](2026-10-15-compatibility-corpus-design.md), [plan](../plans
   - zf.ro timed out twice in the run, then loaded in triage: the network.
 - **19 sites threw only because a request Shade blocked never answered** (trackers, ad SDKs, analytics loaders, Adobe's edge), with text, height and flows intact: each has a reason in the corpus naming what was blocked.
 - **Seen, left alone:** 4C blocks some first-party paths through a CDN alias (walmart.com's PerimeterX collector through `*.akamaiedge.net`, an Osano script through CloudFront) because the lists name those hosts; nothing visible broke.
+
+## Task 9: the second full run (2026-10-15)
+
+- **The run**, with the fixes above (official build, 9 minutes): Standard 146 of 148 (98.6%), 2 broken, 19 excused, 4 flaky, 7 skipped; Strict 138 of 146 (94.5%), 8 broken.
+- **A crash, from the frame fix:** bing.com/maps crashed the renderer (`Inspector.targetCrashed` 2.5 s after the load) in 2 of 3 tries, never with the site Off. `Debugger.pause` never landed, so it wasn't script. The development build showed it: `BindApiToThisDocument`, called from the task a new frame's initial empty document posts, asked `GetScriptContextFromWorldId` of a *provisional* frame (one coming back to the parent's process from another site, not yet committed): a DCHECK there, and in the official build no context, on which `InstallApi` crashed. A frame with no context yet now starts neither script. `ProceduralBrowserTest.AFrameBackFromAnotherSiteApplies` (an iframe that leaves for another site and comes back) crashed with the same stack before and passes; the development build loaded bing.com/maps 4 times without a crash after.
+- **The other broken site,** walmart.com: React's hydration error #418, new against the baseline in both tries, with the page whole.
