@@ -97,3 +97,4 @@ The official build (`out\release`, rebuilt for 4C in 16 min, then 8 min for the 
 
   After the last, `src/ghost` matched webops file for file.
 - **The suites,** rebuilt without mutants: `ghost_unittests` 161/161, `ghost_browsertests` 140/140, no retry.
+- **The egress audit** on the official build with the memo, run on the hidden desktop: 0 unexpected hosts (the route probe and WPAD not counted, as always). Uncloaking resolves only hosts that requests were going to contact.
