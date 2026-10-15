@@ -107,19 +107,26 @@ def signals(session: cdp.Session) -> dict:
     return evaluate(session, SIGNALS)
 
 
+# Every match counts, not only the first: Shade hides some matches of a
+# selector legitimately (amazon.com's sponsored results come first).
+VISIBLE = ("(e => (r => r.width > 0 && r.height > 0)(e.getBoundingClientRect())"
+           " && getComputedStyle(e).visibility !== 'hidden')")
+
+
 def _element(selector: str, test: str) -> str:
-    return (f"(() => {{ const e = document.querySelector({json.dumps(selector)});"
-            f" return !!e && ({test}); }})()")
+    return (f"(() => [...document.querySelectorAll({json.dumps(selector)})]"
+            f".some(e => {test}))()")
 
 
 def _visible(selector: str) -> str:
-    return _element(selector, "(r => r.width > 0 && r.height > 0)(e.getBoundingClientRect())"
-                              " && getComputedStyle(e).visibility !== 'hidden'")
+    return _element(selector, f"{VISIBLE}(e)")
 
 
 def _click(session: cdp.Session, selector: str) -> None:
-    x, y = evaluate(session, f"(() => {{ const e = document.querySelector("
-                             f"{json.dumps(selector)}); e.scrollIntoView({{block: 'center'}});"
+    """Clicks the first visible match."""
+    x, y = evaluate(session, f"(() => {{ const e = [...document.querySelectorAll("
+                             f"{json.dumps(selector)})].find({VISIBLE});"
+                             f" e.scrollIntoView({{block: 'center'}});"
                              f" const r = e.getBoundingClientRect();"
                              f" return [r.x + r.width / 2, r.y + r.height / 2]; }})()")
     for kind in ("mousePressed", "mouseReleased"):

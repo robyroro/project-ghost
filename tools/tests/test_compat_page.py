@@ -155,6 +155,15 @@ class StepTest(unittest.TestCase):
                                 answers())
         self.assertNotIn("Input.dispatchMouseEvent", session.methods())
 
+    def test_any_match_counts_since_hidden_ads_may_come_first(self):
+        # amazon.com: EasyList hides the sponsored results, the first matches.
+        session = self.run_step(Step("click", selector=".result"),
+                                answers(getBoundingClientRect=[1, 2]))
+        for _, params in session.calls:
+            if "expression" in params:
+                self.assertIn("querySelectorAll", params["expression"])
+                self.assertNotIn("querySelector(", params["expression"])
+
     def test_expect_text_looks_for_the_text_in_the_element(self):
         session = self.run_step(Step("expect_text", selector="h1", text="Chromium"),
                                 answers(innerText=True))
