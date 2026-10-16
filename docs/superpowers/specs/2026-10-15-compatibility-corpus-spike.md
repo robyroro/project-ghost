@@ -61,3 +61,12 @@ Phase 4D-1 ([design](2026-10-15-compatibility-corpus-design.md), [plan](../plans
 - **The run**, with the fixes above (official build, 9 minutes): Standard 146 of 148 (98.6%), 2 broken, 19 excused, 4 flaky, 7 skipped; Strict 138 of 146 (94.5%), 8 broken.
 - **A crash, from the frame fix:** bing.com/maps crashed the renderer (`Inspector.targetCrashed` 2.5 s after the load) in 2 of 3 tries, never with the site Off. `Debugger.pause` never landed, so it wasn't script. The development build showed it: `BindApiToThisDocument`, called from the task a new frame's initial empty document posts, asked `GetScriptContextFromWorldId` of a *provisional* frame (one coming back to the parent's process from another site, not yet committed): a DCHECK there, and in the official build no context, on which `InstallApi` crashed. A frame with no context yet now starts neither script. `ProceduralBrowserTest.AFrameBackFromAnotherSiteApplies` (an iframe that leaves for another site and comes back) crashed with the same stack before and passes; the development build loaded bing.com/maps 4 times without a crash after.
 - **The other broken site,** walmart.com: React's hydration error #418, new against the baseline in both tries, with the page whole.
+
+## Task 9: the third full run (2026-10-16)
+
+- **The run**, with the provisional-frame fix (official build, 7m45s, 230 steps), on the hidden desktop: 47 minutes in all.
+  - Standard: **147 of 147 (100%), no broken site**; 17 excused, 3 flaky, 8 skipped (the baseline got 401, 403 twice, 429 three times, a timeout, and YouTube's results never showed it).
+  - Strict: 136 of 143 (95.1%), 7 broken, 14 excused, 4 flaky, 12 skipped.
+- **bing.com/maps** loaded at Standard in both runs of the day. At Strict it shows 41 characters of text against 559 (no crash).
+- **walmart.com** passed at both levels in both runs of the day (a two-site run first, then the full one), so its #418 isn't Shade's alone: React's hydration error comes and goes with the server's markup, and instagram.com threw the same error once and passed on the rerun (flaky). Nothing to fix.
+- **Strict's broken sites,** recorded, not fixed (Strict gates nothing): bing.com/maps and wego.here.com lose their text; theguardian.com, figma.com, medium.com, reddit.com and paypal.com/signin throw `Failed to fetch` at requests Strict blocks and Standard allows.
