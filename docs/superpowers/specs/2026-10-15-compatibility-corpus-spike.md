@@ -70,3 +70,16 @@ Phase 4D-1 ([design](2026-10-15-compatibility-corpus-design.md), [plan](../plans
 - **bing.com/maps** loaded at Standard in both runs of the day. At Strict it shows 41 characters of text against 559 (no crash).
 - **walmart.com** passed at both levels in both runs of the day (a two-site run first, then the full one), so its #418 isn't Shade's alone: React's hydration error comes and goes with the server's markup, and instagram.com threw the same error once and passed on the rerun (flaky). Nothing to fix.
 - **Strict's broken sites,** recorded, not fixed (Strict gates nothing): bing.com/maps and wego.here.com lose their text; theguardian.com, figma.com, medium.com, reddit.com and paypal.com/signin throw `Failed to fetch` at requests Strict blocks and Standard allows.
+
+## Task 10: mutation checks, suites, egress (2026-10-16)
+
+- **The harness's mutants** each fail their test (`test_compat*.py`, 49 tests, pass once restored):
+  - **H1**, a failed flow ignored: `test_a_failed_flow_is_broken`;
+  - **H2**, new exceptions ignored: `test_a_new_exception_is_broken_an_old_one_isnt`;
+  - **H3**, skipped sites counted as good: `test_skipped_sites_are_left_out_of_the_rate` (and the report's test);
+  - **H4**, a reason excusing a failed flow: `test_a_reason_excuses_signals_but_never_a_flow_or_a_load`.
+- **Shade's:** S1 and S3 failed as required in Task 7. **S2**, the official build with `out\release\blocking\shade.txt` taken away: paypal.com/signin answered 403 again ("text 43 against 173"), and bild.de showed its wall ("text 1414 against 20213", with an exception). The file was put back byte for byte.
+- **The self-test** on the final official build: exit 0 (`blocked.html` broken at step 1, `fine.html` passed).
+- **The suites** (development build, hidden desktop, `--test-launcher-retry-limit=0`): `ghost_unittests` 168 of 168 and `ghost_browsertests` 142 of 142, none retried. The plan expected 164 and 140; the triage added four `EngineBridgeTest`s for `$document` exceptions and the two `ProceduralBrowserTest`s for frames.
+- **The egress audit** on the official build, on the hidden desktop: 0 unexpected hosts (one route probe and the WPAD lookup not counted, as always).
+- **The installer smoke test** with the official build's `mini_installer` in Windows Sandbox: passed, its install step finding all three lists, `shade.txt` too, in the version's `blocking\` folder.
