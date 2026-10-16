@@ -1,6 +1,6 @@
 # The compatibility corpus: design
 
-- Status: design approved 2026-10-15.
+- Status: done 2026-10-16 ([progress notes](2026-10-15-compatibility-corpus-spike.md)): no broken site at Standard in the last full run, Strict 95.1%. Design approved 2026-10-15; amended while planning ([plan](../plans/2026-10-15-compatibility-corpus.md)): `shade.txt` lives in `components/blocking/`, outside `data/`, whose README and LICENSE are EasyList's, so the credits don't change; `--level off` replaces `--off`; the self-test's sites are built in code, since their URLs carry the server's port. Amended while running: Shade honors the lists' `$document` exceptions (the bild.de fix needs one); a step takes any visible match of its selector; the first navigation is retried once after an abort.
 - Phase 4, sub-project 4D-1 ([roadmap](../../roadmap.md#phase-4-content-protections)). 4D is split in two (the user's choice, 2026-10-15): **4D-1** the compatibility corpus, which measures what Shade breaks and fixes it until Phase 4's exit criterion holds; **4D-2** the breakage controls users see (the report flow), shaped by what 4D-1 finds.
 - Builds on [3A, the blocking engine](2026-10-10-blocking-engine-design.md), [3D-1, the protection levels](2026-10-10-protection-levels-design.md), and 4A–4C's content protections.
 
@@ -111,10 +111,10 @@ testing.md (the compatibility layer as built), privacy-model.md (Shade's own lis
 
 ## Done when
 
-- [ ] The harness' tests pass, the self-test catches the planted breakage, and the mutation checks fail as required.
-- [ ] A full run on the official build finds no broken site at Standard, after fixes; Strict's result is reported.
-- [ ] The suites pass with no retry; the egress audit finds no unexpected host.
-- [ ] The documentation is updated; everything is pushed with tooling CI green.
+- [x] The harness' tests pass, the self-test catches the planted breakage, and the mutation checks fail as required.
+- [x] A full run on the official build finds no broken site at Standard, after fixes; Strict's result is reported.
+- [x] The suites pass with no retry; the egress audit finds no unexpected host.
+- [x] The documentation is updated; everything is pushed with tooling CI green.
 
 ## Out of scope
 

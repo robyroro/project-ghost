@@ -382,7 +382,25 @@ Sub-projects, in order (decided 2026-10-11), each with its own design and plan i
      - WebSocket and WebTransport aren't uncloaked;
      - a site can alias a host the lists don't name, or proxy the tracker itself;
      - a request served from the HTTP cache may now make a DNS query.
-4. **4D. Breakage controls and the compatibility corpus.** Its pass rate with protections on must be no worse than vanilla Chromium's with blocking off.
+4. **4D-1. The compatibility corpus:** what Shade at Standard breaks on real sites, against Chromium at the same version, fixed until nothing is.
+
+   **Done 2026-10-16.** [Design](superpowers/specs/2026-10-15-compatibility-corpus-design.md), [progress notes](superpowers/specs/2026-10-15-compatibility-corpus-spike.md).
+   - **Where it lives:** `tools/compat.py` (`baseline`, `run`, `report`, `--self-test`) with `compat_corpus`, `compat_verdict` and `compat_page`, over `tools/cdp.py`; `test/compat/corpus.toml` (155 sites in ten categories, 22 flows) and `test/compat/site/`; the baseline is Chrome for Testing 152.0.7977.167, its SHA-256 in `test/compat/baseline.json`; Shade's own list `components/blocking/shade.txt`, read after EasyList and EasyPrivacy and packed by patch 0030. Series = 43.
+   - **The runs** (official build, Standard then Strict):
+     - first: Standard 125 of 151 (82.8%), 26 broken; Strict 118 of 149;
+     - last: **Standard 147 of 147, no broken site** (17 excused, 3 flaky, 8 skipped); Strict 136 of 143 (95.1%), 7 broken, reported.
+   - **Fixed:**
+     - Shade's code: cosmetic filtering's api stayed bound to a same-origin frame's initial empty document; the lists' `$document` exceptions were never applied; the frame fix's first form crashed a renderer on a provisional frame (bing.com/maps). Each has a test.
+     - `shade.txt`: PayPal's DataDome check, uncloaked by 4C and blocked by EasyPrivacy, is allowed on paypal.com (upstream report drafted); bild.de's wall for blockers is answered by turning blocking off there, never worked around.
+     - The harness: steps take any visible match, and a navigation aborted by the new tab's own commit is retried once.
+     - 19 sites that throw only at a blocked request's fallback, with nothing visible lost, carry a reason in the corpus.
+   - **Checks:** H1–H4 and S1–S3 fail as required; the self-test catches its planted breakage; 168 unit and 142 browser tests pass with no retry; the egress audit finds no unexpected host; the installer smoke test installs all three lists.
+   - **Limitations:**
+     - live sites change, so a run is a measurement of its day; the corpus runs by hand until a build host runs it nightly;
+     - always logged out: sign-in and checkout flows aren't covered;
+     - a site that refuses Chrome for Testing (401, 403, 429) or times out in it is skipped (8 at Standard);
+     - Strict isn't a gate: its 7 broken sites wait for breakage controls.
+5. **4D-2. Breakage controls:** the report flow, shaped by what 4D-1 found. Phase 4 completes after it.
 
 **Exit criteria** ([phases](#phases-to-public-alpha))
-- [ ] Compatibility corpus pass rate no worse than vanilla Chromium with blocking off (4D).
+- [x] Compatibility corpus pass rate no worse than vanilla Chromium with blocking off (4D-1, 2026-10-16: no broken site at Standard against Chrome for Testing at the pin; [progress notes](superpowers/specs/2026-10-15-compatibility-corpus-spike.md#task-9-the-third-full-run-2026-10-16)).

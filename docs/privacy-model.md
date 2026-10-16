@@ -32,7 +32,9 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
 
 ### Blocking
 
-- **Lists.** Network requests are matched against EasyList, EasyPrivacy and our own list. Our list covers first-party trackers, CNAME-cloaked trackers, and cases the community lists handle poorly.
+- **Lists.** Network requests are matched against EasyList, EasyPrivacy and our own list, `shade.txt`, read last.
+  - Today our list holds only fixes for sites the compatibility corpus found broken, each scoped to one site and explained in a comment: PayPal's sign-in page may load DataDome's bot check, which reaches it through PayPal's own names; and blocking is off on bild.de, which replaces its pages with a wall for blockers. Shade doesn't work around such walls; the site is treated as if the user had set it Off.
+  - Rules of our own for first-party trackers, CNAME-cloaked trackers and cases the community lists handle poorly come later.
 - **Levels.**
   - *Standard* blocks third-party trackers and ads.
   - *Strict* also blocks first-party trackers. It hides the same elements as Standard (below); a stronger Strict waits for a list of our own (annoyances, cookie banners).

@@ -17,6 +17,8 @@
 - Chrome for Testing 152.0.7977.167 (`win64/chrome-win64.zip`, 203,007,504 bytes);
 - adblock-rust 0.13.3 (`adblock::lists::parse_filter`), cxx, gtest.
 
+**Status:** done 2026-10-16 ([progress notes](../specs/2026-10-15-compatibility-corpus-spike.md)). Beyond the plan: three full runs, not one; two Shade bugs found by the corpus and fixed with tests (cosmetic filtering in same-origin frames, then a provisional frame's crash from that fix), and `$document` exceptions honored through an engine of their own; steps take any visible match; the first navigation is retried after an abort; 168 unit and 142 browser tests, not 164 and 140.
+
 **Settled while planning** (each checked in the source; the spec is amended in Task 11):
 - **`shade.txt` lives in `components/blocking/`, not `data/`.** `data/`'s `README.chromium` and `LICENSE` are EasyList's (GPL-3.0/CC-BY-SA), and `//ghost/build/credits.gni` credits that whole directory in `about:credits`. Shade's own MPL-2.0 list isn't third-party code, so the credits don't change.
 - **A list that is empty is "missing".** `ReadFilterLists` logs an error for an empty file (`filter_lists.cc`). So `shade.txt` always starts with its header comments: never empty, even with no fix in it.
@@ -39,9 +41,9 @@
 
 ### Task 0: Tools and state
 
-- [ ] **Step 1:** `git switch -c 4d-1` in webops. Check that `git status` is clean and `main` equals `origin/main`.
-- [ ] **Step 2:** Copy `sync.py`, `build.ps1`, `bt.ps1`, `hidden.ps1` and `release_build_4c.cmd` (renamed to `release_build.cmd`, targets `chrome mini_installer`) from `…\f9fc1bf8-c867-42f1-838e-d476ae6adbdb\scratchpad\` into this session's scratchpad.
-- [ ] **Step 3:** Run `python <scratchpad>\sync.py`. Expected: `copied 0` (the 4C session left `src/ghost` equal to `origin/main`).
+- [x] **Step 1:** `git switch -c 4d-1` in webops. Check that `git status` is clean and `main` equals `origin/main`.
+- [x] **Step 2:** Copy `sync.py`, `build.ps1`, `bt.ps1`, `hidden.ps1` and `release_build_4c.cmd` (renamed to `release_build.cmd`, targets `chrome mini_installer`) from `…\f9fc1bf8-c867-42f1-838e-d476ae6adbdb\scratchpad\` into this session's scratchpad.
+- [x] **Step 3:** Run `python <scratchpad>\sync.py`. Expected: `copied 0` (the 4C session left `src/ghost` equal to `origin/main`).
 
 ---
 
@@ -51,7 +53,7 @@
 - Create: `tools/compat_corpus.py`
 - Test: `tools/tests/test_compat_corpus.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -140,9 +142,9 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat_corpus.py" -v`. Expected: `ModuleNotFoundError: No module named 'compat_corpus'`.
+- [x] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat_corpus.py" -v`. Expected: `ModuleNotFoundError: No module named 'compat_corpus'`.
 
-- [ ] **Step 3: Write `tools/compat_corpus.py`**
+- [x] **Step 3: Write `tools/compat_corpus.py`**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -267,8 +269,8 @@ def _step(entry: object, where: str) -> Step:
     return Step(action, entry.get("selector", ""), entry.get("text", ""), entry.get("key", ""))
 ```
 
-- [ ] **Step 4: Run the tests.** Expected: 10 pass.
-- [ ] **Step 5: Commit.** Stage, `python tools/lint.py`, message: `tools: compat_corpus reads the compatibility corpus`.
+- [x] **Step 4: Run the tests.** Expected: 10 pass.
+- [x] **Step 5: Commit.** Stage, `python tools/lint.py`, message: `tools: compat_corpus reads the compatibility corpus`.
 
 ---
 
@@ -278,7 +280,7 @@ def _step(entry: object, where: str) -> Step:
 - Create: `tools/compat_verdict.py`
 - Test: `tools/tests/test_compat_verdict.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -388,9 +390,9 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat_verdict.py" -v`. Expected: `ModuleNotFoundError`.
+- [x] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat_verdict.py" -v`. Expected: `ModuleNotFoundError`.
 
-- [ ] **Step 3: Write `tools/compat_verdict.py`**
+- [x] **Step 3: Write `tools/compat_verdict.py`**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -528,8 +530,8 @@ def report(levels: dict[str, list[dict]]) -> str:
     return "\n".join(out).rstrip() + "\n"
 ```
 
-- [ ] **Step 4: Run the tests.** Expected: 13 pass.
-- [ ] **Step 5: Commit.** Message: `tools: compat_verdict judges a site against the baseline`.
+- [x] **Step 4: Run the tests.** Expected: 13 pass.
+- [x] **Step 5: Commit.** Message: `tools: compat_verdict judges a site against the baseline`.
 
 ---
 
@@ -539,7 +541,7 @@ def report(levels: dict[str, list[dict]]) -> str:
 - Create: `tools/compat_page.py`
 - Test: `tools/tests/test_compat_page.py`
 
-- [ ] **Step 1: Write the failing tests.** A fake session answers `Runtime.evaluate` from a function of the expression and records every call; a fake clock advances on each sleep.
+- [x] **Step 1: Write the failing tests.** A fake session answers `Runtime.evaluate` from a function of the expression and records every call; a fake clock advances on each sleep.
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -679,9 +681,9 @@ class StepTest(unittest.TestCase):
         self.assertIn('"chromium"', expression)
 ```
 
-- [ ] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat_page.py" -v`. Expected: `ModuleNotFoundError`.
+- [x] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat_page.py" -v`. Expected: `ModuleNotFoundError`.
 
-- [ ] **Step 3: Write `tools/compat_page.py`**
+- [x] **Step 3: Write `tools/compat_page.py`**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -854,8 +856,8 @@ def run_step(session: cdp.Session, step: Step, clock: Clock = time.monotonic,
         raise ValueError(f"unknown action {step.action}")
 ```
 
-- [ ] **Step 4: Run the tests.** Expected: 10 pass. (Both the visibility check and the click's position read `getBoundingClientRect`, so one marker answers both.)
-- [ ] **Step 5: Commit.** Message: `tools: compat_page loads a site and acts out its flow`.
+- [x] **Step 4: Run the tests.** Expected: 10 pass. (Both the visibility check and the click's position read `getBoundingClientRect`, so one marker answers both.)
+- [x] **Step 5: Commit.** Message: `tools: compat_page loads a site and acts out its flow`.
 
 ---
 
@@ -865,7 +867,7 @@ def run_step(session: cdp.Session, step: Step, clock: Clock = time.monotonic,
 - Create: `tools/compat.py`, `test/compat/baseline.json` (by the first real fetch, Task 6)
 - Test: `tools/tests/test_compat.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -1009,9 +1011,9 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat.py" -v`. Expected: `ModuleNotFoundError: No module named 'compat'`.
+- [x] **Step 2: Run them.** `python -m unittest discover -s tools/tests -t tools -p "test_compat.py" -v`. Expected: `ModuleNotFoundError: No module named 'compat'`.
 
-- [ ] **Step 3: Write `tools/compat.py`**
+- [x] **Step 3: Write `tools/compat.py`**
 
 ```python
 #!/usr/bin/env python3
@@ -1371,8 +1373,8 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run the tests.** Expected: 12 pass. Then run all `test_compat*.py`: 45 pass.
-- [ ] **Step 5: Commit.** Message: `tools: compat runs the corpus in Shade and the baseline`.
+- [x] **Step 4: Run the tests.** Expected: 12 pass. Then run all `test_compat*.py`: 45 pass.
+- [x] **Step 5: Commit.** Message: `tools: compat runs the corpus in Shade and the baseline`.
 
 ---
 
@@ -1381,8 +1383,8 @@ if __name__ == "__main__":
 **Files:**
 - Create: `test/compat/site/blocked.html`, `test/compat/site/fine.html`, `test/compat/site/adobe-analytics.js`, `test/compat/site/ready.js`
 
-- [ ] **Step 1: Check the rule.** `grep -n "^/adobe-analytics.js$" components/blocking/data/easyprivacy.txt`. Expected: one line. If a list refresh removed it, choose another generic `^/<name>.js$` rule with no option in either list, and rename the script and the pages' reference.
-- [ ] **Step 2: The pages.** `blocked.html`. The server's port is random, so an inline script writes the script tag with the page's own port:
+- [x] **Step 1: Check the rule.** `grep -n "^/adobe-analytics.js$" components/blocking/data/easyprivacy.txt`. Expected: one line. If a list refresh removed it, choose another generic `^/<name>.js$` rule with no option in either list, and rename the script and the pages' reference.
+- [x] **Step 2: The pages.** `blocked.html`. The server's port is random, so an inline script writes the script tag with the page's own port:
 
 ```html
 <!doctype html>
@@ -1418,22 +1420,22 @@ ready.textContent = 'The script ran.';
 document.body.appendChild(ready);
 ```
 
-- [ ] **Step 3: Commit.** Message: `test: the compatibility corpus' self-test pages`.
+- [x] **Step 3: Commit.** Message: `test: the compatibility corpus' self-test pages`.
 
 ---
 
 ### Task 6: The baseline and the first self-test
 
-- [ ] **Step 1: Ask the user before downloading.** Chrome for Testing 152.0.7977.167, `chrome-win64.zip`, 203,007,504 bytes (about 194 MiB), from `storage.googleapis.com/chrome-for-testing-public` (Google's official CfT storage), unpacked into `%USERPROFILE%\shade-compat\`. Go on only after a clear yes.
-- [ ] **Step 2: Fetch it.** `python tools\compat.py baseline`. Expected: `recorded 152.0.7977.167's SHA-256 … MD5 PYUXWGdxnWPydUNE9bSw4g==`, then the path of `chrome.exe`. The MD5 must equal Google's `x-goog-hash` (`md5=PYUXWGdxnWPydUNE9bSw4g==` when planning; check again with `curl -sI`). If it differs, delete `test/compat/baseline.json` and the download, and stop. Record both hashes in the progress notes.
-- [ ] **Step 3: The official build.** Shade's `out\release` (from 4C, 152.0.7977.167) is current, since only Python changed. Check `out\release\chrome.exe`'s date, and `out\release\blocking\` for `easylist.txt` and `easyprivacy.txt`.
-- [ ] **Step 4: The self-test.** `python tools\compat.py run --shade chromium\src\out\release\chrome.exe --baseline <cft chrome.exe> --launcher <scratchpad>\hidden.ps1 --self-test --out <scratchpad>\selftest.json`. Expected:
+- [x] **Step 1: Ask the user before downloading.** Chrome for Testing 152.0.7977.167, `chrome-win64.zip`, 203,007,504 bytes (about 194 MiB), from `storage.googleapis.com/chrome-for-testing-public` (Google's official CfT storage), unpacked into `%USERPROFILE%\shade-compat\`. Go on only after a clear yes.
+- [x] **Step 2: Fetch it.** `python tools\compat.py baseline`. Expected: `recorded 152.0.7977.167's SHA-256 … MD5 PYUXWGdxnWPydUNE9bSw4g==`, then the path of `chrome.exe`. The MD5 must equal Google's `x-goog-hash` (`md5=PYUXWGdxnWPydUNE9bSw4g==` when planning; check again with `curl -sI`). If it differs, delete `test/compat/baseline.json` and the download, and stop. Record both hashes in the progress notes.
+- [x] **Step 3: The official build.** Shade's `out\release` (from 4C, 152.0.7977.167) is current, since only Python changed. Check `out\release\chrome.exe`'s date, and `out\release\blocking\` for `easylist.txt` and `easyprivacy.txt`.
+- [x] **Step 4: The self-test.** `python tools\compat.py run --shade chromium\src\out\release\chrome.exe --baseline <cft chrome.exe> --launcher <scratchpad>\hidden.ps1 --self-test --out <scratchpad>\selftest.json`. Expected:
   - `blocked.html` broken: failed step 1, `#ready visible not within 10 s`;
   - `fine.html` passed;
   - exit 0.
 
   If something else, use superpowers:systematic-debugging. Look first at a baseline that didn't load, the host rules, and HTTPS-First.
-- [ ] **Step 5: Commit** `test/compat/baseline.json`. Message: `test: Chrome for Testing 152.0.7977.167, the compatibility baseline`. Then start the progress notes, `docs/superpowers/specs/2026-10-15-compatibility-corpus-spike.md`, with the self-test's result, and commit them too (`docs: 4D-1 progress notes`).
+- [x] **Step 5: Commit** `test/compat/baseline.json`. Message: `test: Chrome for Testing 152.0.7977.167, the compatibility baseline`. Then start the progress notes, `docs/superpowers/specs/2026-10-15-compatibility-corpus-spike.md`, with the self-test's result, and commit them too (`docs: 4D-1 progress notes`).
 
 ---
 
@@ -1444,7 +1446,7 @@ document.body.appendChild(ready);
 - Modify: `components/blocking/rust/lib.rs`, `components/blocking/filter_lists.h`, `components/blocking/BUILD.gn`, `components/blocking/engine_bridge_unittest.cc`, `components/blocking/filter_lists_unittest.cc`, `tools/installer_smoke.py`, `tools/tests/test_installer_smoke.py`
 - Modify (Chromium checkout, then export): `chrome/installer/mini_installer/chrome.release` → `patches/0030-…`
 
-- [ ] **Step 1: Write the failing tests.** In `engine_bridge_unittest.cc`, after `OnlyFunctionStyleScriptletsAreAccepted` (add `#include "base/files/file_util.h"` and `#include "ghost/components/blocking/filter_lists.h"` if absent):
+- [x] **Step 1: Write the failing tests.** In `engine_bridge_unittest.cc`, after `OnlyFunctionStyleScriptletsAreAccepted` (add `#include "base/files/file_util.h"` and `#include "ghost/components/blocking/filter_lists.h"` if absent):
 
 ```cpp
 // Phase 4D-1: Shade's own list, checked rule by rule.
@@ -1475,7 +1477,7 @@ TEST(FilterListsTest, ShadesOwnListIsReadLast) {
 }
 ```
 
-- [ ] **Step 2: `shade.txt`**, with LF endings:
+- [x] **Step 2: `shade.txt`**, with LF endings:
 
 ```
 ! Title: Shade's fixes
@@ -1491,7 +1493,7 @@ TEST(FilterListsTest, ShadesOwnListIsReadLast) {
 ! the browser would take for a missing list.
 ```
 
-- [ ] **Step 3: Ship it.**
+- [x] **Step 3: Ship it.**
   - `filter_lists.h`: `inline constexpr const char* kFilterListFiles[] = {"easylist.txt", "easyprivacy.txt", "shade.txt"};` with a comment: `// In this order; shade.txt, Shade's own fixes (Phase 4D-1), last.`
   - `BUILD.gn` `copy("filter_lists")`: add `"shade.txt",` to `sources` and extend the comment: "and Shade's own list (shade.txt)".
   - `installer_smoke.py`: `FILTER_LISTS = ("easylist.txt", "easyprivacy.txt", "shade.txt")`. In `test_installer_smoke.py`, `INSTALLED["filter_lists"]` gets `"shade.txt"`, and the missing-list test expects two failures:
@@ -1506,7 +1508,7 @@ TEST(FilterListsTest, ShadesOwnListIsReadLast) {
                                     "152.0.7977.14001\\blocking"])
 ```
 
-- [ ] **Step 4: `list_problems` in the bridge.** In `lib.rs`'s `extern "Rust"` block, after `resource_problem_for_testing`:
+- [x] **Step 4: `list_problems` in the bridge.** In `lib.rs`'s `extern "Rust"` block, after `resource_problem_for_testing`:
 
 ```rust
         /// Each line of `list` the parser refuses, as "line N: <rule>:
@@ -1534,18 +1536,18 @@ fn list_problems(list: &str) -> Vec<String> {
 }
 ```
 
-- [ ] **Step 5: Patch 0030.** In `chromium\src` on `ghost/152.0.7977.167`:
+- [x] **Step 5: Patch 0030.** In `chromium\src` on `ghost/152.0.7977.167`:
   1. Find the commit: `git log --oneline --grep "pack Shade's filter lists"`.
   2. In `chrome/installer/mini_installer/chrome.release`, after `blocking\easyprivacy.txt: %(VersionDir)s\blocking\`, add `blocking\shade.txt: %(VersionDir)s\blocking\`. Change the comment above it to `# Shade's filter lists: //ghost/components/blocking/data and Shade's own` / `# list, copied beside the binaries by //ghost/components/blocking:filter_lists.`
   3. Write the new message to `<scratchpad>\msg0030.txt`: a first line `amend! mini_installer: pack Shade's filter lists beside the browser`, a blank line, then the patch's whole message with its first paragraph saying "EasyList, EasyPrivacy and Shade's own list (shade.txt)" instead of "EasyList and EasyPrivacy". Keep `Why:`, `Upstream:` and `Signed-off-by:` as they are.
   4. `git add chrome/installer/mini_installer/chrome.release` then `git commit --fixup=amend:<sha> -F <scratchpad>\msg0030.txt`.
   5. `set GIT_SEQUENCE_EDITOR=true` (PowerShell: `$env:GIT_SEQUENCE_EDITOR='true'`), then `git rebase -i --autosquash refs/tags/152.0.7977.167`. It isn't interactive with that editor.
   6. From webops: `python tools\patches.py export --src chromium\src`. Expected: `git diff --stat patches/` shows only `0030` changed (two lines and the message). `python tools\patches.py check` passes.
-- [ ] **Step 6: Build and run the unit tests** (development build): `python <scratchpad>\sync.py`, then `build.ps1 -Out vanilla -Targets "ghost_unittests"`, then `out\vanilla\ghost_unittests.exe --gtest_filter=EngineBridgeTest.*:FilterListsTest.*`. Expected: all pass, the two new and the old.
+- [x] **Step 6: Build and run the unit tests** (development build): `python <scratchpad>\sync.py`, then `build.ps1 -Out vanilla -Targets "ghost_unittests"`, then `out\vanilla\ghost_unittests.exe --gtest_filter=EngineBridgeTest.*:FilterListsTest.*`. Expected: all pass, the two new and the old.
   - Check that the tests can fail: put `||b.test^$nosuchoption` into `shade.txt` and sync; `ShadesListHasNoProblem` must fail. Then remove `"shade.txt"` from `kFilterListFiles`; `ShadesOwnListIsReadLast` must fail. Restore both, sync, and rebuild.
   - If `$nosuchoption` parses in adblock 0.13.3 (no error), use a malformed rule the parser refuses (try `||b.test^$domain=` and `##`), and make the test's line number match.
-- [ ] **Step 7: Python and lint.** `python -m unittest discover -s tools/tests -t tools -p "test_installer_smoke.py"` passes. Stage, then `python tools/lint.py`.
-- [ ] **Step 8: Commit.** Message: `blocking: Shade's own list, shade.txt, read after EasyList and EasyPrivacy`, with a body naming `list_problems` and patch 0030's change.
+- [x] **Step 7: Python and lint.** `python -m unittest discover -s tools/tests -t tools -p "test_installer_smoke.py"` passes. Stage, then `python tools/lint.py`.
+- [x] **Step 8: Commit.** Message: `blocking: Shade's own list, shade.txt, read after EasyList and EasyPrivacy`, with a body naming `list_problems` and patch 0030's change.
 
 ---
 
@@ -1555,7 +1557,7 @@ fn list_problems(list: &str) -> Vec<String> {
 - Create: `test/compat/corpus.toml`
 - Modify: `tools/tests/test_compat_corpus.py` (a test of the shipped corpus)
 
-- [ ] **Step 1: Write the test of the shipped corpus** in `test_compat_corpus.py`:
+- [x] **Step 1: Write the test of the shipped corpus** in `test_compat_corpus.py`:
 
 ```python
 class ShippedCorpusTest(unittest.TestCase):
@@ -1568,7 +1570,7 @@ class ShippedCorpusTest(unittest.TestCase):
 
 Run it. Expected: `FileNotFoundError`.
 
-- [ ] **Step 2: Write `test/compat/corpus.toml`.** Its header:
+- [x] **Step 2: Write `test/compat/corpus.toml`.** Its header:
 
 ```toml
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -1630,22 +1632,22 @@ The others, as `flow` arrays on their sites:
 - `www.bbc.com`: scroll, expect_visible `main`;
 - `www.nytimes.com`: scroll, expect_visible `main section`.
 
-- [ ] **Step 3: Check each flow against the baseline alone.** For each site with a flow: `compat.py run --shade <cft chrome.exe> --baseline <cft chrome.exe> --level standard --sites <url> --launcher …`. With CfT on both sides, Shade's verdicts mean nothing; what counts is that the baseline passes its flow. A baseline that fails a step means a wrong selector or a consent wall:
+- [x] **Step 3: Check each flow against the baseline alone.** For each site with a flow: `compat.py run --shade <cft chrome.exe> --baseline <cft chrome.exe> --level standard --sites <url> --launcher …`. With CfT on both sides, Shade's verdicts mean nothing; what counts is that the baseline passes its flow. A baseline that fails a step means a wrong selector or a consent wall:
   - open the site in the built-in browser and find the element (`find`, `read_page`);
   - correct the selector, or add a `click_if_present` for the consent button;
   - if consent sits in a cross-origin iframe (Sourcepoint, TrustArc), which `querySelector` can't reach, move the flow to another site of the category.
 
   Stop when at least 20 flows pass in the baseline. Note the replacements in the progress notes.
-- [ ] **Step 4: Run the shipped-corpus test.** Expected: pass.
-- [ ] **Step 5: Commit.** Message: `test: the compatibility corpus, 155 sites and their flows`.
+- [x] **Step 4: Run the shipped-corpus test.** Expected: pass.
+- [x] **Step 5: Commit.** Message: `test: the compatibility corpus, 155 sites and their flows`.
 
 ---
 
 ### Task 9: The full run, triage and fixes
 
-- [ ] **Step 1: The official build with `shade.txt`.** `python <scratchpad>\sync.py`, then start `<scratchpad>\release_build.cmd` via WMI (`Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c <scratchpad>\release_build.cmd > <scratchpad>\release_build.log 2>&1'}`). Wait for `exit 0` in the log (the rebase of Task 7 makes this longer than usual). Kill any leftover `out\release` `chrome.exe` first: a locked `chrome.dll` fails the link. Check that `out\release\blocking\shade.txt` exists.
-- [ ] **Step 2: The full run.** Close other work and don't run `git` in `chromium\src` meanwhile (the app's git polling loads the CPU). Then `python tools\compat.py run --shade chromium\src\out\release\chrome.exe --baseline <cft> --launcher <scratchpad>\hidden.ps1 --out <scratchpad>\run1.json`, in the background: about 1.5–2 h. Then `compat.py report <scratchpad>\run1.json > <scratchpad>\run1.md`.
-- [ ] **Step 3: Triage each broken site at Standard** (superpowers:systematic-debugging for each one that isn't obvious):
+- [x] **Step 1: The official build with `shade.txt`.** `python <scratchpad>\sync.py`, then start `<scratchpad>\release_build.cmd` via WMI (`Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='cmd /c <scratchpad>\release_build.cmd > <scratchpad>\release_build.log 2>&1'}`). Wait for `exit 0` in the log (the rebase of Task 7 makes this longer than usual). Kill any leftover `out\release` `chrome.exe` first: a locked `chrome.dll` fails the link. Check that `out\release\blocking\shade.txt` exists.
+- [x] **Step 2: The full run.** Close other work and don't run `git` in `chromium\src` meanwhile (the app's git polling loads the CPU). Then `python tools\compat.py run --shade chromium\src\out\release\chrome.exe --baseline <cft> --launcher <scratchpad>\hidden.ps1 --out <scratchpad>\run1.json`, in the background: about 1.5–2 h. Then `compat.py report <scratchpad>\run1.json > <scratchpad>\run1.md`.
+- [x] **Step 3: Triage each broken site at Standard** (superpowers:systematic-debugging for each one that isn't obvious):
   1. `compat.py run … --sites <url> --level standard --level off`. If it's broken with Off too, the cause is one of Shade's other defaults (third-party cookies, GPC, HTTPS-First), not blocking. Record it; the fix is a code or default decision for the user, raised with them, not a list entry.
   2. Broken at Standard only: find the rule. Run Shade with `--vmodule=request_filter=1`, which logs `Blocked <url> by <rule>`, through `--launcher`. For cosmetic or scriptlet breakage, try with the request blocked but cosmetics off, by elimination.
   3. The fix in `shade.txt`, as narrow as possible:
@@ -1657,30 +1659,30 @@ The others, as `flow` arrays on their sites:
   4. Draft the upstream report for EasyList or EasyPrivacy (the site, the rule, what breaks, the proposed fix) in `<scratchpad>\upstream-reports.md`, for the user to send. Never post it yourself.
   5. A Shade code bug: stop and fix it under superpowers:test-driven-development, with a browser test.
   6. Breakage that triage shows isn't Shade's (an exception from a blocked tracker's fallback, with nothing visible lost): a `reason` in `corpus.toml`, quoted in the notes.
-- [ ] **Step 4: Rebuild and rerun the fixed sites.** `sync.py`, the official build (minutes now), then `compat.py run … --sites <each fixed url>`. Expected: each passed. Then rerun the whole corpus (`run2.json`). Repeat Steps 3–4 until Standard has **no broken site**.
-- [ ] **Step 5: Strict.** Read Strict's result from the last full run and record its rate and broken sites in the progress notes. No fix is required for Strict.
-- [ ] **Step 6: Commit** `shade.txt`, `corpus.toml` and the progress notes (the runs' rates, each broken site, its cause and fix, flaky and skipped sites, Strict). Messages: `blocking: shade.txt fixes <n> corpus sites`; `docs: 4D-1 corpus runs`.
+- [x] **Step 4: Rebuild and rerun the fixed sites.** `sync.py`, the official build (minutes now), then `compat.py run … --sites <each fixed url>`. Expected: each passed. Then rerun the whole corpus (`run2.json`). Repeat Steps 3–4 until Standard has **no broken site**.
+- [x] **Step 5: Strict.** Read Strict's result from the last full run and record its rate and broken sites in the progress notes. No fix is required for Strict.
+- [x] **Step 6: Commit** `shade.txt`, `corpus.toml` and the progress notes (the runs' rates, each broken site, its cause and fix, flaky and skipped sites, Strict). Messages: `blocking: shade.txt fixes <n> corpus sites`; `docs: 4D-1 corpus runs`.
 
 ---
 
 ### Task 10: Mutation checks, suites, egress
 
-- [ ] **Step 1: The harness's mutation checks.** Apply each in turn, run `python -m unittest discover -s tools/tests -t tools -p "test_compat*.py"`, and restore with `git checkout -- <file>`. Each must fail:
+- [x] **Step 1: The harness's mutation checks.** Apply each in turn, run `python -m unittest discover -s tools/tests -t tools -p "test_compat*.py"`, and restore with `git checkout -- <file>`. Each must fail:
   - **H1** `compat_verdict.breakage` ignores `failed_step` (delete its `if`): `test_a_failed_flow_is_broken` fails.
   - **H2** it ignores new exceptions: `test_a_new_exception_is_broken_an_old_one_isnt` fails.
   - **H3** `rate` counts `SKIPPED` as good: `test_skipped_sites_are_left_out_of_the_rate` fails.
   - **H4** `settle` lets a reason excuse a failed flow (drop the `UNEXCUSABLE` check): `test_a_reason_excuses_signals_but_never_a_flow_or_a_load` fails.
-- [ ] **Step 2: Shade's.**
+- [x] **Step 2: Shade's.**
   - **S1** `kFilterListFiles` without `shade.txt` (development build, `ghost_unittests`): `FilterListsTest.ShadesOwnListIsReadLast` fails.
   - **S2** the same in the official build: a site Task 9 fixed with an exception is broken again (`compat.py run --sites <it>`).
   - **S3** a malformed rule in `shade.txt`: `ShadesListHasNoProblem` fails.
 
   Restore, sync, rebuild. Compare `src/ghost` with webops (`cmp` over `git ls-files`).
-- [ ] **Step 3: The self-test again** on the final official build: exit 0.
-- [ ] **Step 4: The whole suites.** `ghost_unittests` and `ghost_browsertests` (development build, hidden desktop), with no retry. Expected: 164 unit tests (161 + 3), 140 browser tests. Record the counts.
-- [ ] **Step 5: The egress audit** on the official build, as in 4C (`python tools\egress_audit.py run --chrome chromium\src\out\release\chrome.exe …`, hidden desktop). Expected: no unexpected host.
-- [ ] **Step 6: Installer smoke.** `mini_installer` from the official build, then `python tools\installer_smoke.py …` as in docs/testing.md. Expected: pass, with `shade.txt` installed.
-- [ ] **Step 7: Commit the notes.** Message: `docs: 4D-1 mutation checks, suites, audit`.
+- [x] **Step 3: The self-test again** on the final official build: exit 0.
+- [x] **Step 4: The whole suites.** `ghost_unittests` and `ghost_browsertests` (development build, hidden desktop), with no retry. Expected: 164 unit tests (161 + 3), 140 browser tests. Record the counts.
+- [x] **Step 5: The egress audit** on the official build, as in 4C (`python tools\egress_audit.py run --chrome chromium\src\out\release\chrome.exe …`, hidden desktop). Expected: no unexpected host.
+- [x] **Step 6: Installer smoke.** `mini_installer` from the official build, then `python tools\installer_smoke.py …` as in docs/testing.md. Expected: pass, with `shade.txt` installed.
+- [x] **Step 7: Commit the notes.** Message: `docs: 4D-1 mutation checks, suites, audit`.
 
 ---
 
@@ -1689,13 +1691,13 @@ The others, as `flow` arrays on their sites:
 **Files:**
 - Modify: `docs/testing.md`, `docs/privacy-model.md`, `docs/architecture.md`, `docs/roadmap.md`, `docs/superpowers/specs/2026-10-15-compatibility-corpus-design.md`, this plan's header
 
-- [ ] **Step 1: testing.md.**
+- [x] **Step 1: testing.md.**
   - The table's Compatibility row: "By hand, before each phase exit; nightly once a build host runs it".
   - A **Compatibility corpus** entry under the notes: `tools/compat.py` (baseline, run, report, self-test), the corpus file and its categories, the verdicts and their thresholds, the rerun, reasons, `--level off` for triage, the harness's tests, H1–H4 and S1–S3, the run time.
-- [ ] **Step 2: privacy-model.md**, under Blocking's **Lists**: our own list now ships as `shade.txt`, with only fixes for sites the corpus found broken, each scoped to one site. First-party and CNAME-cloaked trackers of our own come later.
-- [ ] **Step 3: architecture.md.** In 3A's "as built" paragraph: three lists, the third Shade's own (`components/blocking/shade.txt`, outside `data/`, whose README and LICENSE are EasyList's), packed by patch 0030. `list_problems` in the bridge.
-- [ ] **Step 4: roadmap.md.** Split item 4 into **4D-1** (done, with its date, the rate, the fixes, the checks, the limitations) and **4D-2** (breakage controls: the report flow). Check Phase 4's exit criterion box, with a link to the run's notes. Phase 4 completes only after 4D-2.
-- [ ] **Step 5: The spec and the plan.**
+- [x] **Step 2: privacy-model.md**, under Blocking's **Lists**: our own list now ships as `shade.txt`, with only fixes for sites the corpus found broken, each scoped to one site. First-party and CNAME-cloaked trackers of our own come later.
+- [x] **Step 3: architecture.md.** In 3A's "as built" paragraph: three lists, the third Shade's own (`components/blocking/shade.txt`, outside `data/`, whose README and LICENSE are EasyList's), packed by patch 0030. `list_problems` in the bridge.
+- [x] **Step 4: roadmap.md.** Split item 4 into **4D-1** (done, with its date, the rate, the fixes, the checks, the limitations) and **4D-2** (breakage controls: the report flow). Check Phase 4's exit criterion box, with a link to the run's notes. Phase 4 completes only after 4D-2.
+- [x] **Step 5: The spec and the plan.**
   - The spec: status "done <date>", its boxes checked. Add an *amended while planning* note: `shade.txt` in `components/blocking/`, the credits unchanged, `--level off` for `--off`, the self-test's sites built in code.
   - This plan: a **Status** line, as 4C's has.
-- [ ] **Step 6: Commit, merge, push.** Stage `docs`, run lint and the whole tooling suite, then commit (`docs: the compatibility corpus (4D-1) done`). Fast-forward `main` to `4d-1` (`git switch main`, `git merge --ff-only 4d-1`). Ask the user before pushing. After `git push`, wait for both tooling CI jobs (Ubuntu, Windows) to finish, then reset `src/ghost` to `origin/main` once it matches webops.
+- [x] **Step 6: Commit, merge, push.** Stage `docs`, run lint and the whole tooling suite, then commit (`docs: the compatibility corpus (4D-1) done`). Fast-forward `main` to `4d-1` (`git switch main`, `git merge --ff-only 4d-1`). Ask the user before pushing. After `git push`, wait for both tooling CI jobs (Ubuntu, Windows) to finish, then reset `src/ghost` to `origin/main` once it matches webops.
