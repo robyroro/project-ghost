@@ -5,9 +5,11 @@
 #ifndef GHOST_BROWSER_BLOCKING_BLOCKING_SERVICE_H_
 #define GHOST_BROWSER_BLOCKING_BLOCKING_SERVICE_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
 #include "base/no_destructor.h"
 #include "ghost/components/blocking/blocking_engine.h"
 
@@ -27,6 +29,13 @@ class BlockingService {
 
   BlockingEngine& engine() { return engine_; }
 
+  // The rule that blocks each request and each list's label, from the lists
+  // the engine was loaded with, for a breakage report (Phase 4D-2). Reads and
+  // compiles the lists on the thread pool; replies on the calling sequence.
+  using DescribeCallback = base::OnceCallback<void(std::vector<std::string> rules,
+                                                   std::vector<std::string> list_labels)>;
+  void DescribeBlocks(std::vector<CheckRequest> requests, DescribeCallback reply);
+
   // Replaces the engine's lists, for tests.
   void SetListsForTesting(std::vector<std::string> lists);
 
@@ -34,8 +43,12 @@ class BlockingService {
   friend class base::NoDestructor<BlockingService>;
 
   BlockingService();
+  ~BlockingService();
 
   BlockingEngine engine_;
+  // SetListsForTesting's lists, which DescribeBlocks then uses instead of
+  // the shipped ones.
+  std::optional<std::vector<std::string>> lists_for_testing_;
 };
 
 }  // namespace ghost::blocking
