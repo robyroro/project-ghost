@@ -39,7 +39,14 @@ Adversaries and security boundaries are in [threat-model.md](threat-model.md). M
   - *Standard* blocks third-party trackers and ads.
   - *Strict* also blocks first-party trackers. It hides the same elements as Standard (below); a stronger Strict waits for a list of our own (annoyances, cookie banners).
   - *Off* disables blocking for the site. Per-site overrides are one click from the protections panel.
-- **Breakage reports** are prepared on the user's machine and shown to the user before anything is sent. Nothing is reported automatically.
+- **Breakage reports (Phase 4D-2).** The panel's *Site not working?* lowers the site's level by one and reloads; *Is it working now?* keeps the new level or puts the old one back. Then the panel shows the report:
+  - the page's address without its query or fragment, which the user may shorten (the browser accepts only an address on the same site);
+  - the level, and whether one level lower helped;
+  - Shade's version and the lists' versions;
+  - what broke, in the user's words;
+  - the hosts blocked on the page, each with the rule that blocked it. The rule is found when the report is asked for, from the shipped lists.
+
+  Nothing leaves before *Open on GitHub*. That button opens a new tab on GitHub's issue form for this repository, filled in through its URL: GitHub receives the contents then, before the user submits the issue, which is public. The blocked requests are kept in the browser process for the page's life, at most 50 hosts. Nothing is reported automatically.
 - **The levels as built (Phase 3D-1).** Each site (the page's registrable domain) has a level; a site without the user's choice has its mode's: Standard in a regular profile, Strict in Incognito. The protections panel (below) sets them.
   - *Off:* nothing is blocked, no tracking parameter is stripped from navigations to the site.
   - *Standard:* third-party requests are checked (below); navigations lose click identifiers.

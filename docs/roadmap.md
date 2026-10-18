@@ -401,7 +401,17 @@ Sub-projects, in order (decided 2026-10-11), each with its own design and plan i
      - always logged out: sign-in and checkout flows aren't covered;
      - a site that refuses Chrome for Testing (401, 403, 429) or times out in it is skipped (8 at Standard);
      - Strict isn't a gate: its 7 broken sites wait for breakage controls.
-5. **4D-2. Breakage controls:** the report flow, shaped by what 4D-1 found. Phase 4 completes after it.
+5. **4D-2. Breakage controls:** the report flow, shaped by what 4D-1 found.
+
+   **Done 2026-10-18**, the look approved by the user; Phase 4 is complete. [Design](superpowers/specs/2026-10-18-breakage-controls-design.md), [progress notes](superpowers/specs/2026-10-18-breakage-controls-spike.md). No patch: the series stays at 43.
+   - **The step:** *Site not working?*, a button in the protections panel, lowers the site's level by one and reloads; *Is it working now?* keeps the level or puts the site's own choice back (`BreakageCheck`). At Off, the button goes straight to the report.
+   - **The report** (`breakage_report`): the address without query or fragment, which the user may shorten on the same site; the level and the step's outcome; Shade's and the lists' versions; the hosts blocked on the page, at most 50, each with its rule. The rule comes from a temporary engine with debug info, built from the shipped lists when the report is asked for (`ExplainBlocks`); the filtering engine is unchanged.
+   - **Where it goes:** a new tab on GitHub's issue form in this repository (`.github/ISSUE_TEMPLATE/breakage.yml`, label `breakage`), filled in through its URL. The browser builds the URL; the panel's renderer sends only a category, a text of at most 2,000 characters and the address, which the browser checks.
+   - **Checks:** M1–M6 fail as required; 193 unit and 147 browser tests pass with no retry; tooling 557; the egress audit finds no unexpected host.
+   - **Limitations:**
+     - a report needs a GitHub account and is public; GitHub receives its contents when the form opens, before Submit;
+     - the step offers one level at a time;
+     - Strict's 7 broken sites from 4D-1 wait for their reports.
 
 **Exit criteria** ([phases](#phases-to-public-alpha))
 - [x] Compatibility corpus pass rate no worse than vanilla Chromium with blocking off (4D-1, 2026-10-16: no broken site at Standard against Chrome for Testing at the pin; [progress notes](superpowers/specs/2026-10-15-compatibility-corpus-spike.md#task-9-the-third-full-run-2026-10-16)).

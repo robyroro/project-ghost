@@ -16,6 +16,8 @@
 
 **Tech Stack:** C++ (content, views, WebUI, Mojo), Lit/TypeScript, Rust (adblock-rust 0.13.3 via cxx), gtest, Python `unittest`.
 
+**Status:** done 2026-10-18 ([progress notes](../specs/2026-10-18-breakage-controls-spike.md)). Beyond the plan: native buttons, not `cr-button` (the panel's controls are native since 3D-3); the bad-message test clicks after its script returns; the look came from a temporary browser test with pixel output, and the report's fields were relaid out after the first screenshots.
+
 **Settled while planning** (each checked in the source; the spec is amended in Task 0):
 - **The rule text needs an engine with debug info.** `new_engine` builds `FilterSet::new(false)`, so `BlockerResult.filter` has no `raw_line`, and `Decision.filter` carries only `FilterRuleDebugInfo`'s `Debug` form. A debug engine for every request would cost memory and check time; the request check's p99 is already 41–49 µs against a 50 µs budget (4A). So the rule is found at report time:
   - a temporary engine with `FilterSet::new(true)`, built on the thread pool from the same lists;

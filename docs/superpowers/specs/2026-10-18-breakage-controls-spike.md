@@ -23,6 +23,7 @@ What executing [the plan](../plans/2026-10-18-breakage-controls.md) found, task 
 ## Task 11: the look (2026-10-18)
 
 - Screenshots come from a temporary browser test (never committed) that runs the flow and copies the panel's surface to PNG files; browser tests need `EnablePixelOutput()`, or the copy is solid blue. Nothing opens on the user's screen.
+- The user approved the four states (the panel with its button, the offer, the question, the report) on 2026-10-18.
 - The first report view had wide gaps: `white-space: pre-wrap` on the field list kept the template's own line breaks. Only the values keep their breaks now, and they wrap with `overflow-wrap: anywhere` rather than in the middle of a word.
 
 ## Task 12: mutation checks, suites, audit (2026-10-18)
