@@ -33,6 +33,30 @@ constexpr Entry kPageStrings[] = {
     {"incognitoNote", "Changes here last until you close all Incognito windows."},
     {"notApplicable", "Protections don't apply to this page"},
     {"settingsLink", "Protection settings"},
+    // The breakage step and report (2026-10-18-breakage-controls-design.md).
+    // The category words are CategoryLabel's (breakage_report.cc).
+    {"notWorking", "Site not working?"},
+    {"offerText", "Try $1 on $2: the page reloads with fewer protections."},
+    {"offerReload", "Reload with $1"},
+    {"cancel", "Cancel"},
+    {"askTitle", "Is it working now?"},
+    {"askText", "$1 is at $2."},
+    {"askNo", "No, put $1 back"},
+    {"askYes", "Yes"},
+    {"askNote", "Either way, you can tell us about the site."},
+    {"reportTitle", "Report $1"},
+    {"reportCategory", "What broke"},
+    {"categoryContent", "Page content missing or broken"},
+    {"categoryMedia", "Video or audio"},
+    {"categorySignIn", "Sign-in or forms"},
+    {"categoryOther", "Something else"},
+    {"reportDetails", "What went wrong? (optional)"},
+    {"reportAddress", "Address"},
+    {"reportNote",
+     "Opens a public issue on GitHub, filled in with the above. Nothing is sent until you "
+     "submit it there."},
+    {"reportOpen", "Open on GitHub"},
+    {"reportLoading", "Preparing the report…"},
 };
 
 }  // namespace

@@ -6,6 +6,7 @@
 // reached through host-resolver rules.
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -25,7 +26,9 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "ghost/browser/blocking/blocking_service.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
+#include "ghost/browser/protections/breakage_check.h"
 #include "ghost/browser/ui/protections/protections_button.h"
+#include "net/base/url_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -67,7 +70,7 @@ class ProtectionsPanelBrowserTest : public InProcessBrowserTest {
     ASSERT_TRUE(embedded_test_server()->Start());
     ASSERT_TRUE(blocking::BlockingService::GetIfStarted());
     blocking::BlockingService::GetIfStarted()->SetListsForTesting(
-        {"||tracker.test^$third-party\n"});
+        {"||tracker.test^$third-party\n||metrics.news.test^\n"});
   }
 
   GURL Page(std::string_view host) { return embedded_test_server()->GetURL(host, "/page"); }
@@ -111,6 +114,50 @@ class ProtectionsPanelBrowserTest : public InProcessBrowserTest {
     return content::EvalJs(panel,
                            content::JsReplace(base::StrCat({kPanelText, "($1)"}), selector))
         .ExtractString();
+  }
+
+  // Clicks the element |selector| in the panel's shadow root.
+  static bool ClickInPanel(content::WebContents* panel, std::string_view selector) {
+    return content::ExecJs(
+        panel, content::JsReplace("document.querySelector('protections-app').shadowRoot"
+                                  ".querySelector($1).click()",
+                                  selector));
+  }
+
+  // Waits until the element |selector| exists in the panel.
+  static bool WaitForPanelElement(content::WebContents* panel, std::string_view selector) {
+    return content::EvalJs(
+               panel,
+               content::JsReplace(
+                   "new Promise(done => { const check = () => "
+                   "document.querySelector('protections-app').shadowRoot.querySelector($1) ? "
+                   "done(true) : setTimeout(check, 20); check(); })",
+                   selector))
+        .ExtractBool();
+  }
+
+  // Loads one script from |url| in the tab and waits until it has loaded or
+  // failed.
+  void LoadScript(Browser* in, const GURL& url) {
+    EXPECT_EQ(content::EvalJs(Tab(in), content::JsReplace(R"(new Promise(done => {
+                  const s = document.createElement('script');
+                  s.onload = s.onerror = () => done('done');
+                  s.src = $1;
+                  document.head.append(s);
+                }))",
+                                                          url)),
+              "done");
+  }
+
+  // The panel's page now, once the bubble shows (it may have reopened).
+  content::WebContents* PanelOf(Browser* in) {
+    ProtectionsButton* button = Button(in);
+    views::Widget* widget = button->bubble_manager_for_testing()->GetBubbleWidget();
+    if (!widget) {
+      return nullptr;
+    }
+    views::test::WidgetVisibleWaiter(widget).Wait();
+    return button->bubble_manager_for_testing()->GetContentsWrapper()->web_contents();
   }
 
   // Waits until the panel shows |text| in |selector|: its state arrives over
@@ -233,6 +280,156 @@ IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, AnOffDefaultTurnsTheButtonOf
   EXPECT_TRUE(button->shows_off_for_testing());
   EXPECT_EQ(button->badge_text_for_testing(), u"");
   EXPECT_EQ(button->GetTooltipText(), u"Protections: Off");
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, SiteNotWorkingLowersAndAsks) {
+  privacy_policy::SetLevel(browser()->GetProfile(), Page("news.test"),
+                           privacy_policy::ProtectionLevel::kStrict);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Page("news.test")));
+  LoadScript(browser(), Page("metrics.news.test"));
+  content::WebContents* panel = OpenPanel(browser());
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(ClickInPanel(panel, "#not-working"));
+  EXPECT_TRUE(WaitForPanelText(panel, "#offer-reload", "Reload with Standard"));
+
+  content::TestNavigationObserver reload(Tab(browser()));
+  ASSERT_TRUE(ClickInPanel(panel, "#offer-reload"));
+  reload.Wait();
+  // The panel asks once the reload has loaded, reopened if it closed.
+  panel = PanelOf(browser());
+  ASSERT_TRUE(panel);
+  EXPECT_TRUE(WaitForPanelText(panel, "#ask-title", "Is it working now?"));
+  EXPECT_EQ(privacy_policy::GetLevel(browser()->GetProfile(), Page("news.test")),
+            privacy_policy::ProtectionLevel::kStandard);
+
+  // No: Strict comes back, and the report shows what Strict blocked.
+  content::TestNavigationObserver restore(Tab(browser()));
+  ASSERT_TRUE(ClickInPanel(panel, "#ask-no"));
+  restore.Wait();
+  EXPECT_EQ(privacy_policy::GetChoice(browser()->GetProfile(), Page("news.test")),
+            privacy_policy::ProtectionLevel::kStrict);
+  panel = PanelOf(browser());
+  ASSERT_TRUE(panel);
+  EXPECT_TRUE(WaitForPanelElement(panel, "#report-open"));
+  EXPECT_EQ(PanelText(panel, "#report-site"), "Report news.test");
+  const std::string fields = PanelText(panel, "#report-fields");
+  EXPECT_NE(fields.find("Standard didn't fix it; back to Strict"), std::string::npos) << fields;
+  EXPECT_NE(fields.find("metrics.news.test  ||metrics.news.test^"), std::string::npos) << fields;
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, TheReportOpensGitHubsFormAndNothingElse) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("www.news.test", "/page?session=s3cr3t")));
+  content::WebContents* page_tab = Tab(browser());
+  LoadImages(browser(), "tracker.test", 1);
+  content::WebContents* panel = OpenPanel(browser());
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(ClickInPanel(panel, "#not-working"));
+  content::TestNavigationObserver reload(page_tab);
+  ASSERT_TRUE(ClickInPanel(panel, "#offer-reload"));
+  reload.Wait();
+  panel = PanelOf(browser());
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(WaitForPanelElement(panel, "#ask-yes"));
+  ASSERT_TRUE(ClickInPanel(panel, "#ask-yes"));
+  ASSERT_TRUE(WaitForPanelElement(panel, "#report-open"));
+  ASSERT_TRUE(content::ExecJs(panel, R"(
+      const root = document.querySelector('protections-app').shadowRoot;
+      root.querySelector('#report-category').value = '1';
+      root.querySelector('#report-category').dispatchEvent(new Event('change'));
+      root.querySelector('#report-details').value = 'The video stays black.';
+      root.querySelector('#report-details').dispatchEvent(new Event('input'));)"));
+
+  ui_test_utils::TabAddedWaiter added(browser());
+  ASSERT_TRUE(ClickInPanel(panel, "#report-open"));
+  added.Wait();
+  content::WebContents* issue = Tab(browser());
+  ASSERT_NE(issue, page_tab);
+  const GURL url = issue->GetVisibleURL();
+  EXPECT_EQ(url.host(), "github.com");
+  EXPECT_EQ(url.path(), "/robyroro/project-ghost/issues/new");
+  std::string value;
+  ASSERT_TRUE(net::GetValueForKeyInQuery(url, "site", &value));
+  EXPECT_EQ(value, embedded_test_server()->GetURL("www.news.test", "/page").spec());
+  ASSERT_TRUE(net::GetValueForKeyInQuery(url, "category", &value));
+  EXPECT_EQ(value, "Video or audio");
+  ASSERT_TRUE(net::GetValueForKeyInQuery(url, "details", &value));
+  EXPECT_EQ(value, "The video stays black.");
+  ASSERT_TRUE(net::GetValueForKeyInQuery(url, "outcome", &value));
+  EXPECT_EQ(value, "Off fixed it");
+  ASSERT_TRUE(net::GetValueForKeyInQuery(url, "blocked", &value));
+  EXPECT_EQ(value, "tracker.test  ||tracker.test^$third-party");
+  EXPECT_EQ(url.spec().find("s3cr3t"), std::string::npos);
+  // The report ends the step.
+  EXPECT_EQ(BreakageCheck::FromWebContents(page_tab)->step(), BreakageCheck::Step::kNone);
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, AnOffSiteGoesStraightToTheReport) {
+  privacy_policy::SetLevel(browser()->GetProfile(), Page("news.test"),
+                           privacy_policy::ProtectionLevel::kOff);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Page("news.test")));
+  content::WebContents* panel = OpenPanel(browser());
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(ClickInPanel(panel, "#not-working"));
+  ASSERT_TRUE(WaitForPanelElement(panel, "#report-open"));
+  const std::string fields = PanelText(panel, "#report-fields");
+  EXPECT_NE(fields.find("The site was already Off"), std::string::npos) << fields;
+  EXPECT_NE(fields.find("Nothing was blocked on this page."), std::string::npos) << fields;
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, IncognitosReportStaysIncognito) {
+  // Incognito's HTTPS-First is strict: an http: page would get its
+  // interstitial (4A's finding).
+  net::EmbeddedTestServer https(net::EmbeddedTestServer::TYPE_HTTPS);
+  https.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+  https.RegisterRequestHandler(base::BindRepeating(&ServePage));
+  ASSERT_TRUE(https.Start());
+  Browser* incognito = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, https.GetURL("a.test", "/page")));
+  content::WebContents* panel = OpenPanel(incognito);
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(ClickInPanel(panel, "#not-working"));
+  content::TestNavigationObserver reload(Tab(incognito));
+  ASSERT_TRUE(ClickInPanel(panel, "#offer-reload"));
+  reload.Wait();
+  panel = PanelOf(incognito);
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(WaitForPanelElement(panel, "#ask-yes"));
+  ASSERT_TRUE(ClickInPanel(panel, "#ask-yes"));
+  ASSERT_TRUE(WaitForPanelElement(panel, "#report-open"));
+  content::WebContents* page_tab = Tab(incognito);
+  ui_test_utils::TabAddedWaiter added(incognito);
+  ASSERT_TRUE(ClickInPanel(panel, "#report-open"));
+  added.Wait();
+  content::WebContents* issue = Tab(incognito);
+  ASSERT_NE(issue, page_tab);
+  EXPECT_EQ(issue->GetVisibleURL().host(), "github.com");
+  EXPECT_TRUE(issue->GetBrowserContext()->IsOffTheRecord());
+}
+
+IN_PROC_BROWSER_TEST_F(ProtectionsPanelBrowserTest, ALongDetailsTextIsABadMessage) {
+  // The panel's renderer is driven past its own limit (maxlength): the
+  // browser must refuse what a compromised renderer could send.
+  privacy_policy::SetLevel(browser()->GetProfile(), Page("news.test"),
+                           privacy_policy::ProtectionLevel::kOff);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Page("news.test")));
+  content::WebContents* panel = OpenPanel(browser());
+  ASSERT_TRUE(panel);
+  ASSERT_TRUE(ClickInPanel(panel, "#not-working"));
+  ASSERT_TRUE(WaitForPanelElement(panel, "#report-open"));
+  content::RenderProcessHostBadMojoMessageWaiter bad(panel->GetPrimaryMainFrame()->GetProcess());
+  ASSERT_TRUE(content::ExecJs(panel, R"(
+      const root = document.querySelector('protections-app').shadowRoot;
+      const details = root.querySelector('#report-details');
+      details.removeAttribute('maxlength');
+      details.value = 'x'.repeat(2001);
+      details.dispatchEvent(new Event('input'));
+      // After this script returns: the browser ends the renderer at once.
+      setTimeout(() => root.querySelector('#report-open').click());)"));
+  const std::optional<std::string> error = bad.Wait();
+  ASSERT_TRUE(error.has_value());
+  EXPECT_NE(error->find("OpenReport"), std::string::npos) << *error;
+  EXPECT_EQ(browser()->tab_strip_model()->count(), 1);
 }
 
 }  // namespace

@@ -17,6 +17,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
+#include "ghost/browser/protections/breakage_check.h"
 #include "ghost/browser/ui/protections/protections_strings.h"
 #include "ghost/browser/ui/protections/protections_ui.h"
 #include "ghost/browser/ui/protections/shield_off_icon.h"
@@ -157,10 +158,14 @@ void ProtectionsButton::WebContentsDestroyed() {
 
 void ProtectionsButton::Follow(content::WebContents* tab) {
   protections_observation_.Reset();
+  check_subscription_ = {};
   Observe(tab);
   if (tab) {
     PageProtections::CreateForWebContents(tab);
     protections_observation_.Observe(PageProtections::FromWebContents(tab));
+    BreakageCheck::CreateForWebContents(tab);
+    check_subscription_ = BreakageCheck::FromWebContents(tab)->AddChangedCallback(
+        base::BindRepeating(&ProtectionsButton::OnCheckChanged, base::Unretained(this)));
   }
   Update();
 }
@@ -184,6 +189,15 @@ bool ProtectionsButton::IsOff() const {
 
 void ProtectionsButton::ShowPanel() {
   bubble_manager_->ShowBubble(this);
+}
+
+void ProtectionsButton::OnCheckChanged() {
+  BreakageCheck* check =
+      web_contents() ? BreakageCheck::FromWebContents(web_contents()) : nullptr;
+  if (check && check->step() == BreakageCheck::Step::kAsking &&
+      !bubble_manager_->GetBubbleWidget()) {
+    ShowPanel();
+  }
 }
 
 BEGIN_METADATA(ProtectionsButton)

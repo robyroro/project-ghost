@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -65,11 +66,15 @@ class ProtectionsButton : public ToolbarButton,
   void Update();
   bool IsOff() const;
   void ShowPanel();
+  // The reload of "Site not working?" has loaded: the panel asks, reopened
+  // if the reload closed it.
+  void OnCheckChanged();
 
   const raw_ptr<BrowserWindowInterface> browser_;
   std::unique_ptr<WebUIBubbleManager> bubble_manager_;
   base::ScopedObservation<PageProtections, PageProtections::Observer> protections_observation_{
       this};
+  base::CallbackListSubscription check_subscription_;
   PanelState state_;
   std::u16string badge_text_;
 };
