@@ -11,6 +11,36 @@ enum Level {
   kStrict,
 };
 
+// Where the "Site not working?" step is (BreakageCheck::Step).
+enum Step {
+  kNone,
+  kReloading,
+  kAsking,
+  kAnswered,
+};
+
+// What broke, as the user chose it in the report.
+enum Category {
+  kContent,
+  kMedia,
+  kSignIn,
+  kOther,
+};
+
+// One line of the report, shown read-only.
+struct ReportField {
+  string label;
+  string value;
+};
+
+// The report, before anything is sent.
+struct Report {
+  string site;
+  // The page's address without query or fragment; the user may shorten it.
+  string address;
+  array<ReportField> fields;
+};
+
 // What the panel shows for the tab it was opened from.
 struct State {
   // Whether protections apply: an http(s) page.
@@ -23,6 +53,10 @@ struct State {
   // Requests and connections blocked on the page.
   int32 blocked_count;
   bool off_the_record;
+  // The "Site not working?" step, and its levels: from, then one lower.
+  Step step;
+  Level check_from;
+  Level check_to;
 };
 
 // Made by the page once it has loaded.
@@ -41,6 +75,18 @@ interface PageHandler {
   // Opens Shade's section of chrome://settings in a new tab and closes the
   // bubble.
   OpenSettings();
+  // "Site not working?": the site one level lower, and a reload; the state's
+  // step says when to ask.
+  TryLowerLevel();
+  // The answers to "Is it working now?".
+  KeepLevel();
+  RestoreLevel();
+  // The report for the tab's page, as the panel shows it.
+  GetReport() => (Report report);
+  // Opens GitHub's form filled in with the last report, the category, the
+  // user's details (at most 2,000 characters) and the address (at most
+  // 2,048), which the browser checks; then closes the panel.
+  OpenReport(Category category, string details, string address);
 };
 
 // Page side.

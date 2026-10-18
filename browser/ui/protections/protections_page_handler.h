@@ -5,9 +5,16 @@
 #ifndef GHOST_BROWSER_UI_PROTECTIONS_PROTECTIONS_PAGE_HANDLER_H_
 #define GHOST_BROWSER_UI_PROTECTIONS_PROTECTIONS_PAGE_HANDLER_H_
 
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ghost/browser/protections/breakage_report.h"
 #include "ghost/browser/protections/page_protections.h"
 #include "ghost/browser/ui/protections/protections.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -45,6 +52,13 @@ class ProtectionsPageHandler : public mojom::PageHandler,
   void SetLevel(mojom::Level level) override;
   void ShowUI() override;
   void OpenSettings() override;
+  void TryLowerLevel() override;
+  void KeepLevel() override;
+  void RestoreLevel() override;
+  void GetReport(GetReportCallback callback) override;
+  void OpenReport(mojom::Category category,
+                  const std::string& details,
+                  const std::string& address) override;
 
  private:
   // PageProtections::Observer: also a new page, which resets the count.
@@ -59,6 +73,11 @@ class ProtectionsPageHandler : public mojom::PageHandler,
   void Follow(content::WebContents* tab);
   mojom::StatePtr State();
   void SendState();
+  void OnReportDescribed(GURL page,
+                         ReportInputs inputs,
+                         GetReportCallback callback,
+                         std::vector<std::string> rules,
+                         std::vector<std::string> list_labels);
 
   mojo::Receiver<mojom::PageHandler> receiver_;
   mojo::Remote<mojom::Page> page_;
@@ -66,6 +85,12 @@ class ProtectionsPageHandler : public mojom::PageHandler,
   const raw_ptr<ProtectionsUI> ui_;
   base::ScopedObservation<PageProtections, PageProtections::Observer> protections_observation_{
       this};
+  base::CallbackListSubscription check_subscription_;
+  // The last report the page was shown, which OpenReport sends; and the page
+  // it was for.
+  std::optional<BreakageReport> report_;
+  GURL report_page_;
+  base::WeakPtrFactory<ProtectionsPageHandler> weak_factory_{this};
 };
 
 }  // namespace ghost::protections
