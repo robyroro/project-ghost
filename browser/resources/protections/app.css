@@ -216,8 +216,6 @@ select,
   max-height: 160px;
   overflow: auto;
   padding: 8px 10px;
-  white-space: pre-wrap;
-  word-break: break-all;
 }
 
 .report-field + .report-field {
@@ -227,4 +225,9 @@ select,
 .report-field .label {
   color: var(--color-sys-on-surface-subtle);
   font-family: system-ui;
+}
+
+.report-field .value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

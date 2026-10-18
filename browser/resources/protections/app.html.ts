@@ -49,9 +49,9 @@ ${this.asking_() ? html`
     <input id="report-address" type="url" maxlength="2048" .value="${this.address_}"
         @input="${this.onAddressInput_}">
   </label>
-  <div id="report-fields">${this.report_.fields.map(field => html`
-    <div class="report-field"><span class="label">${field.label}</span>
-<span class="value">${field.value}</span></div>`)}</div>
+  <div id="report-fields">${this.report_.fields.map(field => html`<div
+      class="report-field"><div class="label">${field.label}</div><div
+      class="value">${field.value}</div></div>`)}</div>
   <p class="note">${this.i18n_('reportNote')}</p>
   <div class="buttons">
     <button id="report-cancel" @click="${this.onCancelClick_}">${this.i18n_('cancel')}</button>
