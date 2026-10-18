@@ -43,3 +43,7 @@ M6's first form, the check deleted, didn't compile (the limit's constant became 
 
 The suites, with the mutants reverted and both targets rebuilt: `ghost_unittests` 193/193, `ghost_browsertests` 147/147 (the launcher's summary shows 146: it counts `PRE_GpcCanBeTurnedOff` inside its test), no retry; tooling 557 tests.
 The egress audit on the dev build (`out/vanilla`, the hidden desktop): 0 unexpected hosts; one route probe and one proxy auto-detection lookup, as always. The flow sends nothing without the click on *Open on GitHub*, and the audit never opens the panel.
+
+## After the push: GitHub's form (2026-10-18)
+
+GitHub reads issue templates only from the default branch, so the form could be checked only once `main` was pushed. The user opened an issue URL in `IssueUrl`'s format, signed in, and every field arrived filled in: page, category, details, level, outcome, version, lists, and the blocked hosts on two lines. Nothing was submitted. The design's last "done when" condition holds.
