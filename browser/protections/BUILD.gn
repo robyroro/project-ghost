@@ -7,6 +7,8 @@
 # count their blocks here: so it must not depend on //chrome/browser.
 source_set("protections") {
   sources = [
+    "breakage_report.cc",
+    "breakage_report.h",
     "page_protections.cc",
     "page_protections.h",
     "panel_state.cc",
@@ -23,6 +25,7 @@ source_set("protections") {
   deps = [
     "//ghost/browser/privacy_policy",
     "//ghost/components/site",
+    "//net",
     "//url",
   ]
 }
