@@ -6,6 +6,7 @@
 #define GHOST_COMPONENTS_BLOCKING_FILTER_LISTS_H_
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/files/file_path.h"
@@ -25,6 +26,12 @@ inline constexpr const char* kFilterListFiles[] = {"easylist.txt", "easyprivacy.
 // Reads each list in `dir`; a missing or unreadable one is logged and left
 // out. Blocking I/O: call it on a task that may block.
 std::vector<std::string> ReadFilterLists(const base::FilePath& dir);
+
+// A list as a breakage report names it: its "! Title:" and "! Version:"
+// headers, "EasyList 202610100609"; the title alone without a version;
+// "Untitled list" without a title. Only the header, the comment lines before
+// the first rule, is read.
+std::string ListLabel(std::string_view list);
 
 }  // namespace ghost::blocking
 

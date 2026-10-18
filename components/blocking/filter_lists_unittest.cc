@@ -40,5 +40,23 @@ TEST(FilterListsTest, ShadesOwnListIsReadLast) {
   EXPECT_TRUE(lists.back().starts_with("! Title: Shade's fixes")) << lists.back().substr(0, 80);
 }
 
+TEST(FilterListsTest, AListIsNamedByItsTitleAndVersion) {
+  EXPECT_EQ(ListLabel("[Adblock Plus 2.0]\n! Version: 202610100609\n! Title: EasyList\n||a^\n"),
+            "EasyList 202610100609");
+  EXPECT_EQ(ListLabel("! Title: Shade's fixes\n! a comment\n"), "Shade's fixes");
+  EXPECT_EQ(ListLabel("||a.test^\n! Title: Too late\n"), "Untitled list");
+}
+
+TEST(FilterListsTest, TheShippedListsHaveNames) {
+  std::vector<std::string> labels;
+  for (const std::string& list : ReadFilterLists(DefaultFilterListsDir())) {
+    labels.push_back(ListLabel(list));
+  }
+  ASSERT_EQ(labels.size(), 3u);
+  EXPECT_TRUE(labels[0].starts_with("EasyList 2")) << labels[0];
+  EXPECT_TRUE(labels[1].starts_with("EasyPrivacy 2")) << labels[1];
+  EXPECT_EQ(labels[2], "Shade's fixes");
+}
+
 }  // namespace
 }  // namespace ghost::blocking

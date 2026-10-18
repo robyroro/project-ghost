@@ -8,6 +8,9 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/threading/scoped_blocking_call.h"
 
 namespace ghost::blocking {
@@ -28,6 +31,25 @@ std::vector<std::string> ReadFilterLists(const base::FilePath& dir) {
     }
   }
   return lists;
+}
+
+std::string ListLabel(std::string_view list) {
+  std::string_view title, version;
+  for (std::string_view line :
+       base::SplitStringPiece(list, "\n", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+    if (!line.starts_with('!') && !line.starts_with('[')) {
+      break;
+    }
+    if (line.starts_with("! Title:")) {
+      title = base::TrimWhitespaceASCII(line.substr(8), base::TRIM_ALL);
+    } else if (line.starts_with("! Version:")) {
+      version = base::TrimWhitespaceASCII(line.substr(10), base::TRIM_ALL);
+    }
+  }
+  if (title.empty()) {
+    return "Untitled list";
+  }
+  return version.empty() ? std::string(title) : base::StrCat({title, " ", version});
 }
 
 }  // namespace ghost::blocking
