@@ -27,6 +27,7 @@ test("ghost_unittests") {
     "browser/features/feature_overrides_unittest.cc",
     "browser/prefs/pref_defaults_unittest.cc",
     "browser/privacy_policy/site_levels_unittest.cc",
+    "browser/protections/breakage_check_unittest.cc",
     "browser/protections/breakage_report_unittest.cc",
     "browser/protections/page_protections_unittest.cc",
     "browser/protections/panel_state_unittest.cc",
