@@ -328,7 +328,7 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
 
   void OnStartVerdict(Decision decision) {
     if (decision.blocked) {
-      Block(decision);
+      Block(request_.url, decision);
       return;
     }
     loader_receiver_.Bind(std::move(pending_loader_));
@@ -349,17 +349,20 @@ class RequestFilter::InFlight : public network::mojom::URLLoader,
       // Closing the network side cancels the request there.
       target_loader_.reset();
       client_receiver_.reset();
-      Block(decision);
+      Block(redirect_info.new_url, decision);
       return;
     }
     client_->OnReceiveRedirect(redirect_info, std::move(head));
   }
 
-  void Block(const Decision& decision) {
-    VLOG(1) << "Blocked " << request_.url
+  void Block(const GURL& url, const Decision& decision) {
+    VLOG(1) << "Blocked " << url
             << (decision.alias.empty() ? "" : " (alias " + decision.alias + ")") << " by "
             << decision.filter;
-    protections::PageProtections::RecordBlocked(frame_);
+    // A blocked alias counts as its own URL: a breakage report checks that
+    // URL again to name the rule.
+    protections::PageProtections::RecordBlocked(
+        frame_, Check(decision.alias.empty() ? url : GURL(decision.alias)));
     if (decision.redirect.empty() || !Answer(decision.redirect)) {
       client_->OnComplete(network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
     }

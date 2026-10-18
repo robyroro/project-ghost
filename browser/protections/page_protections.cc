@@ -4,6 +4,9 @@
 
 #include "ghost/browser/protections/page_protections.h"
 
+#include <algorithm>
+#include <utility>
+
 #include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -17,7 +20,8 @@ PageProtections::PageProtections(content::WebContents* contents)
 PageProtections::~PageProtections() = default;
 
 // static
-void PageProtections::RecordBlocked(content::GlobalRenderFrameHostId id) {
+void PageProtections::RecordBlocked(content::GlobalRenderFrameHostId id,
+                                    blocking::CheckRequest request) {
   content::RenderFrameHost* frame = content::RenderFrameHost::FromID(id);
   if (!frame) {
     return;
@@ -29,6 +33,16 @@ void PageProtections::RecordBlocked(content::GlobalRenderFrameHostId id) {
   content::WebContents* contents = content::WebContents::FromRenderFrameHost(main);
   CreateForWebContents(contents);
   PageProtections* protections = FromWebContents(contents);
+  const bool known = std::ranges::any_of(protections->blocked_, [&](const auto& kept) {
+    return kept.url.host() == request.url.host();
+  });
+  if (!known) {
+    if (protections->blocked_.size() < kMaxBlockedHosts) {
+      protections->blocked_.push_back(std::move(request));
+    } else {
+      protections->more_hosts_ = true;
+    }
+  }
   protections->SetCount(protections->blocked_count_ + 1);
 }
 
@@ -41,6 +55,8 @@ void PageProtections::RemoveObserver(Observer* observer) {
 }
 
 void PageProtections::PrimaryPageChanged(content::Page& page) {
+  blocked_.clear();
+  more_hosts_ = false;
   SetCount(0);
 }
 

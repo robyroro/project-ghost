@@ -46,17 +46,18 @@ void Judge(const GURL& url,
     std::move(done).Run(false);
     return;
   }
+  CheckRequest request{url, page, network::mojom::RequestDestination::kEmpty, "GET"};
   service->engine().Check(
-      {url, page, network::mojom::RequestDestination::kEmpty, "GET"},
+      request,
       base::BindOnce(
-          [](content::GlobalRenderFrameHostId frame, base::OnceCallback<void(bool)> done,
-             Decision decision) {
+          [](content::GlobalRenderFrameHostId frame, CheckRequest request,
+             base::OnceCallback<void(bool)> done, Decision decision) {
             if (decision.blocked) {
-              protections::PageProtections::RecordBlocked(frame);
+              protections::PageProtections::RecordBlocked(frame, std::move(request));
             }
             std::move(done).Run(decision.blocked);
           },
-          frame, std::move(done)));
+          frame, request, std::move(done)));
 }
 
 }  // namespace

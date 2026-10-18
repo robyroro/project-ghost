@@ -16,6 +16,8 @@
 #include "content/public/test/web_contents_tester.h"
 #include "ghost/browser/privacy_policy/site_levels.h"
 #include "ghost/browser/protections/page_protections.h"
+#include "ghost/components/blocking/blocking_engine.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -45,7 +47,9 @@ TEST_F(PanelStateTest, ASiteIsItsRegistrableDomain) {
 TEST_F(PanelStateTest, ShowsTheSitesChoiceAndTheCount) {
   NavigateAndCommit(GURL("https://news.test/"));
   privacy_policy::SetLevel(profile(), GURL("https://news.test/"), ProtectionLevel::kOff);
-  PageProtections::RecordBlocked(main_rfh()->GetGlobalId());
+  PageProtections::RecordBlocked(main_rfh()->GetGlobalId(),
+                                 {GURL("https://t.test/x.js"), GURL("https://news.test/"),
+                                  network::mojom::RequestDestination::kScript, "GET"});
   PanelState state = GetPanelState(*web_contents());
   EXPECT_EQ(state.level, ProtectionLevel::kOff);
   EXPECT_EQ(state.blocked_count, 1);

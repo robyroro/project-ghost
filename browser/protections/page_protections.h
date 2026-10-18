@@ -5,11 +5,14 @@
 #ifndef GHOST_BROWSER_PROTECTIONS_PAGE_PROTECTIONS_H_
 #define GHOST_BROWSER_PROTECTIONS_PAGE_PROTECTIONS_H_
 
+#include <vector>
+
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "ghost/components/blocking/blocking_engine.h"
 
 namespace ghost::protections {
 
@@ -29,12 +32,24 @@ class PageProtections : public content::WebContentsObserver,
   PageProtections& operator=(const PageProtections&) = delete;
   ~PageProtections() override;
 
-  // Counts one block for the tab whose primary page |frame| belongs to;
-  // nothing when the frame is gone or its page isn't primary (a page being
-  // left, a prerendered one).
-  static void RecordBlocked(content::GlobalRenderFrameHostId frame);
+  // Most hosts a page keeps blocked requests for: a breakage report lists
+  // them (Phase 4D-2).
+  static constexpr size_t kMaxBlockedHosts = 50;
+
+  // Counts one block for the tab whose primary page |frame| belongs to, and
+  // keeps |request| when it is the first of its host and fewer than
+  // kMaxBlockedHosts are kept; nothing when the frame is gone or its page
+  // isn't primary (a page being left, a prerendered one). |request|'s URL is
+  // the one blocked: a DNS alias's when an alias was.
+  static void RecordBlocked(content::GlobalRenderFrameHostId frame,
+                            blocking::CheckRequest request);
 
   int blocked_count() const { return blocked_count_; }
+  // The page's blocked requests, the first of each host, for a breakage
+  // report. They stay in the browser process.
+  const std::vector<blocking::CheckRequest>& blocked_requests() const { return blocked_; }
+  // Whether hosts beyond kMaxBlockedHosts were blocked.
+  bool more_hosts() const { return more_hosts_; }
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -50,6 +65,8 @@ class PageProtections : public content::WebContentsObserver,
   void SetCount(int count);
 
   int blocked_count_ = 0;
+  std::vector<blocking::CheckRequest> blocked_;
+  bool more_hosts_ = false;
   base::ObserverList<Observer> observers_;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
