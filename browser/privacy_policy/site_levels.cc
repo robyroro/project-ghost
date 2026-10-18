@@ -60,6 +60,10 @@ ProtectionLevel GetLevel(content::BrowserContext* context, const GURL& page) {
   return ResolveLevel(ModeDefault(context), SiteLevel(context, page));
 }
 
+std::optional<ProtectionLevel> GetChoice(content::BrowserContext* context, const GURL& page) {
+  return SiteLevel(context, page);
+}
+
 void SetLevel(content::BrowserContext* context, const GURL& page, ProtectionLevel level) {
   const std::string key = SiteKey(page);
   if (!key.empty()) {

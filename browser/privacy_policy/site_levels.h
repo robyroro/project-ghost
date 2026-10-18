@@ -44,6 +44,9 @@ ProtectionLevel ModeDefault(content::BrowserContext* context);
 // The level for a page: its site's (the registrable domain of its host), or
 // the mode's default.
 ProtectionLevel GetLevel(content::BrowserContext* context, const GURL& page);
+// The site's own choice, or nullopt when it has none and takes the mode's
+// default (a breakage check restores exactly this, Phase 4D-2).
+std::optional<ProtectionLevel> GetChoice(content::BrowserContext* context, const GURL& page);
 void SetLevel(content::BrowserContext* context, const GURL& page, ProtectionLevel level);
 void ClearLevel(content::BrowserContext* context, const GURL& page);
 

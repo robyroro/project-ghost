@@ -91,5 +91,16 @@ TEST_F(SiteLevelsTest, ThePolicyFollowsTheLevel) {
   EXPECT_FALSE(GetPolicy(&profile_, GURL("https://b.test/")).check_same_site);
 }
 
+TEST_F(SiteLevelsTest, AChoiceIsTheSitesOwn) {
+  const GURL page("https://www.news.test/a");
+  EXPECT_EQ(GetChoice(&profile_, page), std::nullopt);
+  SetLevel(&profile_, page, ProtectionLevel::kStandard);
+  EXPECT_EQ(GetChoice(&profile_, page), ProtectionLevel::kStandard);
+  EXPECT_EQ(GetChoice(&profile_, GURL("https://news.test/")), ProtectionLevel::kStandard);
+  ClearLevel(&profile_, page);
+  EXPECT_EQ(GetChoice(&profile_, page), std::nullopt);
+  EXPECT_EQ(GetChoice(&profile_, GURL("about:blank")), std::nullopt);
+}
+
 }  // namespace
 }  // namespace ghost::privacy_policy
