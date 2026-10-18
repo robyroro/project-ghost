@@ -1,6 +1,6 @@
 # Breakage controls: design
 
-- Status: design approved 2026-10-18.
+- Status: design approved 2026-10-18. Amended while planning ([plan](../plans/2026-10-18-breakage-controls.md)): the rule that blocked each request is found when the report is asked for, by a temporary engine with debug info built from the same lists (the filtering engine has none, and one for every request would cost memory and check time); the scriptlets' names leave the report, since they follow from the address and the lists' versions; every field of the issue form is an input or a text area, which pre-fill from the URL, and the form carries its label itself.
 - Phase 4, sub-project 4D-2 ([roadmap](../../roadmap.md#phase-4-content-protections)), after [4D-1, the compatibility corpus](2026-10-15-compatibility-corpus-design.md). Phase 4 completes with it.
 - Builds on [3D-1, the protection levels](2026-10-10-protection-levels-design.md), [3D-3, the protections panel](2026-10-10-protections-panel-design.md), and 4A–4C's content protections.
 
@@ -20,7 +20,6 @@ Settled in discussion on 2026-10-18:
   - Shade's version and the lists' versions;
   - what broke: a category and the user's text;
   - the hosts blocked on the page, each with the rule that blocked it;
-  - the names of the scriptlets applied to the page.
   Never full request URLs. Never the page's query, which carries tokens and session ids.
 - **A guided step before the report.** "Site not working?" offers the level one lower (Strict to Standard, Standard to Off) and reloads. After the reload the panel asks "Is it working now?". Yes keeps the new level; No puts the old one back. Either way the report follows, saying which happened, which tells us whether Shade was at fault. At Off, the button goes straight to the report. Rejected: report only (reports wouldn't say whether lowering helped) and a temporary Off (one more state to explain; neither Firefox nor Brave has one).
 - **Approach: everything in the existing panel, the URL built in the browser.** The panel shows the guided step and the report's preview. The browser builds the GitHub URL from what it holds and opens the tab; the panel's renderer never supplies a URL ([threat model](../../threat-model.md): renderer-reported data is display-only). Rejected: a separate `chrome://` report page (two previews, ours and GitHub's form, and more patches) and a bare GitHub link with no preview in Shade. The bare link breaks the [privacy model](../../privacy-model.md#blocking)'s promise that a report is shown before anything is sent: GitHub receives the URL's contents when the form opens, before Submit.
@@ -41,12 +40,12 @@ At Off, state 1's button leads to state 4, and the report says the site was alre
 
 | Unit | What it does |
 |---|---|
-| `PageProtections` (3D-3, extended) | Beside the per-tab count, keeps the page's blocked hosts, each with the first rule that blocked it (`Decision.filter`): at most 50 distinct hosts, cleared when a new page starts, never sent anywhere by itself. Also the names of the scriptlets the browser pushed to the page's main frame. |
+| `PageProtections` (3D-3, extended) | Beside the per-tab count, keeps the page's blocked requests, the first of each host (the rule is found when a report is asked for): at most 50 distinct hosts, cleared when a new page starts, never sent anywhere by itself. |
 | `BreakageCheck` (new, a `WebContentsUserData`) | The guided step's state for a tab: the site, its choice before the step (a level, or none), the level it moved to. `TryLowerLevel` records it, sets the level and reloads; when the reload has loaded, it asks the protections button to reopen the panel in state 3. `KeepLevel` drops the record; `RestoreLevel` writes the old choice back, removing the site's entry when it had none. A navigation to another site drops the record and keeps the new level. |
 | `protections.mojom` (extended) | `TryLowerLevel()`, `KeepLevel()`, `RestoreLevel()`, `GetReport() => (Report)`, `OpenReport(Category category, string details, string address)`. `State` gains the step, so the panel opens in the right state. |
 | `BreakageReport` (new, `//ghost/browser/protections`) | Builds the report from the tab's data, and the issue URL from the report: `https://github.com/robyroro/project-ghost/issues/new?template=breakage.yml&labels=breakage&title=…&<field id>=…`. Each value is percent-encoded. Above 8,000 characters the host list is cut, ending with "+N more". |
 | The panel's WebUI (3D-3, extended) | States 2–4, in the panel's Lit app, with the strings in `protections_strings.cc`. |
-| `.github/ISSUE_TEMPLATE/breakage.yml` | The issue form. The field ids are fixed: `site`, `level`, `outcome`, `version`, `lists`, `blocked`, `scriptlets`, `category`, `details`. |
+| `.github/ISSUE_TEMPLATE/breakage.yml` | The issue form. The field ids are fixed: `site`, `level`, `outcome`, `version`, `lists`, `blocked`, `category`, `details`. |
 | List versions | Read from the lists' `! Version:` headers when the engine loads them; `shade.txt` is identified by Shade's version, which ships it. |
 
 ## Data flow
@@ -60,7 +59,7 @@ At Off, state 1's button leads to state 4, and the report says the site was alre
 
 - **Pages where protections don't apply** (not http(s)): the panel already says so and shows no button.
 - **The user leaves before answering** (another site, a closed tab): the lowered level stays. The user chose it, and the panel shows it; nothing changes silently.
-- **No blocked request and no scriptlet** on the page: the report says so in those words. It is a sign the breakage isn't Shade's.
+- **No blocked request** on the page: the report says so in those words. It is a sign the breakage isn't Shade's.
 - **Bad input from the panel** (its renderer isn't trusted): an unknown category, details over 2,000 characters, or an address that isn't an http(s) URL. Each is a bad message. An address on another site than the page's is replaced by the page's origin.
 - **Opening the issue URL sends its contents to GitHub,** before Submit. That's why the address is edited in Shade's preview, not on GitHub's form, and why the preview says what will happen.
 
@@ -80,7 +79,7 @@ At Off, state 1's button leads to state 4, and the report says the site was alre
 - **`ghost_browsertests`,** on the 4A–4C test pages:
   - `TryLowerLevel` moves Strict to Standard and reloads; `RestoreLevel` puts the exact old choice back, including "none"; `KeepLevel` keeps the new level;
   - the panel reopens in state 3 after the reload;
-  - a report on a page with a tracker names its host and rule, and the scriptlets applied;
+  - a report on a page with a tracker names its host and rule;
   - `OpenReport` opens a tab whose URL is the expected one (the navigation is intercepted; nothing reaches GitHub);
   - bad input is a bad message;
   - in Incognito the tab opens Incognito.
