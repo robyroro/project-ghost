@@ -27,6 +27,8 @@ T₀ is upstream's publication, in the issue.
 | A security release of our milestone | T₀ + 72 hours |
 | One that fixes a bug exploited in the wild ("Google is aware that an exploit … exists in the wild" in the release notes) | T₀ + 24 to 48 hours: start at once |
 
+A release takes 11 to 16 hours on the reference machine (step 5), so the 72-hour deadline means starting by T₀ + 56 h at the latest. Start by T₀ + 48 h to leave room for one failed stage.
+
 ## Steps
 
 Note each step's time in the issue as a comment as you go (`gh issue comment <n> --body "…"`); the drill records come from them.
@@ -38,7 +40,7 @@ Note each step's time in the issue as a comment as you go (`gh issue comment <n>
 | 2 | engineer | **Move the pin**, from this repository: `python tools/upstream.py bump --to <version> --src <src>`. Never while a build runs in `<src>`. `bump` commits on top of the local `main` and the release ships all of it: first move any unpushed work that isn't finished to a branch (`git branch <name>`, then `git reset --hard origin/main`). Then push `main`. | 5–15 min |
 | 3 | GitHub | The tooling workflow passes on the commit. | 5 min |
 | 4 | maintainer approves, engineer runs | **Tag** `<version>-1` and push it: `git tag -a -m "Release <version>-1" <version>-1`, `git push origin <version>-1`. Then `git -C <src>\ghost pull --ff-only`. | 2 min |
-| 5 | engineer | **Release**: `python tools\release.py run --tag <version>-1 --src <src>`, with depot_tools first on `PATH`, started so it outlives the terminal ([release.md](release.md#making-a-release)). | 11 to 16 h on the reference machine, most of it the two builds: [.158](../security/drills/2026-10-09-152.0.7977.158.md), [.167](../security/drills/2026-10-14-152.0.7977.167.md) |
+| 5 | engineer | **Release**: `python tools\release.py run --tag <version>-1 --src <src>`, with depot_tools first on `PATH`, started so it outlives the terminal ([release.md](release.md#making-a-release)). | 11 to 16 h on the reference machine, most of it the two builds: [.158](../security/drills/2026-10-09-152.0.7977.158.md), [.167](../security/drills/2026-10-14-152.0.7977.167.md), [.169](../security/drills/2026-10-17-152.0.7977.169.md) |
 | 6 | maintainer | The publisher key's PIN, when `release.py` reaches `sign`. `sign` comes after the tests; be at the machine when they end, or the release waits. | 2 min |
 | 7 | engineer | **Verify** what people download: `gh release download <version>-1 --dir <empty dir>`, then `python tools\release.py verify <that dir>`. | 5 min |
 | 8 | maintainer | Close the issue: shipped. | |

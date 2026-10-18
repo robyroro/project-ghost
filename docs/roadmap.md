@@ -252,6 +252,7 @@ Sub-projects, each with its own design and plan in `docs/superpowers/`:
    - Every three hours a workflow compares Extended Stable with the pin and opens an issue for a security release or a new milestone. `bump` moves the pin, the Chromium branch and the series in one command, after checking the tag against chromiumdash and the series with the canary.
    - Drill on 152.0.7977.158: issue to verified draft in 22 h 13 min (two builds 15 h 34 min, the PIN's overnight wait 5 h 34 min), inside 72 h from our start. It found three gaps, fixed before tagging, and the runbook's wrong `verify` command.
    - [First real one, 152.0.7977.167](security/drills/2026-10-14-152.0.7977.167.md) (2026-10-14): verified draft 31 h 53 min after upstream's publication, inside 72 h; 12 h 42 min of work plus a 7 h pause. bootstrap's free-space minimum no longer applies to an existing checkout.
+   - [152.0.7977.169](security/drills/2026-10-17-152.0.7977.169.md) (2026-10-17): verified draft 54 h 3 min after upstream's publication, 17 h 57 min inside 72 h; 11 h 13 min of work, no pause. The start came 35 h after the issue opened: a release must start by T₀ + 56 h at the latest.
    - Three mutation checks fail as required.
    - **Still open:** the milestone move to 154, when Extended Stable reaches it (expected around 2026-10-20).
 
