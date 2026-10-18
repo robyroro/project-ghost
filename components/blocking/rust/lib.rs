@@ -70,6 +70,10 @@ mod ffi {
         /// An engine for the network rules in `lists` (filter-list text, one
         /// rule per line). Lines it can't parse are skipped.
         fn new_engine(lists: &str) -> Box<Engine>;
+        /// As new_engine, but keeping each rule's text, which `check` then
+        /// returns as the verdict's filter. For breakage reports (Phase 4D-2),
+        /// built when one is asked for: it uses more memory than new_engine.
+        fn new_explaining_engine(lists: &str) -> Box<Engine>;
         /// The verdict for one request. A URL the engine can't parse is
         /// allowed.
         fn check(
@@ -153,15 +157,24 @@ fn document_exceptions(lists: &str) -> String {
 }
 
 fn new_engine(lists: &str) -> Box<Engine> {
+    build_engine(lists, false)
+}
+
+fn new_explaining_engine(lists: &str) -> Box<Engine> {
+    build_engine(lists, true)
+}
+
+/// `debug` keeps each rule's text in the engine (adblock-rust's debug mode).
+fn build_engine(lists: &str, debug: bool) -> Box<Engine> {
     // The resolver is process-wide and set once; a second engine finds it set.
     let _ = set_domain_resolver(Box::new(ChromiumDomains));
-    let mut filters = FilterSet::new(false);
+    let mut filters = FilterSet::new(debug);
     // Every rule type: network rules for requests, cosmetic rules, scriptlets
     // and procedural rules for pages (Phases 4A, 4B).
     filters.add_filter_list(lists.to_string(), ParseOptions::default());
     let mut engine = adblock::Engine::new_with_filter_set(filters);
     engine.use_resources(resources::usable());
-    let mut pages = FilterSet::new(false);
+    let mut pages = FilterSet::new(debug);
     pages.add_filter_list(document_exceptions(lists), ParseOptions::default());
     Box::new(Engine(engine, adblock::Engine::new_with_filter_set(pages)))
 }
@@ -190,7 +203,12 @@ impl Engine {
                 let blocked = result.should_block();
                 ffi::Verdict {
                     blocked,
-                    filter: result.filter.map(|f| format!("{f:?}")).unwrap_or_default(),
+                    // The rule's text when the engine kept it (an explaining
+                    // engine), otherwise what adblock-rust knows of it.
+                    filter: result
+                        .filter
+                        .map(|f| f.raw_line.clone().unwrap_or_else(|| format!("{f:?}")))
+                        .unwrap_or_default(),
                     redirect: if blocked { result.redirect.unwrap_or_default() } else { String::new() },
                 }
             }

@@ -367,5 +367,24 @@ TEST(EngineBridgeTest, AnAliasCanBeRedirected) {
   EXPECT_TRUE(std::string(verdict.redirect).starts_with("data:application/javascript;base64,"));
 }
 
+TEST(EngineBridgeTest, AnExplainingEngineNamesTheRule) {
+  rust::Box<Engine> engine = new_explaining_engine("! a comment\n||tracker.test^$third-party\n");
+  const Verdict verdict =
+      engine->check("https://tracker.test/t.js", "https://a.test/", "script", "GET");
+  EXPECT_TRUE(verdict.blocked);
+  EXPECT_EQ(std::string(verdict.filter), "||tracker.test^$third-party");
+}
+
+TEST(EngineBridgeTest, AnExplainingEngineDecidesAsTheOtherOne) {
+  constexpr char kLists[] = "||tracker.test^\n@@||tracker.test/ok.js\n";
+  rust::Box<Engine> plain = new_engine(kLists);
+  rust::Box<Engine> explaining = new_explaining_engine(kLists);
+  for (const char* url :
+       {"https://tracker.test/t.js", "https://tracker.test/ok.js", "https://cdn.test/x.js"}) {
+    EXPECT_EQ(Blocked(*plain, url, "https://a.test/"), Blocked(*explaining, url, "https://a.test/"))
+        << url;
+  }
+}
+
 }  // namespace
 }  // namespace ghost::blocking
