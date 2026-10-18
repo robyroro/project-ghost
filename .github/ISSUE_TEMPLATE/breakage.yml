@@ -1,0 +1,58 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# The breakage report Shade's protections panel fills in
+# (docs/superpowers/specs/2026-10-18-breakage-controls-design.md). Every field
+# is an input or a text area, so the panel's URL can fill it; the ids are
+# browser/protections/breakage_report.*'s (tools/tests/test_breakage_form.py).
+name: A site doesn't work in Shade
+description: Shade's protections panel fills this in. Check it, then submit.
+title: "Breakage: "
+labels: [breakage]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        This report is public. Shade filled it in from the page you reported;
+        remove anything you don't want to share before submitting.
+  - type: input
+    id: site
+    attributes:
+      label: Page
+      description: The page's address, without its query or fragment.
+    validations:
+      required: true
+  - type: input
+    id: category
+    attributes:
+      label: What broke
+      description: >-
+        Page content missing or broken, Video or audio, Sign-in or forms, or
+        Something else.
+  - type: textarea
+    id: details
+    attributes:
+      label: What went wrong
+  - type: input
+    id: level
+    attributes:
+      label: Protection level
+  - type: input
+    id: outcome
+    attributes:
+      label: One level lower
+  - type: input
+    id: version
+    attributes:
+      label: Shade version
+  - type: input
+    id: lists
+    attributes:
+      label: Filter lists
+  - type: textarea
+    id: blocked
+    attributes:
+      label: Blocked on the page
+      description: Each blocked host, with the rule that blocked it.
+      render: text
